@@ -1,4 +1,6 @@
-== Overview ==
+Overview
+====================
+
 Discourse is a general Django app currently in the early stages of development for content and communication.  
 It acts as the filler of the website, without defining the basic functionality.
 
