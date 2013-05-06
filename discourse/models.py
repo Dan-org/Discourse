@@ -1,6 +1,5 @@
 import posixpath
 
-from collections import OrderedDict
 from yamlfield import YAMLField
 
 from django.db import models
