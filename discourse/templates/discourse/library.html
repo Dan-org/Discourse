@@ -1,0 +1,9 @@
+<div class="library container clearfix" url="/discourse/attachments/{{path}}">
+    <div class="side-title">Reference Material</div>
+      <ul>
+        {% for attachment in attachments %}
+            <li><a href="{{attachment.url}}" attachment="{{attachment.id}}">{{attachment.filename}}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+</div>

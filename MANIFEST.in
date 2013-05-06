@@ -1,0 +1,2 @@
+recursive-include discourse/static *
+recursive-include discourse/templates *

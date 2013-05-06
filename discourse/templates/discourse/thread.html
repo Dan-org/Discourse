@@ -1,0 +1,13 @@
+<div class="discourse {% if not request.user.is_authenticated %}discourse-anonymous{% endif %}">
+    <div class="thread">
+        {% for comment in comments %}
+            {% include "discourse/thread-comment.html" %}
+        {% endfor %}
+
+        {% if not request.user.is_authenticated %}
+            <a class="login" href="{{auth_login}}?next={{request.path}}">Login to comment.</a>
+        {% endif %}
+
+        {% include "discourse/thread-form.html" %}
+    </div>
+</div>

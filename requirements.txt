@@ -1,0 +1,3 @@
+-e git+https://github.com/django/django.git#egg=Django-dev
+-e git+https://github.com/DeadWisdom/django-yamlfield.git#egg=yamlfield
+jsonfield

@@ -1,0 +1,15 @@
+- What To Do:
+  - summary: Summary
+  - preparation: Before You Start
+  - resources: Resources
+- How To Do It:
+  - objectives: Learning Objectives
+  - purpose: Why?
+  - preparation: Before You Start
+  - knowledge: Knowledge
+- Practice:
+  - exercises: Exercises
+- Present It:
+  - present: Presenting Your Design
+- Blog It:
+  - reflect: Reflect On Your Design

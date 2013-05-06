@@ -1,0 +1,22 @@
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    color: #444;
+    background-color: white;
+    padding: 0;
+    margin: 0;
+}
+
+h1, h2, h3, h4, p, ul, ol, blockquote { margin: 16px 0px 0px; }
+
+.layout {
+    width: 800px;
+    margin: 0px auto;
+}
+
+.content-editing {
+    outline: 1px dotted #ddd;
+}
+
+.content-body {
+}

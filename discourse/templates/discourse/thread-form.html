@@ -1,0 +1,13 @@
+<form class="add" action="/discourse/thread/{{path}}" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{request.path_info}}">
+    <input type="hidden" name="parent" value="">
+
+    <div class="field">
+        <textarea name="body" placeholder="add your comment here"></textarea>
+    </div>
+    
+    <div class="buttons">
+        <input type="submit" value="Add Comment">
+    </div>
+</form>

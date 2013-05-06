@@ -1,0 +1,28 @@
+.discourse .comment {
+    margin: 10px 0px;
+}
+
+.discourse .comment .replies {
+    margin-left: 20px;
+    margin-top: 0px;
+}
+
+.discourse .comment .actions > * {
+    display: inline;
+    font-size: small;
+    text-transform: lowercase;
+    text-decoration: none;
+    margin-right: 6px;
+}
+
+.discourse .comment .actions > a {
+    color: #4488FF;
+}
+
+.discourse .comment .actions > a:hover {
+    text-decoration: underline;
+}
+
+.discourse-anonymous form {
+    display: none;
+}
