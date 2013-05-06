@@ -15,7 +15,7 @@
 <div class="content">
     {% for page in content %}
         {% if not page.is_empty or request.user.is_superuser %}
-            <div class="panel" id="panel_1">
+            <div class="panel" id="panel_{{forloop.counter}}">
                 <h3><a name="page_{{forloop.counter}}"></a>{{page.title}}</h3>
                 {% for section in page.sections %}
                     {% if section.body|striptags or request.user.is_superuser %}

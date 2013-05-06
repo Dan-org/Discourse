@@ -90,7 +90,7 @@ def attachments(request, path):
     elif path:
         attachment = get_object_or_404(Attachment, path=path)
         response = HttpResponse(FileWrapper(attachment.file), content_type=attachment.mimetype)
-        response['Content-Disposition'] = 'attachment; filename=%s' % attachment.filename
+        response['Content-Disposition'] = 'attachment; filename="%s"' % attachment.filename
         return response
 
 

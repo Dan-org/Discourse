@@ -14,6 +14,8 @@ ALLOWED_ATTRIBUTES = {
     'video': ['width', 'height', 'controls'],
     'source': ['src', 'type'],
     'table': ['cellpadding', 'cellspacing'],
+    'td': ['colspan', 'rowspan'],
+    'th': ['colspan', 'rowspan'],
 }
 
 def clean_html(src):
