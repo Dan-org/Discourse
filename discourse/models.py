@@ -49,11 +49,11 @@ class Comment(models.Model):
         return reverse("discourse:thread", args=[self.path])
     
     @classmethod
-    def get_thread(cls, name):
+    def get_thread(cls, path):
         """
-        Returns a QuerySet of the media in the given ``name``.
+        Returns a QuerySet of the media in the given ``path``.
         """
-        return cls._default_manager.filter(path__startswith=name).order_by('id')
+        return cls._default_manager.filter(path=path).order_by('id')
 
 
 class Attachment(models.Model):
@@ -96,6 +96,8 @@ class Attachment(models.Model):
         """
         Returns a QuerySet of the media in the given ``path`` folder.
         """
+        if not path.endswith('/'):
+            path = path + '/'
         return cls._default_manager.filter(path__startswith=path)
 
 
