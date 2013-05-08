@@ -8,54 +8,59 @@ from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadReque
 from django.core.servers.basehttp import FileWrapper
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.template.loader import render_to_string
 from django.template import RequestContext
 
 from ajax import JsonResponse
 from models import Attachment, Document, Comment
+from models import (comment_pre_edit, comment_post_edit, 
+                    attachment_pre_edit, attachment_post_edit,
+                    document_pre_edit, document_post_edit)
 
 
 ### Helpers ###
 def render_comment(request, comment):
     return render_to_string('discourse/thread-comment.html', locals(), RequestContext(request))
 
+def login_required(fn):
+    return user_passes_test(lambda u: u.is_superuser)(fn)
+
 
 ### Views ###
 def thread(request, path):
     """
-    On head with path, return info about the comment.
-    On delete with path, delete the comment.
-    On post with id, edit the comment.
-    On post without id, create a new comment.
-    On get with id, show the comment.
-    On get without id, return a list of comments in the thread.
+    Comment manipulation
     """
     if request.method == 'POST':
-        if not request.user.is_authenticated():
-            return HttpResponseForbidden()
-        body = request.POST['body']
-        next = request.POST.get('next', request.META.get('HTTP_REFERER', '/'))
-        if body.strip() == '':
-            return HttpResponseBadRequest()
-        comment = Comment.objects.create(path=path.rstrip('/'), body=body, author=request.user)
+        next = request.POST['next']
+        pk = request.POST.get('pk')
+        if pk:
+            comment = get_object_or_404(Comment, pk=pk, path=path)
+            comment.edit_by_request(request)
+        else:
+            comment = Comment.create_by_request(request, path=path, body=request.POST['body'])
+
         if request.is_ajax():
             response = comment.info()
             response['_html'] = render_comment(request, comment)
             return JsonResponse(response)
         else:
-            messages.success(request, "Your comment has been added.")
             return HttpResponseRedirect("%s#discourse-comment-%s" % (next, comment.id))
+
     elif 'delete' in request.GET:
-        comment = get_object_or_404(Comment, path=path, id=request.GET['delete'])
-        if not request.user == comment.author and not request.user.is_superuser:
-            return HttpResponseForbidden()
-        comment.delete()
+        comment = get_object_or_404(Comment, pk=request.GET['delete'], path=path)
+        comment.delete_by_request(request)
         if request.is_ajax():
             return JsonResponse(True)
         else:
-            messages.success(request, "Your comment has been deleted.")
             return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+
+    else:
+        return HttpResponseBadRequest()
+
+
 
 def attachments(request, path):
     """

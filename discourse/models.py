@@ -1,20 +1,37 @@
 import posixpath
 
+from datetime import datetime
 from yamlfield import YAMLField
 
 from django.db import models
 from django.utils.text import slugify
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from django.dispatch import Signal, receiver
+from django.core.exceptions import PermissionDenied
+from django.template.loader import render_to_string
 
 
 ### Helpers ###
 def model_sig(instance):
     cls = instance.__class__
-    name = cls._meta.module_name
-    app = cls._meta.app_label
-    pk = instance._get_pk_val()
+    name = cls._meta.module_name  # activity
+    app = cls._meta.app_label     # loft
+    pk = instance._get_pk_val()   # 7
     return "%s/%s/%s" % (app, name, pk)
+
+    "loft/activity/7"
+
+
+### Events ###
+comment_pre_edit = Signal(['request', 'action'])
+comment_post_edit = Signal(['request', 'action'])
+
+attachment_pre_edit = Signal(['request', 'action'])
+attachment_post_edit = Signal(['request', 'action'])
+
+document_pre_edit = Signal(['request', 'action'])
+document_post_edit = Signal(['request', 'action'])
 
 
 ### Tags ###
@@ -27,7 +44,7 @@ class Comment(models.Model):
     edited = models.DateTimeField(blank=True, null=True)
 
     def __repr__(self):
-        return "Comment(%r, %d)" % (self.path, self.id)
+        return "Comment(%r, %s)" % (self.path, self.id)
 
     def __unicode__(self):
         return repr(self)
@@ -41,6 +58,30 @@ class Comment(models.Model):
             'edited': self.edited
         }
 
+    def edit_by_request(self, request, body):
+        self.body = body
+        self.edited = datetime.now()
+        comment_pre_edit.send(sender=self, request=request, action='edit')
+        self.save()
+        comment_post_edit.send(sender=self, request=request, action='edit')
+        return self
+
+    def delete_by_request(self, request):
+        self.deleted = datetime.now()
+        comment_pre_edit.send(sender=self, request=request, action='delete')
+        self.save()
+        comment_post_edit.send(sender=self, request=request, action='delete')
+        return self
+
+    @classmethod
+    def create_by_request(cls, request, path, body):
+        path = path.rstrip('/')
+        comment = cls(path=path, body=body, author=request.user)
+        comment_pre_edit.send(sender=comment, request=request, action='create')
+        comment.save()
+        comment_post_edit.send(sender=comment, request=request, action='create')
+        return comment
+
     class Meta:
         ordering = ('path', 'id')
 
@@ -53,7 +94,67 @@ class Comment(models.Model):
         """
         Returns a QuerySet of the media in the given ``path``.
         """
-        return cls._default_manager.filter(path=path).order_by('id')
+        return cls._default_manager.filter(path=path, deleted__isnull=True).order_by('id')
+
+
+@receiver(comment_pre_edit)
+def check_author(sender, request, action, **kwargs):
+    if action == 'edit' or action == 'delete':
+        if request.user != sender.author and not request.user.is_superuser:
+            raise PermissionDenied()
+
+
+@receiver(comment_post_edit)
+def notify_on_comment(sender, request, action, **kwargs):
+    if action == 'create':
+        #notify(sender.path, "comment", sender)
+        pass
+
+
+class Subscription(models.Model):
+    path = models.CharField(max_length=255)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
+    toggle = models.BooleanField(default=True)
+
+    def send(self, actor, type, **args):
+        context = args.copy()
+        context['actor'] = actor
+        context['type'] = type
+        context['path'] = self.path
+        context['user'] = self.user
+        subject = render_to_string("discourse/notifications/%s.subject.txt" % type, context)
+        html = render_to_string("discourse/notifications/%s.html" % type, context)
+        text = render_to_string("discourse/notifications/%s.txt" % type, context)
+        to = [self.user.email]
+        send_notification_email(to, subject, html, text)
+    
+    def __example__(self):
+        notify(request.user, comment.path, "comment", comment=comment)
+        notify(request.user, attachment.library, "upload", attachment=attachment)
+        notify(request.user, comment.path, "document", sender)
+        notify(request.user, model_sig(critique.report), "feedback", critique)
+
+
+def notify(actor, path, type, **args):
+    for sub in Subscription.objects.filter(path=path).exclude(user=actor):
+        sub.send(actor, type, **args)
+
+def subscribe(user, path):
+    Subscription.objects.get_or_create(user=user, path=path)
+
+def unsubscribe(user, path):
+    hits = Subscription.objects.filter(user=user, path=path).update(toggle=False)
+    if hits == 0:
+        Subscription.objects.create(user=user, path=path, toggle=False)
+
+
+#class Message(models.Model):
+#    recipient = models.ForeignKey(settings.AUTH_USER_MODEL)
+#    sender = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True)
+#    type = models.SlugField()
+#    path = models.CharField(max_length=255)
+#
+    
 
 
 class Attachment(models.Model):
@@ -133,6 +234,13 @@ class Document(models.Model):
         structure = self.template.structure
         content_map = dict((c.attribute, c.body) for c in self.content.all())
         return self._content_tree(structure, content_map)
+
+    def set_content(self, attribute, body):
+        content, created = self.content.get_or_create(attribute=attribute, defaults={'body': body})
+        if not created:
+            content.body = body
+            content.save()
+        return content
 
     def _content_tree(self, structure, content_map):
         """
