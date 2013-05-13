@@ -1,3 +1,4 @@
+import re
 import posixpath
 
 from datetime import datetime
@@ -10,9 +11,14 @@ from django.core.urlresolvers import reverse
 from django.dispatch import Signal, receiver
 from django.core.exceptions import PermissionDenied
 from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
+from django.db.models.loading import get_model
+from django.conf import settings
 
 
 ### Helpers ###
+re_sig = re.compile(r"^(\w+)/(\w+)/([^/]+)$")
+
 def model_sig(instance):
     cls = instance.__class__
     name = cls._meta.module_name  # activity
@@ -20,7 +26,16 @@ def model_sig(instance):
     pk = instance._get_pk_val()   # 7
     return "%s/%s/%s" % (app, name, pk)
 
-    "loft/activity/7"
+def get_instance_from_sig(path):
+    m = re_sig.match(path)
+    print "PATH", path
+    if m:
+        app, model, pk = m.groups()
+        cls = get_model(app, model)
+        if cls is None:
+            return None
+        return cls.objects.get(pk=pk)
+    return None
 
 
 ### Events ###
@@ -107,8 +122,14 @@ def check_author(sender, request, action, **kwargs):
 @receiver(comment_post_edit)
 def notify_on_comment(sender, request, action, **kwargs):
     if action == 'create':
-        #notify(sender.path, "comment", sender)
-        pass
+        notify(sender.author, sender.path, "comment", comment=sender)
+
+
+# When a user posts a comment, they are subscribed to the path.
+@receiver(comment_post_edit)
+def subscribe_on_comment(sender, request, action, **kwargs):
+    if action == 'create':
+        subscribe(sender.author, sender.path)
 
 
 class Subscription(models.Model):
@@ -117,44 +138,71 @@ class Subscription(models.Model):
     toggle = models.BooleanField(default=True)
 
     def send(self, actor, type, **args):
+        print "Send:", self.user.email
+        msg = self.create_msg(actor, type, **args)
+        msg.send()
+
+    def create_msg(self, actor, type, **args):
         context = args.copy()
         context['actor'] = actor
         context['type'] = type
         context['path'] = self.path
         context['user'] = self.user
-        subject = render_to_string("discourse/notifications/%s.subject.txt" % type, context)
+        context['object'] = get_instance_from_sig(self.path)
+        context['DOMAIN'] = settings.DOMAIN
+        subject = render_to_string("discourse/notifications/%s.subject.txt" % type, context).strip()
         html = render_to_string("discourse/notifications/%s.html" % type, context)
         text = render_to_string("discourse/notifications/%s.txt" % type, context)
-        to = [self.user.email]
-        send_notification_email(to, subject, html, text)
-    
-    def __example__(self):
-        notify(request.user, comment.path, "comment", comment=comment)
-        notify(request.user, attachment.library, "upload", attachment=attachment)
-        notify(request.user, comment.path, "document", sender)
-        notify(request.user, model_sig(critique.report), "feedback", critique)
+        msg = EmailMultiAlternatives(subject, text, to=[self.user.email])
+        msg.attach_alternative(html, "text/html")
+        return msg
 
 
-def notify(actor, path, type, **args):
+class Notice(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="notices")
+    actors = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="notices_generated")
+    type = models.SlugField()
+    path = models.CharField(max_length=255)
+    created = models.DateTimeField(auto_now_add=True)
+    html = models.TextField()
+    text = models.TextField()
+    subject = models.TextField()
+    read = models.BooleanField(default=None)
+
+    def send(self):
+        pass    
+
+def notify(actor, path, type, users=None, **args):
+    """
+    If given users, notify each of them,
+    notify each user subscribed to the path.
+
+    Notify all users subscribed to path. 
+    """
+    if isinstance(path, models.Model):
+        path = model_sig(path)
+    print "Notify:", actor, path, type, args
     for sub in Subscription.objects.filter(path=path).exclude(user=actor):
         sub.send(actor, type, **args)
 
 def subscribe(user, path):
+    if isinstance(path, models.Model):
+        path = model_sig(path)
     Subscription.objects.get_or_create(user=user, path=path)
 
 def unsubscribe(user, path):
+    if isinstance(path, models.Model):
+        path = model_sig(path)
     hits = Subscription.objects.filter(user=user, path=path).update(toggle=False)
     if hits == 0:
         Subscription.objects.create(user=user, path=path, toggle=False)
 
 
-#class Message(models.Model):
-#    recipient = models.ForeignKey(settings.AUTH_USER_MODEL)
-#    sender = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True)
-#    type = models.SlugField()
-#    path = models.CharField(max_length=255)
-#
-    
+class Message(models.Model):
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="messages_to")
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, related_name="messages_sent")
+    type = models.SlugField()
+    path = models.CharField(max_length=255)
 
 
 class Attachment(models.Model):

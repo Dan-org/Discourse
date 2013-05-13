@@ -5,4 +5,5 @@ urlpatterns = patterns('',
     url(r'^attachments/(?P<path>.+)$', 'discourse.views.attachments',  name="attachments"),
     url(r'^document/(?P<path>.+)$', 'discourse.views.document',  name="document"),
     url(r'^thread/(?P<path>.+)$', 'discourse.views.thread',  name="thread"),
+    url(r'^view/(?P<path>.+)$', 'discourse.views.redirect',  name="discourse"),
 )

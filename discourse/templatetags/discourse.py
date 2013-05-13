@@ -21,7 +21,7 @@ def get_path(context, path):
     """Returns a real path for the given path."""
     if path is None:
         try:
-            return "/_url" + urllib.quote( context['request'].get_full_path() )
+            return "url:" + urllib.quote( context['request'].get_full_path() )
         except KeyError:
             raise RuntimeError('Template context lacks a "request" object to get the path from, please provide a path to the templatetag.')
     elif isinstance(path, models.Model):

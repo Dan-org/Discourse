@@ -4,7 +4,7 @@
 import json, posixpath
 from cleaner import clean_html
 
-from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest, HttpResponseForbidden, Http404
 from django.core.servers.basehttp import FileWrapper
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import user_passes_test
@@ -18,6 +18,7 @@ from models import Attachment, Document, Comment
 from models import (comment_pre_edit, comment_post_edit, 
                     attachment_pre_edit, attachment_post_edit,
                     document_pre_edit, document_post_edit)
+from models import get_instance_from_sig
 
 
 ### Helpers ###
@@ -125,4 +126,16 @@ def document(request, path):
             content.body = body
             content.save()
         return HttpResponse(json.dumps(content.info()), mimetype="application/json")
+
+
+def redirect(request, path):
+    """
+    Redirects to the object found on the path.
+    """
+    if (path.startswith('url:')):
+        return HttpResponseRedirect(path[4:])
+    instance = get_instance_from_sig(path)
+    if not instance:
+        raise Http404
+    return HttpResponseRedirect(instance.get_absolute_url())
 
