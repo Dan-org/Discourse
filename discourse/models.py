@@ -9,11 +9,9 @@ from django.utils.text import slugify
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.dispatch import Signal, receiver
-from django.core.exceptions import PermissionDenied
-from django.template.loader import render_to_string
-from django.core.mail import EmailMultiAlternatives
 from django.db.models.loading import get_model
 from django.conf import settings
+from django.template import Context, Template
 
 
 ### Helpers ###
@@ -28,7 +26,6 @@ def model_sig(instance):
 
 def get_instance_from_sig(path):
     m = re_sig.match(path)
-    print "PATH", path
     if m:
         app, model, pk = m.groups()
         cls = get_model(app, model)
@@ -49,7 +46,7 @@ document_pre_edit = Signal(['request', 'action'])
 document_post_edit = Signal(['request', 'action'])
 
 
-### Tags ###
+### Models ###
 class Comment(models.Model):
     path = models.CharField(max_length=255)
     body = models.TextField()
@@ -112,97 +109,46 @@ class Comment(models.Model):
         return cls._default_manager.filter(path=path, deleted__isnull=True).order_by('id')
 
 
-@receiver(comment_pre_edit)
-def check_author(sender, request, action, **kwargs):
-    if action == 'edit' or action == 'delete':
-        if request.user != sender.author and not request.user.is_superuser:
-            raise PermissionDenied()
-
-
-@receiver(comment_post_edit)
-def notify_on_comment(sender, request, action, **kwargs):
-    if action == 'create':
-        notify(sender.author, sender.path, "comment", comment=sender)
-
-
-# When a user posts a comment, they are subscribed to the path.
-@receiver(comment_post_edit)
-def subscribe_on_comment(sender, request, action, **kwargs):
-    if action == 'create':
-        subscribe(sender.author, sender.path)
-
-
 class Subscription(models.Model):
     path = models.CharField(max_length=255)
     user = models.ForeignKey(settings.AUTH_USER_MODEL)
     toggle = models.BooleanField(default=True)
 
-    def send(self, actor, type, **args):
-        print "Send:", self.user.email
-        msg = self.create_msg(actor, type, **args)
-        msg.send()
-
-    def create_msg(self, actor, type, **args):
-        context = args.copy()
-        context['actor'] = actor
-        context['type'] = type
-        context['path'] = self.path
-        context['user'] = self.user
-        context['object'] = get_instance_from_sig(self.path)
-        context['DOMAIN'] = settings.DOMAIN
-        subject = render_to_string("discourse/notifications/%s.subject.txt" % type, context).strip()
-        html = render_to_string("discourse/notifications/%s.html" % type, context)
-        text = render_to_string("discourse/notifications/%s.txt" % type, context)
-        msg = EmailMultiAlternatives(subject, text, to=[self.user.email])
-        msg.attach_alternative(html, "text/html")
-        return msg
+    def __unicode__(self):
+        return "Subscription(%r, %r, toggle=%r)" % (self.user, self.path, self.toggle)
 
 
-class Notice(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="notices")
-    actors = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="notices_generated")
+class Event(models.Model):
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="events_generated")
     type = models.SlugField()
     path = models.CharField(max_length=255)
     created = models.DateTimeField(auto_now_add=True)
-    html = models.TextField()
-    text = models.TextField()
-    subject = models.TextField()
-    read = models.BooleanField(default=None)
 
-    def send(self):
-        pass    
+    def __unicode__(self):
+        return "Event(%r, %r, %r)" % (self.actor, self.type, self.path)
 
-def notify(actor, path, type, users=None, **args):
+
+class Notice(models.Model):
     """
-    If given users, notify each of them,
-    notify each user subscribed to the path.
-
-    Notify all users subscribed to path. 
+    A notice, shown given to the user when events happen like friending or someone
+    responding to a comment on a subscribed path.
     """
-    if isinstance(path, models.Model):
-        path = model_sig(path)
-    print "Notify:", actor, path, type, args
-    for sub in Subscription.objects.filter(path=path).exclude(user=actor):
-        sub.send(actor, type, **args)
+    events = models.ManyToManyField(Event)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="notices")
+    read = models.DateTimeField(blank=True, null=True)
 
-def subscribe(user, path):
-    if isinstance(path, models.Model):
-        path = model_sig(path)
-    Subscription.objects.get_or_create(user=user, path=path)
-
-def unsubscribe(user, path):
-    if isinstance(path, models.Model):
-        path = model_sig(path)
-    hits = Subscription.objects.filter(user=user, path=path).update(toggle=False)
-    if hits == 0:
-        Subscription.objects.create(user=user, path=path, toggle=False)
+    def __unicode__(self):
+        return "Notice(%s)" % self.id
 
 
-class Message(models.Model):
-    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="messages_to")
-    sender = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, related_name="messages_sent")
-    type = models.SlugField()
-    path = models.CharField(max_length=255)
+#class Message(models.Model):
+#    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="messages_sent")
+#    to = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="messages")
+#    type = models.SlugField()
+#    path = models.CharField(max_length=255)
+#
+#    def __unicode__(self):
+#        return "Notice(%s)" % self.id
 
 
 class Attachment(models.Model):
@@ -250,6 +196,36 @@ class Attachment(models.Model):
         return cls._default_manager.filter(path__startswith=path)
 
 
+
+class WikiNode(models.Model):
+    """
+    A node for a wiki.
+    """
+    parent = models.ForeignKey("WikiNode", blank=True, null=True, related_name="children")
+    title = models.CharField(max_length=255)
+    slug = models.SlugField()
+    path = models.CharField(blank=True, max_length=255)
+
+    def __unicode__(self):
+        return self.path
+
+    def branch(self):
+        if self.parent:
+            return self.parent.branch() + [self]
+        else:
+            return [self]
+
+    def save(self, *args, **kwargs):
+        self.path = "/%s" % ("/".join([x.slug for x in self.branch()]))
+        super(WikiNode, self).save()
+
+        # If we changed our slug, we have to update our children as well so that their paths
+        # are correct.
+        for c in self.children.all():
+            c.save()
+
+
+
 class DocumentTemplate(models.Model):
     """
     Represents a template / structure of Documents.
@@ -275,13 +251,15 @@ class Document(models.Model):
     def url(self):
         return "/discourse/content/%s" % (self.path)
 
-    def get_content(self):
+    def get_content(self, context=None):
         """
         Returns the content as a tree, see _content_tree()
         """
+        if context is None:
+            context = Context({})
         structure = self.template.structure
         content_map = dict((c.attribute, c.body) for c in self.content.all())
-        return self._content_tree(structure, content_map)
+        return self._content_tree(structure, content_map, context)
 
     def set_content(self, attribute, body):
         content, created = self.content.get_or_create(attribute=attribute, defaults={'body': body})
@@ -290,10 +268,12 @@ class Document(models.Model):
             content.save()
         return content
 
-    def _content_tree(self, structure, content_map):
+    def _content_tree(self, structure, content_map, context):
         """
         Creates a tree of pages and sections within using the given ``structure`` and ``content_map``.
         
+        Body is rendered as a template with the given context.
+
         e.g.
         [
             {'title': 'Page 1', 'is_empty': False, sections': [
@@ -308,11 +288,15 @@ class Document(models.Model):
         for part in structure:
             left, right = part.items()[0]
             if isinstance(right, list):
-                sections = self._content_tree(right, content_map)
+                sections = self._content_tree(right, content_map, context)
                 is_empty = all(x['is_empty'] for x in sections)
                 parts.append({'title': left, 'sections': sections, 'is_empty': is_empty})
             else:
                 body = content_map.get(left, '')
+                try:
+                    body = Template(body).render(context)
+                except:
+                    pass
                 is_empty = not bool( body.strip() )
                 parts.append({'attribute': left, 'title': right, 'body': body, 'is_empty': is_empty})
         return parts

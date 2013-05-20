@@ -7,3 +7,6 @@ urlpatterns = patterns('',
     url(r'^thread/(?P<path>.+)$', 'discourse.views.thread',  name="thread"),
     url(r'^view/(?P<path>.+)$', 'discourse.views.redirect',  name="discourse"),
 )
+
+# Import the events module to ensure signal subscriptions are properly hooked up.
+import events

@@ -1,0 +1,144 @@
+from datetime import timedelta, datetime
+
+from django.db import models
+from django.conf import settings
+from django.core import mail
+from django.template.loader import render_to_string
+from django.dispatch import Signal
+from models import Subscription, Notice, Event, get_instance_from_sig
+
+import logging
+logger = logging.getLogger('discourse')
+
+
+### Signals ###
+event_pre = Signal(['action', 'path', 'notify', 'context'])
+# sender:   actor
+# action:   action slug
+# path:     path string where the event happened
+# notify:   set of user objects to notify of the event
+# context:  context used for rendering event templates
+
+#   Receivers are encouraged to alter notify and context to change who recieves a 
+#   notification and the render context.
+
+
+### Helpers ###
+def render_mail(to, slug, context, from_address=None, template_path='discourse/mail/'):
+    """
+    Renders an EmailMultiAlternatives object to be sent to the given address, based on the slug.
+
+    For example, given a slug "invite", three templates will be rendered:
+        
+        discourse/mail/invite.subject.txt     creates the subject line
+        discourse/mail/invite.txt             creates the plain text version
+        discourse/mail/invite.html            creates the html version
+
+    """
+    if isinstance(to, basestring):
+        to = [to]
+    if from_address is None:
+        from_address = settings.DEFAULT_FROM_EMAIL
+    subject = render_to_string("%s%s.subject.txt" % (template_path, slug), context).strip()
+    html = render_to_string("%s%s.html" % (template_path, slug), context)
+    text = render_to_string("%s%s.txt" % (template_path, slug), context)
+    msg = mail.EmailMultiAlternatives(subject, text, from_address, to)
+    msg.attach_alternative(html, "text/html")
+    return msg
+
+
+def send_render_mail(to, slug, context, from_address=None, template_path='discourse/mail/'):
+    """
+    Convenience function to render and send an email message.  See ``render_mail()`` above for more
+    information.
+    """
+    msg = render_mail(to, slug, context, from_address)
+    msg.send()
+
+
+def subscribe(user, path):
+    """
+    Subscribe a user to a path, thereon whenever an update occurs on the path, the user will be
+    notified of the event.
+    """
+    if isinstance(path, models.Model):
+        path = model_sig(path)
+    Subscription.objects.get_or_create(user=user, path=path)
+
+
+def unsubscribe(user, path):
+    """
+    Unsubscribe a user from a path, blocking notices of updates on it.  This is not as simple as
+    deleting the subscription object, rather it marks them unsubscribed so that futher subscriptions
+    are ignored.
+    """
+    if isinstance(path, models.Model):
+        path = model_sig(path)
+    hits = Subscription.objects.filter(user=user, path=path).update(toggle=False)
+    if hits == 0:
+        Subscription.objects.create(user=user, path=path, toggle=False)
+
+    return True
+
+
+def is_subscribed(user, path):
+    """
+    Checks to see if a user is subscribed to the given path.
+    """
+    if isinstance(path, models.Model):
+        path = model_sig(path)
+    return Subscription.objects.filter(user=user, path=path, toggle=True).count() > 0
+
+
+def event(actor, type, path, **context):
+    """
+    Log an event performed by actor, of the type, on the path, and any other context arguments needed
+    to render notification templates.
+    """
+    # Todo, make sure notifications aren't sent too quickly one after another.
+
+    if isinstance(path, models.Model):
+        object = path
+        path = model_sig(path)
+    else:
+        object = get_instance_from_sig(path)
+
+    # Build a context to render templates
+    context = context.copy()
+    context['actor'] = actor
+    context['path'] = path
+    context['type'] = type
+    context['object'] = object
+    context['DOMAIN'] = settings.DOMAIN
+
+    # Find users to be notified
+    subscriptions = Subscription.objects.filter(path=path, toggle=True)
+    users = set([s.user for s in subscriptions])
+    #users.discard( actor )
+
+    logger.info("Event: %s %s %s", actor, type, path)
+
+    # Trigger event signal
+    # Receivers are expected to alter notify or context.
+    event_pre.send(sender=actor, type=type, path=path, notify=users, context=context)
+
+    # Create the event, yo
+    event = Event.objects.create(
+        actor = actor,
+        type = type,
+        path = path
+    )
+
+    # Notify all the ya'lls
+    messages = []
+    for user in users:
+        notice = Notice.objects.create(user=user, events=[event])
+        msg = render_mail(user.email, action, context)
+        messages.append(msg)
+
+    # Use default email connection to send the messages.
+    connection = mail.get_connection()   
+    connection.send_messages(messages)
+
+    return event
+

@@ -36,6 +36,8 @@ Document = Tea.Element.extend({
                    .removeClass('discourse-empty')
                    .focus();
 
+        this.collapseRepr();
+
         if (this.is_empty()) {
             this.cursorSanityCheck();
         }
@@ -56,7 +58,29 @@ Document = Tea.Element.extend({
                    .removeClass('discourse-editing');
         this.storage.setValue(this.getValue());
         this.storage.save();
+
+        this.expandRepr();
         this.editing = false;
+    },
+    collapseRepr : function() {
+        var map = this._repr = {};
+        this.source.find('*[repr]').each(function(i, element){
+            var e = $(element);
+            var name = e.attr('repr');
+            var repr = $('<div class="repr">' + name + "</div>");
+            map[name.trim()] = e.replaceWith(repr);
+        });
+    },
+    expandRepr : function() {
+        map = this._repr;
+        this.source.find('.repr').each(function(i, element) {
+            var e = $(element);
+            var name = e.html().trim();
+            var source = map[name];
+            if (source) {
+                e.replaceWith(source);
+            }
+        });
     },
     onDocClick : function(e) {
         var in_document = ( e.target == this.source[0] || 
@@ -134,7 +158,7 @@ Document = Tea.Element.extend({
         src.children('li').contents().unwrap();
         
         // Tags allowed to be in the first level.
-        var first_level = ['p', 'header', 'blockquote', 'ul', 'ol'];
+        var first_level = ['p', 'header', 'blockquote', 'ul', 'ol', 'div'];
 
         // Move all orphans into a paragraph.
         var orphans = [];
