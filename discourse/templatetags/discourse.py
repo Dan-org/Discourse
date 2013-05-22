@@ -134,11 +134,12 @@ class DocumentTag(ttag.Tag):
     def render(self, context):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
+        context['path'] = path
         try:
             doc = Document.objects.get(path=path)
         except Document.DoesNotExist:
             doc = Document.objects.create(path=path, template=DocumentTemplate.objects.all()[0])
-        return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], {'document': doc, 'content': doc.get_content(), 'path': path}, context)
+        return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], {'document': doc, 'content': doc.get_content(context), 'path': path}, context)
 
     class Meta:
         name = "document"
