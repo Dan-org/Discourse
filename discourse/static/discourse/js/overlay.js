@@ -76,6 +76,8 @@ LinkEditor = Tea.Element.extend({
         var m = val.match(this.url_regex);
         if (m) {
             val = m[1] + "://" + m[2];
+        } else if (val[0] == '/') {
+            return val;
         } else {
             val = "http://" + val;
         }
