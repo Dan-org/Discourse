@@ -15,9 +15,7 @@ from django.template import RequestContext
 
 from ajax import JsonResponse
 from models import Attachment, Document, Comment
-from models import (comment_pre_edit, comment_post_edit, 
-                    attachment_pre_edit, attachment_post_edit,
-                    document_pre_edit, document_post_edit)
+from models import attachment_manipulate, comment_manipulate, document_manipulate
 from models import get_instance_from_sig
 
 
@@ -35,7 +33,7 @@ def thread(request, path):
     Comment manipulation
     """
     if request.method == 'POST':
-        next = request.POST['next']
+        next = request.POST.get('next', None)
         pk = request.POST.get('pk')
         if pk:
             comment = get_object_or_404(Comment, pk=pk, path=path)
@@ -84,7 +82,7 @@ def attachments(request, path):
         except:
             attachment = Attachment(path=path)
         attachment.file = file
-        attachment.mimetype = file.content_type
+        attachment.mimetype = file.content_type[0]
         attachment.author = request.user
         attachment.save()
         return HttpResponse(json.dumps(attachment.info()), mimetype="application/json")

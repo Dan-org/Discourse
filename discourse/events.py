@@ -1,14 +1,14 @@
 from django.core.exceptions import PermissionDenied
 from django.dispatch import receiver
 
-from models import (comment_pre_edit, comment_post_edit, 
-                    attachment_pre_edit, attachment_post_edit,
-                    document_pre_edit, document_post_edit)
+from models import (comment_manipulate, 
+                    attachment_manipulate,
+                    document_manipulate)
 
-from notice import subscribe, event
+from notice import subscribe, send_event
 
 
-@receiver(comment_pre_edit)
+@receiver(comment_manipulate)
 def check_author(sender, request, action, **kwargs):
     """
     When a comment is edited, make sure the user is the author or an admin
@@ -18,10 +18,13 @@ def check_author(sender, request, action, **kwargs):
             raise PermissionDenied()
 
 
-@receiver(comment_post_edit)
+@receiver(comment_manipulate)
 def subscribe_on_comment(sender, request, action, **kwargs):
     """
-    When a user posts a comment, subscribe them to the path.
+    When a user posts a comment, subscribe them to the path, and
+    send an event.
     """
+    comment = sender
     if action == 'create':
-        event(sender.author, sender.path, "comment", comment=sender)
+        subscribe(comment.author, comment.path)
+        send_event(comment.author, "comment", comment.path, comment=comment)

@@ -1,13 +1,14 @@
 import urllib
 import ttag
 
+from django.core.exceptions import PermissionDenied
 from django.template.loader import render_to_string
 from django.template import Template
 from django.conf import settings
 from django.db import models
 from django import template
 
-from ..models import Comment, Attachment, Document, DocumentTemplate, model_sig
+from ..models import Comment, Attachment, Document, DocumentTemplate, model_sig, document_view, library_view
 
 
 ### Helpers ###
@@ -73,10 +74,23 @@ class Library(ttag.Tag):
 
     def render(self, context):
         data = self.resolve(context)
+        request = context['request']
         path = get_path(context, data.get('path'))
         attachments = Attachment.get_folder(path)
         context['library'] = path
-        return render_to_string('discourse/library.html', {'attachments': attachments, 'path': path}, context)
+
+        context_vars = {'attachments': attachments,
+                        'path': path,
+                        'hidden': False,
+                        'request': request,
+                        'editable': request.user.is_superuser}
+
+        try:
+            library_view.send(sender=Attachment, request=request, context=context_vars)
+        except PermissionDenied:
+            context_vars['hidden'] = True
+
+        return render_to_string('discourse/library.html', context_vars, context)
 
 
 class AttachmentUrl(ttag.Tag):
@@ -131,15 +145,39 @@ class DocumentTag(ttag.Tag):
     """
     path = ttag.Arg(required=False)
 
+    def get_default_template(self, path):
+        try:
+            return DocumentTemplate.objects.all()[0]
+        except IndexError:
+            return DocumentTemplate.objects.create(
+                slug="generic",
+                structure="- content: Content",
+            )
+
     def render(self, context):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
+        request = context['request']
         context['path'] = path
+
         try:
             doc = Document.objects.get(path=path)
         except Document.DoesNotExist:
-            doc = Document.objects.create(path=path, template=DocumentTemplate.objects.all()[0])
-        return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], {'document': doc, 'content': doc.get_content(context), 'path': path}, context)
+            doc = Document.objects.create(path=path, template=self.get_default_template(path))
+
+        context_vars = {'document': doc,
+                        'content': doc.get_content(context),
+                        'path': path,
+                        'hidden': False,
+                        'request': request,
+                        'editable': request.user.is_superuser}
+
+        try:
+            document_view.send(sender=doc, request=request, context=context_vars)
+        except PermissionDenied:
+            context_vars['hidden'] = True
+
+        return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)
 
     class Meta:
         name = "document"

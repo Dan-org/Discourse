@@ -1,30 +1,4 @@
 {% load static %}
 
-<link rel="stylesheet" type="text/css" href="{% static 'discourse/lib/flowplayer/skins/minimalist.css' %}" />
-<script type="text/javascript" src="{% static 'discourse/lib/flowplayer/flowplayer.min.js' %}" ></script>
-<script type="text/javascript">
-    // Sets up the flowplayer for videos
-    $(function() {
-       var videos = $("video").wrap('<div class="flowplayer" data-engine="flash">');
-       $(".flowplayer").flowplayer({ swf: "{% static 'discourse/lib/flowplayer/flowplayer.swf' %}" });
-    });
-</script>
-
-{% if request.user.is_superuser %}
-    <script type="text/javascript" src="{% static 'discourse/lib/jquery.cookie.js' %}"></script>
-    <script type="text/javascript" src="{% static 'discourse/lib/jquery.csrf.js' %}"></script>
-    <script type="text/javascript" src="{% static 'discourse/lib/jquery.caret.js' %}"></script>
-    <script type="text/javascript" src="{% static 'discourse/lib/jquery.filedrop.js' %}"></script>
-    <script type="text/javascript" src="{% static 'discourse/lib/tea.js' %}"></script>
-
-    <script type="text/javascript" src="{% static 'discourse/js/content.js' %}"></script>
-    <script type="text/javascript" src="{% static 'discourse/js/library.js' %}"></script>
-
-    <script type="text/javascript" src="{% static 'discourse/js/storage.js' %}"></script>
-    <script type="text/javascript" src="{% static 'discourse/js/document.js' %}"></script>
-    <script type="text/javascript" src="{% static 'discourse/js/overlay.js' %}"></script>
-    <script type="text/javascript" src="{% static 'discourse/js/toolbar.js' %}"></script>
-{% endif %}
-
 <script type="text/javascript" src="{% static 'discourse/js/thread.js' %}"></script>
 <link rel="stylesheet" type="text/css" href="{% static 'discourse/css/content.css' %}"/>

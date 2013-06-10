@@ -5,22 +5,10 @@ from django.conf import settings
 from django.core import mail
 from django.template.loader import render_to_string
 from django.dispatch import Signal
-from models import Subscription, Notice, Event, get_instance_from_sig
+from models import Subscription, Notice, Event, get_instance_from_sig, event, model_sig
 
 import logging
 logger = logging.getLogger('discourse')
-
-
-### Signals ###
-event_pre = Signal(['action', 'path', 'notify', 'context'])
-# sender:   actor
-# action:   action slug
-# path:     path string where the event happened
-# notify:   set of user objects to notify of the event
-# context:  context used for rendering event templates
-
-#   Receivers are encouraged to alter notify and context to change who recieves a 
-#   notification and the render context.
 
 
 ### Helpers ###
@@ -90,7 +78,7 @@ def is_subscribed(user, path):
     return Subscription.objects.filter(user=user, path=path, toggle=True).count() > 0
 
 
-def event(actor, type, path, **context):
+def send_event(actor, type, path, **context):
     """
     Log an event performed by actor, of the type, on the path, and any other context arguments needed
     to render notification templates.
@@ -109,36 +97,45 @@ def event(actor, type, path, **context):
     context['path'] = path
     context['type'] = type
     context['object'] = object
-    context['DOMAIN'] = settings.DOMAIN
+    context['settings'] = settings
 
     # Find users to be notified
     subscriptions = Subscription.objects.filter(path=path, toggle=True)
     users = set([s.user for s in subscriptions])
-    #users.discard( actor )
+    users.discard( actor )
 
     logger.info("Event: %s %s %s", actor, type, path)
 
-    # Trigger event signal
-    # Receivers are expected to alter notify or context.
-    event_pre.send(sender=actor, type=type, path=path, notify=users, context=context)
-
     # Create the event, yo
-    event = Event.objects.create(
+    e = Event(
         actor = actor,
         type = type,
         path = path
     )
 
+    # Trigger event signal
+    # Receivers are expected to alter notify or context.
+    event.send(sender=e, notify=notify, context=context)
+
+    e.save()
+
     # Notify all the ya'lls
     messages = []
     for user in users:
-        notice = Notice.objects.create(user=user, events=[event])
-        msg = render_mail(user.email, action, context)
-        messages.append(msg)
+        notice = Notice.objects.create(user=user)
+        notice.events = [e]
+        try:
+            msg = render_mail(user.email, type, context)
+            messages.append(msg)
+        except Exception, x:
+            print "Error sending email:", x
 
     # Use default email connection to send the messages.
-    connection = mail.get_connection()   
-    connection.send_messages(messages)
+    if messages:
+        connection = mail.get_connection()   
+        connection.send_messages(messages)
 
-    return event
+    return e
+
+
 

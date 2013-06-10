@@ -12,6 +12,7 @@ from django.dispatch import Signal, receiver
 from django.db.models.loading import get_model
 from django.conf import settings
 from django.template import Context, Template
+from django.core.exceptions import PermissionDenied
 
 
 ### Helpers ###
@@ -35,15 +36,37 @@ def get_instance_from_sig(path):
     return None
 
 
-### Events ###
-comment_pre_edit = Signal(['request', 'action'])
-comment_post_edit = Signal(['request', 'action'])
+### Signals ###
+# These signals are sent on various user operations.
+# Subscribers are expected to Raise PermissionDenied if the operation is not allowed.
 
-attachment_pre_edit = Signal(['request', 'action'])
-attachment_post_edit = Signal(['request', 'action'])
+# Manipulations
+# Sent when a user manipulates an object
+#   sender:  object being manipulated
+#   request: the request used to manipulate the object
+#   action:  a slug specifying how it's being manipulated
+comment_manipulate = Signal(['request', 'action'])
+attachment_manipulate = Signal(['request', 'action'])
+document_manipulate = Signal(['request', 'action'])
 
-document_pre_edit = Signal(['request', 'action'])
-document_post_edit = Signal(['request', 'action'])
+# View signals
+# Sent when a user views an object.
+#   sender:  object being viewed
+#   request: the request used to view the object
+#   context: a context sent to the template renderer
+#   - Set context['editable'] to True to make the object editable.
+#   - Set context['hidden'] to True to hide the object from view.
+library_view = Signal(['request', 'context'])
+document_view = Signal(['request', 'context']) 
+
+# Event signal
+# Sent when an event is created
+#   sender:   event object
+#   notify:   set of user objects to notify of the event
+#   context:  context used for rendering event templates / emails
+#     Receivers are encouraged to alter notify and context to change who recieves a 
+#     notification and how the template is rendered.
+event = Signal(['notify', 'context'])
 
 
 ### Models ###
@@ -73,25 +96,22 @@ class Comment(models.Model):
     def edit_by_request(self, request, body):
         self.body = body
         self.edited = datetime.now()
-        comment_pre_edit.send(sender=self, request=request, action='edit')
+        comment_manipulate.send(sender=self, request=request, action='edit')
         self.save()
-        comment_post_edit.send(sender=self, request=request, action='edit')
         return self
 
     def delete_by_request(self, request):
         self.deleted = datetime.now()
-        comment_pre_edit.send(sender=self, request=request, action='delete')
+        comment_manipulate.send(sender=self, request=request, action='delete')
         self.save()
-        comment_post_edit.send(sender=self, request=request, action='delete')
         return self
 
     @classmethod
     def create_by_request(cls, request, path, body):
         path = path.rstrip('/')
         comment = cls(path=path, body=body, author=request.user)
-        comment_pre_edit.send(sender=comment, request=request, action='create')
+        comment_manipulate.send(sender=comment, request=request, action='create')
         comment.save()
-        comment_post_edit.send(sender=comment, request=request, action='create')
         return comment
 
     class Meta:
@@ -124,6 +144,12 @@ class Event(models.Model):
     path = models.CharField(max_length=255)
     created = models.DateTimeField(auto_now_add=True)
 
+    def add_to_stream(self, path):
+        if isinstance(path, models.Model):
+            path = model_sig(path)
+        stream, _ = Stream.objects.get_or_create(path=path)
+        stream.events.add(self)
+
     def __unicode__(self):
         return "Event(%r, %r, %r)" % (self.actor, self.type, self.path)
 
@@ -139,6 +165,14 @@ class Notice(models.Model):
 
     def __unicode__(self):
         return "Notice(%s)" % self.id
+
+
+class Stream(models.Model):
+    path = models.CharField(max_length=255)
+    events = models.ManyToManyField(Event, related_name="streams")
+
+    def __unicode__(self):
+        return "Stream(%s)" % path
 
 
 #class Message(models.Model):
@@ -168,6 +202,22 @@ class Attachment(models.Model):
     @property
     def filename(self):
         return posixpath.basename(self.path)
+
+    def icon(self):
+        """
+        Returns the icon type for the file.
+        """
+        if "application/pdf" in self.mimetype:
+            return "pdf"
+        elif "image/" in self.mimetype:
+            return "image"
+        elif "application/msword" in self.mimetype:
+            return "doc"
+        elif "officedocument" in self.mimetype:
+            return "doc"
+        elif self.path.endswith(".pages"):
+            return "doc"
+        return "blank"
 
     def info(self):
         return {
@@ -211,12 +261,12 @@ class WikiNode(models.Model):
 
     def branch(self):
         if self.parent:
-            return self.parent.branch() + [self]
+            return self.parent.branch() + (self,)
         else:
-            return [self]
+            return (self,)
 
     def save(self, *args, **kwargs):
-        self.path = "/%s" % ("/".join([x.slug for x in self.branch()]))
+        self.path = "/%s" % ("/".join(x.slug for x in self.branch()))
         super(WikiNode, self).save()
 
         # If we changed our slug, we have to update our children as well so that their paths
@@ -322,6 +372,7 @@ class DocumentContent(models.Model):
             'body': self.body,
             'url': self.document.url,
         }
+
 
 #    def save(self, *args, **kwargs):
 #        try:
