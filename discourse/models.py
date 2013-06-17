@@ -62,11 +62,14 @@ document_view = Signal(['request', 'context'])
 # Event signal
 # Sent when an event is created
 #   sender:   event object
+#   object:   the object being acted on by the event or None if not applicable
 #   notify:   set of user objects to notify of the event
-#   context:  context used for rendering event templates / emails
-#     Receivers are encouraged to alter notify and context to change who recieves a 
-#     notification and how the template is rendered.
-event = Signal(['notify', 'context'])
+#   streams:  set of stream objects to gain the event
+#   **kwargs: context used for rendering event templates / emails
+#     Receivers are encouraged to alter notify and streams to change who recieves a 
+#     notification.  Also if they return a dict, the rendering context will be updated
+#     so they can alter how templates are rendered.
+event = Signal(['object', 'notify', 'streams'])
 
 
 ### Models ###
@@ -153,6 +156,21 @@ class Event(models.Model):
     def __unicode__(self):
         return "Event(%r, %r, %r)" % (self.actor, self.type, self.path)
 
+    @property
+    def object(self):
+        if not hasattr(self, '_object'):
+            self._object = get_instance_from_sig(self.path)
+        return self._object
+
+    @property
+    def template(self):
+        return "discourse/stream-%s.html" % self.type
+
+    @property
+    def url(self):
+        if self.object:
+            return self.object.url
+
 
 class Notice(models.Model):
     """
@@ -172,7 +190,7 @@ class Stream(models.Model):
     events = models.ManyToManyField(Event, related_name="streams")
 
     def __unicode__(self):
-        return "Stream(%s)" % path
+        return "Stream(%s)" % self.path
 
 
 #class Message(models.Model):

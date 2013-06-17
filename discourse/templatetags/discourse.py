@@ -8,7 +8,7 @@ from django.conf import settings
 from django.db import models
 from django import template
 
-from ..models import Comment, Attachment, Document, DocumentTemplate, model_sig, document_view, library_view
+from ..models import Comment, Attachment, Document, DocumentTemplate, Stream, model_sig, document_view, library_view
 
 
 ### Helpers ###
@@ -144,8 +144,11 @@ class DocumentTag(ttag.Tag):
     Creates a document with multiple sections.
     """
     path = ttag.Arg(required=False)
+    template = ttag.Arg(required=False, keyword=True)
 
-    def get_default_template(self, path):
+    def get_default_template(self, path, template=None):
+        if template:
+            return DocumentTemplate.objects.get(slug=template)
         try:
             return DocumentTemplate.objects.all()[0]
         except IndexError:
@@ -157,13 +160,14 @@ class DocumentTag(ttag.Tag):
     def render(self, context):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
+        template = data.get('template')
         request = context['request']
         context['path'] = path
 
         try:
             doc = Document.objects.get(path=path)
         except Document.DoesNotExist:
-            doc = Document.objects.create(path=path, template=self.get_default_template(path))
+            doc = Document.objects.create(path=path, template=self.get_default_template(path, template))
 
         context_vars = {'document': doc,
                         'content': doc.get_content(context),
@@ -183,9 +187,48 @@ class DocumentTag(ttag.Tag):
         name = "document"
 
 
+### Stream ###
+class StreamTag(ttag.Tag):
+    """
+    Show a stream for an object
+    {% stream object %}
+
+    Show a stream for a string
+    {% stream 'pandas' %}
+
+    Set the initial size of shown events to 5 instead of the default of 10:
+    {% stream object size=5 %}
+    """
+    path = ttag.Arg(required=False)
+    size = ttag.Arg(required=False, keyword=True)
+
+    def render(self, context):
+        data = self.resolve(context)
+        path = get_path(context, data.get('path'))
+        size = data.get('size', 10)
+        try:
+            stream = Stream.objects.get(path=path)
+            events = stream.events.all().order_by('-id')[:size]
+            count = stream.events.count()
+        except Stream.DoesNotExist:
+            stream = Stream(path=path)
+            events = ()
+            count = 0
+        return render_to_string('discourse/stream.html', {'stream': stream, 
+                                                          'events': events,
+                                                          'count': count,
+                                                          'size': size,
+                                                          'path': path, 
+                                                          'auth_login': settings.LOGIN_REDIRECT_URL}, context)
+
+    class Meta:
+        name = "stream"
+
+
 ### Register ###
 register = template.Library()
 register.tag(ThreadTag)
 register.tag(Library)
 register.tag(Frame)
 register.tag(DocumentTag)
+register.tag(StreamTag)
