@@ -1,7 +1,3 @@
-{% if editable %}
-    {% include "discourse/assets/editable.html" %}
-{% endif %}
-
 {% if not hidden %}
     <div class="library container clearfix" url="/discourse/attachments/{{path}}">
         <div class="side-title">Reference Material</div>
@@ -11,5 +7,7 @@
             {% endfor %}
           </ul>
         </div>
+
+        <input type="file" name="upload[]" multiple="multiple" id="library-upload">
     </div>
 {% endif %}

@@ -623,11 +623,10 @@ Tea.Container = Tea.Element.extend({
         item.destroy();
         this.refresh();
     },
-    detach : function(item) {
+    disown : function(item) {
         if (item._parent !== this) return;
         this.items.splice(item._index, 1);
-        this.disown(item);
-        item.source.detach();
+        this.__super__(item);
         this.refresh();
     },
     empty : function()

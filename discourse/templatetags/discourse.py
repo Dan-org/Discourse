@@ -90,7 +90,11 @@ class Library(ttag.Tag):
         except PermissionDenied:
             context_vars['hidden'] = True
 
-        return render_to_string('discourse/library.html', context_vars, context)
+        source = render_to_string('discourse/library.html', context_vars, context)
+        if context_vars['editable'] and not context.get('__discourse_editable__', False):
+            context['__discourse_editable__'] = True
+            return "%s\n%s" % (render_to_string('discourse/assets/editable.html', {}, context), source)
+        return source
 
 
 class AttachmentUrl(ttag.Tag):
@@ -163,6 +167,8 @@ class DocumentTag(ttag.Tag):
         template = data.get('template')
         request = context['request']
         context['path'] = path
+        print "__discourse_editable:", context.get('__discourse_editable', False)
+        context['__discourse_editable'] = True
 
         try:
             doc = Document.objects.get(path=path)
@@ -181,7 +187,12 @@ class DocumentTag(ttag.Tag):
         except PermissionDenied:
             context_vars['hidden'] = True
 
-        return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)
+        src = render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)
+        if context_vars['editable'] and not context.get('__discourse_editable__', False):
+            context['__discourse_editable__'] = True
+            editable = render_to_string('discourse/assets/editable.html', {}, context)
+            return "%s\n%s" % (editable, src)
+        return src
 
     class Meta:
         name = "document"

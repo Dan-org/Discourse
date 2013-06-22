@@ -164,7 +164,7 @@ class Event(models.Model):
 
     @property
     def template(self):
-        return "discourse/stream-%s.html" % self.type
+        return "discourse/stream/%s.html" % self.type
 
     @property
     def url(self):

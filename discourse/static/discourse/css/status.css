@@ -1,0 +1,50 @@
+.discourse-status-box {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+}
+
+.discourse-status-box .message {
+    width: 300px;
+    background-color: black;
+    margin: 4px;
+    border: 1px solid #888;
+}
+
+.discourse-status-box .message .title {
+    padding: 6px;
+    font-size: 14px;
+    color: white;
+    font-weight: bold;
+}
+
+.discourse-status-box .message .text {
+    padding: 0px 6px 4px;
+    font-size: 12px;
+    color: white;
+}
+
+.discourse-status-box .status-progress .text {
+    display: none;
+}
+
+.discourse-status-box .progress-bar {
+    background-color: #AAA;  
+    border: 0;
+    height: 22px;
+    margin: 6px 10px 10px;
+    border-radius: 8px;
+    position: relative;
+}
+
+.discourse-status-box .progress-value {
+    background-color: #338833;
+    border: 0;
+    height: 22px;
+    width: 50%;
+    border-radius: 8px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+}

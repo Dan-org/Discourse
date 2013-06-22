@@ -8,6 +8,7 @@ Overlay = Tea.Container({
         this.source.appendTo(document.body)
         this.toolbar = this.append('discourse-toolbar');
         this.linkEditor = this.append('discourse-link-editor');
+        this.status = this.append('discourse-status-box');
         //this.imageEditor = this.append('discourse-image-editor');
             //this.status = this.append('discourse-status');
     },

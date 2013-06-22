@@ -64,7 +64,7 @@
 }
 
 .discourse-link-editor {
-    z-index: 998px;
+    z-index: 998;
     position: absolute;
     /* width: 200px; */
     background: #444;
@@ -97,7 +97,7 @@
 }
 
 .discourse-toolbar {
-    z-index: 998px;
+    z-index: 998;
     position: fixed;
     top: 0px;
     bottom: 0px;
@@ -115,6 +115,7 @@
     -moz-border-radius: 2px;
     border-radius: 2px;
     cursor: pointer;
+    border: none;
 }
 
 .discourse-toolbar .button:hover {

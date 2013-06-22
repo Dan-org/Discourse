@@ -89,7 +89,7 @@ def attachments(request, path):
     elif request.method == 'DELETE' or request.GET.get('method') == 'DELETE':
         if not request.user.is_superuser:
             return HttpResponse(status=403)
-        get_object_or_404(Attachment, path=path).delete()
+        Attachment.objects.filter(path=path).delete()
         return HttpResponse(json.dumps(True), mimetype="application/json")
     elif path:
         attachment = get_object_or_404(Attachment, path=path)

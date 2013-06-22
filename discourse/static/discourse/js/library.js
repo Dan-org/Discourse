@@ -25,7 +25,7 @@ $(function() {
 
     if (library.length > 0) {
         $(document.body).filedrop({
-            //fallback_id: 'upload_button',   // an identifier of a standard file input element
+            fallback_id: 'library-upload',    // an identifier of a standard file input element
             url: library.attr('url'),         // upload handler, handles each file separately, can also be a function returning a url
             paramname: 'file',                // POST parameter name used on serverside to reference file
             withCredentials: true,            // make a cross-origin request with cookies
@@ -80,8 +80,6 @@ $(function() {
                 var attachment = eval(response);
                 if (!attachment) return;
 
-                console.log("Upload complete (" + (time/1000) + "s):", attachment.path);
-
                 var found = false;
                 library.find('li a').each(function() {
                     if ($(this).attr('attachment') == attachment.id + "") {
@@ -98,7 +96,7 @@ $(function() {
                         'href': attachment.url,
                         'attachment': attachment.id
                     }).appendTo(li);
-                    a.append(attachment.path);
+                    a.append(attachment.filename);
                     library.find('ul').append(li);
                     a.fadeOut().fadeIn();
                 }
@@ -108,6 +106,7 @@ $(function() {
                 // progress is the integer value of file being uploaded percentage to completion
             },
             globalProgressUpdated: function(progress) {
+                Overlay.status.progress("Upload progress", progress / 100);
                 // progress for all the files uploaded on the current instance (percentage)
                 // ex: $('#progress div').width(progress+"%");
             },
@@ -130,6 +129,7 @@ $(function() {
                 done();
             },
             afterAll: function() {
+                Overlay.status.progress("Upload complete.", 1);
                 //console.log("uploads complete");
                 // runs after all files have been uploaded or otherwise dealt with
             }

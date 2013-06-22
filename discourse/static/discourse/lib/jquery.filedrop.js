@@ -77,6 +77,7 @@
       opts.drop(e);
       files = e.target.files;
       files_count = files.length;
+      console.log("CHANGE!", files_count, files);
       upload();
     });
 
