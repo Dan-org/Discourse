@@ -82,7 +82,7 @@ def attachments(request, path):
         except:
             attachment = Attachment(path=path)
         attachment.file = file
-        attachment.mimetype = file.content_type[0]
+        attachment.mimetype = file.content_type
         attachment.author = request.user
         attachment.save()
         return HttpResponse(json.dumps(attachment.info()), mimetype="application/json")

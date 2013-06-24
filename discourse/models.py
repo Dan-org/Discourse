@@ -221,6 +221,7 @@ class Attachment(models.Model):
     def filename(self):
         return posixpath.basename(self.path)
 
+    @property
     def icon(self):
         """
         Returns the icon type for the file.
@@ -245,7 +246,8 @@ class Attachment(models.Model):
             'caption': self.caption,
             'order': self.order,
             'filename': self.filename,
-            'url': self.url
+            'url': self.url,
+            'icon': self.icon
         }
 
     def __unicode__(self):

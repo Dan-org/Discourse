@@ -1,13 +1,19 @@
 {% if not hidden %}
-    <div class="library container clearfix" url="/discourse/attachments/{{path}}">
-        <div class="side-title">Reference Material</div>
-          <ul>
+    <div class="library" url="/discourse/attachments/{{path}}">
+        <h4>Materials</h4>
+        {% if attachments %}
+            <ul>
             {% for attachment in attachments %}
-                <li><a href="{{attachment.url}}" class="{{attachment.icon}}" attachment="{{attachment.id}}">{{attachment.filename}}</a></li>
+                <li>
+                    <a href="{{attachment.url}}" class="{{attachment.icon}}" attachment="{{attachment.id}}">{{attachment.filename}}</a>
+                </li>
             {% endfor %}
-          </ul>
-        </div>
+            </ul>
+        {% endif %}
+    </div>
 
+    <div class="upload-button button">
+        Upload Files
         <input type="file" name="upload[]" multiple="multiple" id="library-upload">
     </div>
 {% endif %}

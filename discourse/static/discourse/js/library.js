@@ -68,7 +68,7 @@ $(function() {
                 // user dragging files out of the browser document window
             },
             drop: function() {
-                // user drops file
+                Overlay.status.progress("Beggining upload...", 0);
             },
             uploadStarted: function(i, file, len) {
                 // a file began uploading
@@ -87,6 +87,8 @@ $(function() {
                         found = true;
                     }
                 });
+
+                console.log("Finished", found);
                 
                 if (library.find('ul li').length == 0) library.fadeIn('fast');
 
@@ -94,9 +96,10 @@ $(function() {
                     var li = $('<li>');
                     var a = $('<a>').attr({
                         'href': attachment.url,
-                        'attachment': attachment.id
+                        'attachment': attachment.id,
                     }).appendTo(li);
                     a.append(attachment.filename);
+                    a.addClass(attachment.icon);
                     library.find('ul').append(li);
                     a.fadeOut().fadeIn();
                 }

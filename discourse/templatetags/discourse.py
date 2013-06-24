@@ -167,7 +167,6 @@ class DocumentTag(ttag.Tag):
         template = data.get('template')
         request = context['request']
         context['path'] = path
-        print "__discourse_editable:", context.get('__discourse_editable', False)
         context['__discourse_editable'] = True
 
         try:
