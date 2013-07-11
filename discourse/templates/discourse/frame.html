@@ -1,0 +1,8 @@
+<div class="discourse-frame {{class}}">
+    {% for file in attachments %}
+        {% if file.is_an_image %}
+            <img {% if forloop.first %}class="active"{% endif %} 
+                src="{{ file.url }}" width="{{ width }}" height="{{ height }}">
+        {% endif %}
+    {% endfor %}
+</div>

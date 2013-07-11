@@ -58,6 +58,8 @@ Storage = Tea.Class({
             error: jQuery.proxy(this.onFailure, this)
         });
 
+        console.log(this._ajax);
+
         // Trigger an event, yo.
         this.trigger('saving');
     },

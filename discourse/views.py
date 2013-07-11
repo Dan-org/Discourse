@@ -85,12 +85,12 @@ def attachments(request, path):
         attachment.mimetype = file.content_type
         attachment.author = request.user
         attachment.save()
-        return HttpResponse(json.dumps(attachment.info()), mimetype="application/json")
+        return HttpResponse(json.dumps(attachment.info()), content_type="application/json")
     elif request.method == 'DELETE' or request.GET.get('method') == 'DELETE':
         if not request.user.is_superuser:
             return HttpResponse(status=403)
         Attachment.objects.filter(path=path).delete()
-        return HttpResponse(json.dumps(True), mimetype="application/json")
+        return HttpResponse(json.dumps(True), content_type="application/json")
     elif path:
         attachment = get_object_or_404(Attachment, path=path)
         response = HttpResponse(FileWrapper(attachment.file), content_type=attachment.mimetype)
@@ -110,20 +110,24 @@ def document(request, path):
     When changed, update attachments used.
     """
     document = get_object_or_404(Document, path=path.rstrip('/'))
-    if request.method == 'POST':
-        if not request.user.is_superuser:
-            return HttpResponse(status=403)
-        attribute = request.POST['attribute']
-        body = request.POST['body']
-        body = clean_html(body)
-        if body.strip() == '':
-            document.content.filter(attribute=attribute).delete()
-            return HttpResponse(json.dumps(None), mimetype="application/json")
-        content, created = document.content.get_or_create(attribute=attribute, defaults={'body': body})
-        if not created:
-            content.body = body
-            content.save()
-        return HttpResponse(json.dumps(content.info()), mimetype="application/json")
+    try:
+        if request.method == 'POST':
+            if not request.user.is_superuser:
+                return HttpResponse(status=403)
+            attribute = request.POST['attribute']
+            body = request.POST['body']
+            body = clean_html(body)
+            if body.strip() == '':
+                document.content.filter(attribute=attribute).delete()
+                return HttpResponse(json.dumps(None), content_type="application/json")
+            content, created = document.content.get_or_create(attribute=attribute, defaults={'body': body})
+            if not created:
+                content.body = body
+                content.save()
+            return HttpResponse(json.dumps(content.info()), content_type="application/json")
+    except Exception, e:
+        print e
+        raise
 
 
 def redirect(request, path):
@@ -136,4 +140,18 @@ def redirect(request, path):
     if not instance:
         raise Http404
     return HttpResponseRedirect(instance.get_absolute_url())
+
+
+def property(request, path):
+    """
+    Updates the property on an object given the path.
+    """
+    property = request.POST['property']
+    value = request.POST['value']
+    instance = get_instance_from_sig(path)
+    if not instance:
+        raise Http404
+    setattr(instance, property, value)
+    instance.save()
+    return HttpResponse(json.dumps( getattr(instance, property, value) ), content_type="application/json")
 

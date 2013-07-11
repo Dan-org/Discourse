@@ -213,6 +213,9 @@ class Attachment(models.Model):
     order = models.IntegerField(default=0)
     file = models.FileField(upload_to="attachments")
 
+    def is_an_image(self):
+        return "image/" in self.mimetype
+
     @property
     def url(self):
         return "/discourse/attachments/%s" % (self.path)

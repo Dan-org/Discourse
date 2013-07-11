@@ -140,7 +140,33 @@ class Frame(ttag.Tag):
 
     def render(self, context):
         data = self.resolve(context)
-        return data
+        request = context['request']
+        width = data.get('width')
+        height = data.get('height')
+        cls = data.get('class_')
+        path = get_path(context, data.get('path'))
+        attachments = Attachment.get_folder(path)
+        context['library'] = path
+
+        context_vars = {'attachments': attachments,
+                        'path': path,
+                        'width': width,
+                        'height': height,
+                        'class_': cls,
+                        'hidden': False,
+                        'request': request,
+                        'editable': request.user.is_superuser}
+
+        try:
+            library_view.send(sender=Attachment, request=request, context=context_vars)
+        except PermissionDenied:
+            context_vars['hidden'] = True
+
+        source = render_to_string('discourse/frame.html', context_vars, context)
+        if context_vars['editable'] and not context.get('__discourse_editable__', False):
+            context['__discourse_editable__'] = True
+            return "%s\n%s" % (render_to_string('discourse/assets/editable.html', {}, context), source)
+        return source
 
 
 class DocumentTag(ttag.Tag):
@@ -235,6 +261,33 @@ class StreamTag(ttag.Tag):
         name = "stream"
 
 
+class Editable(ttag.Tag):
+    """
+    Outputs a property of an object in such a way so that it can be edited live, very easily.
+    """
+    object = ttag.Arg(required=True)
+    property = ttag.Arg(required=True)
+    default = ttag.Arg(required=False, keyword=True)
+
+    class Meta:
+        name = "editable"
+
+    def render(self, context):
+        data = self.resolve(context)
+        object = data['object']
+        property = unicode(data['property'])
+        default = data.get('default', None)
+        value = getattr(object, property, default)
+        path = get_path(context, object)
+        return render_to_string('discourse/editable.html', {'value': value, 
+                                                            'object': object,
+                                                            'property': property,
+                                                            'default': default,
+                                                            'path': path, 
+                                                            'auth_login': settings.LOGIN_REDIRECT_URL}, context)
+
+
+
 ### Register ###
 register = template.Library()
 register.tag(ThreadTag)
@@ -242,3 +295,4 @@ register.tag(Library)
 register.tag(Frame)
 register.tag(DocumentTag)
 register.tag(StreamTag)
+register.tag(Editable)
