@@ -7,6 +7,7 @@ from models import (model_sig,
                     document_manipulate,
                     library_view,
                     document_view,
+                    attachment_view,
                     event)
 
 from notice import send_event

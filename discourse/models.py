@@ -57,7 +57,14 @@ document_manipulate = Signal(['request', 'action'])
 #   - Set context['editable'] to True to make the object editable.
 #   - Set context['hidden'] to True to hide the object from view.
 library_view = Signal(['request', 'context'])
-document_view = Signal(['request', 'context']) 
+attachment_view = Signal(['request', 'context'])
+document_view = Signal(['request', 'context'])
+
+# Download / View attachment
+# Send when a user downloads an attachment.
+#   sender: attachment
+#   request: the request used to view
+attachment_view = Signal(['request'])
 
 # Event signal
 # Sent when an event is created

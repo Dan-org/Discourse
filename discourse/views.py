@@ -15,7 +15,7 @@ from django.template import RequestContext
 
 from ajax import JsonResponse
 from models import Attachment, Document, Comment
-from models import attachment_manipulate, comment_manipulate, document_manipulate
+from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view
 from models import get_instance_from_sig
 
 
@@ -93,6 +93,9 @@ def attachments(request, path):
         return HttpResponse(json.dumps(True), content_type="application/json")
     elif path:
         attachment = get_object_or_404(Attachment, path=path)
+        for reciever, response in attachment_view.send(sender=attachment, request=request):
+            if isinstance(response, HttpResponse):
+                return response
         response = HttpResponse(FileWrapper(attachment.file), content_type=attachment.mimetype)
         response['Content-Disposition'] = 'attachment; filename="%s"' % attachment.filename
         return response
