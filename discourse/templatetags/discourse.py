@@ -49,16 +49,22 @@ class ThreadTag(ttag.Tag):
 
         {% thread instance %}
 
+    Also, add up and down voting.
+        {% thread instance voting=True %}
+
     See ``discourse/models.py`` on options to change how comments are rendered.
     """
     path = ttag.Arg(required=False)
     depth = ttag.Arg(default=2, keyword=True)
+    voting = ttag.Arg(default=False, keyword=True)
 
     def render(self, context):
         data = self.resolve(context)
+        voting = data.get('voting', False)
         path = get_path(context, data.get('path'))
         comments = Comment.get_thread(path)
         return render_to_string('discourse/thread.html', {'comments': comments, 
+                                                          'voting': voting,
                                                           'path': path, 
                                                           'auth_login': settings.LOGIN_REDIRECT_URL}, context)
 
