@@ -16,6 +16,7 @@ ALLOWED_ATTRIBUTES = {
     'table': ['cellpadding', 'cellspacing'],
     'td': ['colspan', 'rowspan'],
     'th': ['colspan', 'rowspan'],
+    'blockquote': ['class']
 }
 
 def clean_html(src):

@@ -160,6 +160,15 @@ Document = Tea.Element.extend({
         // Tags allowed to be in the first level.
         var first_level = ['p', 'header', 'blockquote', 'ul', 'ol', 'div'];
 
+        // Remove style tags on blackquotes / paragraphs, wtf.
+        src.find('p').attr('style', null);
+        src.find('blockquote').attr('style', null);
+
+        // Remove tags that are banned
+        $("span").each(function(){
+            $(this).replaceWith($(this).html());
+        });
+        
         // Move all orphans into a paragraph.
         var orphans = [];
         src.contents().each(function(i) {
@@ -191,7 +200,7 @@ Document = Tea.Element.extend({
             var range = document.createRange();
             range.selectNodeContents(src.children()[0]);
             range.collapse(false);
-            sel.removeRange(sel.getRangeAt(0));
+            sel.removeAllRanges(); //(sel.getRangeAt(0));
             sel.addRange(range);
         }
     },
