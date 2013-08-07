@@ -18,7 +18,7 @@ def unique_list(seq):
     return [x for x in seq if x not in seen and not seen.add(x)]
 
 
-def get_path(context, path):
+def get_path(context, path, sub=None):
     """Returns a real path for the given path."""
     if path is None:
         try:
@@ -26,7 +26,9 @@ def get_path(context, path):
         except KeyError:
             raise RuntimeError('Template context lacks a "request" object to get the path from, please provide a path to the templatetag.')
     elif isinstance(path, models.Model):
-        return model_sig(path)
+        path = model_sig(path)
+    if sub:
+        path = "%s:%s" % (path, sub)
     return path
 
 
@@ -51,16 +53,23 @@ class ThreadTag(ttag.Tag):
 
     See ``discourse/models.py`` on options to change how comments are rendered.
     """
-    path = ttag.Arg(required=False)
-    depth = ttag.Arg(default=2, keyword=True)
+    path = ttag.Arg(required=False)                                     # Path or model for the comment thread.
+    sub = ttag.Arg(default=None, keyword=True, required=False)          # The sub-thread
+    depth = ttag.Arg(default=2, keyword=True)                           # Depth of the comments.
+    scored = ttag.Arg(default=False, keyword=True)                      # Whether or not to score the comments.
+    template = ttag.Arg(default=None, keyword=True, required=False)     # The template to use for rendering the comments.
 
     def render(self, context):
         data = self.resolve(context)
-        path = get_path(context, data.get('path'))
+        path = get_path(context, data.get('path'), data.get('sub'))
+        scored = bool( data.get('scored') )
         comments = Comment.get_thread(path)
-        return render_to_string('discourse/thread.html', {'comments': comments, 
-                                                          'path': path, 
-                                                          'auth_login': settings.LOGIN_REDIRECT_URL}, context)
+        template = data.get('template') or 'discourse/thread.html'
+        return render_to_string(template, {'comments': comments, 
+                                           'path': path,
+                                           'depth': data.get('depth'),
+                                           'scored': scored,
+                                           'auth_login': settings.LOGIN_REDIRECT_URL}, context)
 
     class Meta:
         name = "thread"
@@ -241,10 +250,12 @@ class StreamTag(ttag.Tag):
     def render(self, context):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
+        request = context['request']
         size = data.get('size', 10)
+
         try:
             stream = Stream.objects.get(path=path)
-            events = stream.events.all().order_by('-id')[:size]
+            events = stream.render_events(request, size=size)
             count = stream.events.count()
         except Stream.DoesNotExist:
             stream = Stream(path=path)
@@ -288,6 +299,21 @@ class Editable(ttag.Tag):
 
 
 
+class Path(ttag.Tag):
+    """
+    Returns the discourse path associated with the object given as the first argument.
+    """
+    object = ttag.Arg(required=True)
+
+    class Meta:
+        name = "discourse_path"
+
+    def render(self, context):
+        data = self.resolve(context)
+        object = data['object']
+        return get_path(context, object)
+
+
 ### Register ###
 register = template.Library()
 register.tag(ThreadTag)
@@ -296,3 +322,4 @@ register.tag(Frame)
 register.tag(DocumentTag)
 register.tag(StreamTag)
 register.tag(Editable)
+register.tag(Path)

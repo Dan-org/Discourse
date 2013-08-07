@@ -11,8 +11,10 @@ from django.core.urlresolvers import reverse
 from django.dispatch import Signal, receiver
 from django.db.models.loading import get_model
 from django.conf import settings
-from django.template import Context, Template
+from django.template import Context, RequestContext, Template
 from django.core.exceptions import PermissionDenied
+from django.template.loader import render_to_string
+
 
 
 ### Helpers ###
@@ -26,6 +28,8 @@ def model_sig(instance):
     return "%s/%s/%s" % (app, name, pk)
 
 def get_instance_from_sig(path):
+    if (':' in path):
+        path = path.split(':', 1)[0]
     m = re_sig.match(path)
     if m:
         app, model, pk = m.groups()
@@ -87,6 +91,7 @@ class Comment(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     deleted = models.DateTimeField(blank=True, null=True)
     edited = models.DateTimeField(blank=True, null=True)
+    score = 13
 
     def __repr__(self):
         return "Comment(%r, %s)" % (self.path, self.id)
@@ -160,6 +165,10 @@ class Event(models.Model):
         stream, _ = Stream.objects.get_or_create(path=path)
         stream.events.add(self)
 
+    def render(self, request):
+        context = RequestContext(request, {'path': self.path, 'event': self})
+        return render_to_string(self.template, context)
+
     def __unicode__(self):
         return "Event(%r, %r, %r)" % (self.actor, self.type, self.path)
 
@@ -199,15 +208,21 @@ class Stream(models.Model):
     def __unicode__(self):
         return "Stream(%s)" % self.path
 
+    def render_events(self, request, size=10, after=None):
+        """
+        Generates a sequence of events for the stream as simple dicts.
 
-#class Message(models.Model):
-#    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="messages_sent")
-#    to = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="messages")
-#    type = models.SlugField()
-#    path = models.CharField(max_length=255)
-#
-#    def __unicode__(self):
-#        return "Notice(%s)" % self.id
+        TODO: Cache this.
+        """
+        events = self.events.all().order_by('-id')
+        if after:
+            events = events.filter(id__gt=after)
+        events = events[:size]
+
+        context = RequestContext(request, {'stream': self})
+
+        for e in events:
+            yield e.render(request)
 
 
 class Attachment(models.Model):
