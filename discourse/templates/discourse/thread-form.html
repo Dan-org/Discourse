@@ -1,6 +1,7 @@
 <form class="add" action="/discourse/thread/{{path}}" method="post">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{request.path_info}}">
+    <input type="hidden" name="scored" value="{{ scored }}">
     <input type="hidden" name="parent" value="">
 
     <div class="field">

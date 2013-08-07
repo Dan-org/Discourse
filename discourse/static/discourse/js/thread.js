@@ -1,5 +1,5 @@
 function commentForm(e) {
-    form = $(e);
+    var form = $(e);
     // Todo: length counter | ajax indicator | hide comments | reply | edit | report
 
     function addError(err) {
@@ -40,6 +40,7 @@ function commentForm(e) {
         var body = bodyField.val().trim();
 
         if (body.length == 0) {
+            console.log("body.length", bodyField, bodyField.val());
             addError("Please type a message.");
             bodyField.focus();
             return false;
@@ -93,9 +94,8 @@ function deleteAction(e) {
 function replyAction(e) {
     var link = $(e.target);
     var comment = link.closest('.comment');
-    var form = link.closest('.discourse').find('form.add')
+    var form = link.closest('.discourse').find('form.add-comment').first()
                    .clone()
-                   .removeClass('add')
                    .addClass('reply');
     var cancel = $('<input type="button" value="Cancel" class="cancel"/>')
                    .prependTo(form.find('.buttons'))
@@ -116,11 +116,41 @@ function replyAction(e) {
 }
 
 
+function voteAction(updown) {
+    return function(e) {
+        var arrow = $(e.target);
+        var comment = arrow.closest('.comment');
+        var thread = comment.closest('.thread');
+        var form = thread.find('form');
+        var dir = updown;
+
+        if (arrow.hasClass('selected')) {
+            comment.find('.voting a').removeClass('selected');
+            dir = 0;
+        } else {
+            comment.find('.voting a').removeClass('selected');
+            arrow.addClass('selected');
+        }
+
+        $.ajax({
+            type: 'post',
+            url: '/discourse/vote/',
+            data: {dir: dir, pk: comment.attr('rel')},
+            success : function(value) {
+                comment.find('.score').empty().append(value);
+            }
+        })
+    }
+}
+
+
 $(function() {
     $('.discourse .thread form').each(function(i, e) { commentForm(e) });
 
     $(document).on('click', '.discourse .thread .comment .actions .delete', deleteAction);
     $(document).on('click', '.discourse .thread .comment .actions .reply', replyAction);
+    $(document).on('click', '.discourse .thread .comment .upvote', voteAction(1));
+    $(document).on('click', '.discourse .thread .comment .downvote', voteAction(-1));
 })
 
 

@@ -10,7 +10,7 @@
   <div class="actions">
     <div class="time" title="{{comment.created}}">{{ comment.created|naturaltime }}</div>
     {% if comment.author == request.user %}
-        {# <a class="edit" href="{% url 'thread' comment.path %}?edit={{comment.id}}">Edit</a> #}
+        <a class="edit" href="{% url 'thread' comment.path %}?edit={{comment.id}}">Edit</a>
         <a class="delete" href="{% url 'thread' comment.path %}?delete={{comment.id}}">Delete</a>
     {% endif %}
   </div>

@@ -14,7 +14,7 @@ from django.conf import settings
 from django.template import Context, RequestContext, Template
 from django.core.exceptions import PermissionDenied
 from django.template.loader import render_to_string
-
+from django.db.models.signals import pre_save, post_save
 
 
 ### Helpers ###
@@ -70,6 +70,12 @@ document_view = Signal(['request', 'context'])
 #   request: the request used to view
 attachment_view = Signal(['request'])
 
+# Voting on Comments
+#   sender: comment being voted on
+#   request: wsgi request
+#   vote: the vote object
+comment_vote = Signal(['request', 'vote'])
+
 # Event signal
 # Sent when an event is created
 #   sender:   event object
@@ -88,10 +94,11 @@ class Comment(models.Model):
     path = models.CharField(max_length=255)
     body = models.TextField()
     author = models.ForeignKey(settings.AUTH_USER_MODEL)
+    parent = models.ForeignKey("Comment", related_name="children", blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
     deleted = models.DateTimeField(blank=True, null=True)
     edited = models.DateTimeField(blank=True, null=True)
-    score = 13
+    value = models.IntegerField(default=0)
 
     def __repr__(self):
         return "Comment(%r, %s)" % (self.path, self.id)
@@ -121,27 +128,69 @@ class Comment(models.Model):
         self.save()
         return self
 
+    class Meta:
+        ordering = ('path', '-value', 'id')
+
     @classmethod
     def create_by_request(cls, request, path, body):
         path = path.rstrip('/')
+        parent_pk = request.POST.get('parent')
         comment = cls(path=path, body=body, author=request.user)
+        if parent_pk:
+            comment.parent = Comment.objects.get(pk=parent_pk)
         comment_manipulate.send(sender=comment, request=request, action='create')
+        comment.value = 1
+        comment.up = True
         comment.save()
+        comment.votes.create(user=request.user, value=1)
         return comment
-
-    class Meta:
-        ordering = ('path', 'id')
 
     @property
     def url(self):
         return reverse("discourse:thread", args=[self.path])
     
     @classmethod
-    def get_thread(cls, path):
+    def get_thread(cls, path, user):
         """
         Returns a QuerySet of the media in the given ``path``.
         """
-        return cls._default_manager.filter(path=path, deleted__isnull=True).order_by('id')
+        comments = cls._default_manager.filter(path=path, deleted__isnull=True)
+        votes = CommentVote.objects.filter(comment__path=path, 
+                                           comment__deleted__isnull=True,
+                                           user=user).values_list('comment_id', 'value')
+        votes = dict(votes)
+        map = {"root": []}
+        for comment in comments:
+            value = votes.get(comment.id, 0)
+            if (value > 0):
+                comment.up = True
+            if (value < 0):
+                comment.down = True
+            comment.thread = map.setdefault(comment.id, [])
+            print comment.parent_id or "root"
+            map.setdefault(comment.parent_id or "root", []).append(comment)
+        return map["root"]
+
+
+def on_comment_save(sender, instance, **kwargs):
+    if instance.id is not None:
+        instance.value = (
+            CommentVote.objects.filter(comment=instance).aggregate(models.Sum('value'))['value__sum'] or 0 )
+pre_save.connect(on_comment_save, sender=Comment)
+
+
+class CommentVote(models.Model):
+    comment = models.ForeignKey(Comment, related_name="votes")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="comment_votes")
+    value = models.IntegerField()
+
+    def __unicode__(self):
+        if self.value > 0:
+            return "Upvote by %s" % self.user
+        elif self.value < 0:
+            return "Downvote by %s" % self.user
+        else:
+            return "Sidevote by %s" % self.user
 
 
 class Subscription(models.Model):

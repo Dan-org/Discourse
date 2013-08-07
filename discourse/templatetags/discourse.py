@@ -51,6 +51,9 @@ class ThreadTag(ttag.Tag):
 
         {% thread instance %}
 
+    Also, add up and down voting.
+        {% thread instance voting=True %}
+
     See ``discourse/models.py`` on options to change how comments are rendered.
     """
     path = ttag.Arg(required=False)                                     # Path or model for the comment thread.
@@ -63,14 +66,13 @@ class ThreadTag(ttag.Tag):
         data = self.resolve(context)
         path = get_path(context, data.get('path'), data.get('sub'))
         scored = bool( data.get('scored') )
-        comments = Comment.get_thread(path)
+        comments = Comment.get_thread(path, context.get('request').user)
         template = data.get('template') or 'discourse/thread.html'
         return render_to_string(template, {'comments': comments, 
                                            'path': path,
                                            'depth': data.get('depth'),
                                            'scored': scored,
                                            'auth_login': settings.LOGIN_REDIRECT_URL}, context)
-
     class Meta:
         name = "thread"
 

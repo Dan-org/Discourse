@@ -8,6 +8,7 @@ from models import (model_sig,
                     library_view,
                     document_view,
                     attachment_view,
+                    comment_vote,
                     event)
 
 from notice import send_event

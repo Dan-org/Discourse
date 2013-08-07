@@ -1,5 +1,5 @@
 from django.contrib import admin
-from models import DocumentTemplate, Document, DocumentContent, Attachment
+from models import DocumentTemplate, Document, DocumentContent, Attachment, Comment
 
 ### Custom Admins ###
 class DocumentContentAdmin(admin.TabularInline):
@@ -13,3 +13,5 @@ class DocumentAdmin(admin.ModelAdmin):
 admin.site.register(Document, DocumentAdmin)
 admin.site.register(DocumentTemplate)
 admin.site.register(Attachment)
+admin.site.register(Comment)
+
