@@ -159,7 +159,7 @@ class Comment(models.Model):
         Returns a tree of comments.
         """
         comments = cls._default_manager.filter(path=path)
-        if (user.is_authenticated):
+        if (user.is_authenticated()):
             votes = CommentVote.objects.filter(comment__path=path,
                                                user=user).values_list('comment_id', 'value')
             votes = dict(votes)
