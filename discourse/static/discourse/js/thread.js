@@ -1,5 +1,6 @@
 function commentForm(e) {
     var form = $(e);
+    var textarea = form.find('textarea');
     // Todo: length counter | ajax indicator | hide comments | reply | edit | report
 
     function addError(err) {
@@ -15,16 +16,35 @@ function commentForm(e) {
     }
 
     function onSuccess(response) {
-        addComment(response['_html'])
+        var existing = $("#comment-" + response.id);
+        if (existing.length > 0) {
+            children = existing.find('.comment').detach();
+            existing.empty().append(response['_html']).append(children);
+            existing.hide().fadeIn();
+        } else {
+            addComment(response);
+        }
+
+        resetForm(form);
+
+        if (form.hasClass("response-form")) {
+            form.removeClass('active').hide();
+        }
     }
 
     function onFailure(xhr, status, error) {
         console.log("onFailure", xhr, status, error);
     }
 
-    function addComment(html) {
-        var newComment = $('<div class="new-comment">').append(html);
-        form.before(newComment);
+    function addComment(comment) {
+        var newComment = $('<div class="comment new">')
+                            .attr("id", "comment-" + comment.id)
+                            .attr("rel", comment.id)
+                            .append(comment['_html']);
+        if (form.hasClass("response-form"))
+            form.before(newComment);
+        else
+            form.after(newComment);
         window.scrollTo(window.scrollX, window.scrollY + newComment.height());
         newComment.hide().fadeIn();
         if (form.hasClass('reply')) {
@@ -36,13 +56,12 @@ function commentForm(e) {
 
     function validate() {
         clearErrors();
-        var bodyField = form.find('textarea[name=body]');
-        var body = bodyField.val().trim();
+        var body = textarea.val().trim();
 
         if (body.length == 0) {
-            console.log("body.length", bodyField, bodyField.val());
+            console.log("body.length", textarea, textarea.val());
             addError("Please type a message.");
-            bodyField.focus();
+            textarea.focus();
             return false;
         }
 
@@ -62,14 +81,32 @@ function commentForm(e) {
             error: onFailure
         });
 
+        textarea.attr('disabled', 'disabled');
+        form.find('input').attr('disabled', 'disabled');
+
         return false;
     }
+
+    function blur() {
+        var body = textarea.val().trim();
+        if (body.length == 0) form.hide().removeClass('active');
+    }
+
+    if (form.find('input[name=parent]').val().length > 0)
+        textarea.blur(blur);
 
     form.submit(submit);
     return form;
 }
 
-/// Delete Action ///
+function resetForm(form) {
+    form.find('textarea').attr('disabled', null);
+    form.find('input[name=pk]').val("");
+    form.find('input').attr('disabled', null);
+    form[0].reset();
+}
+
+/// Actions ///
 function deleteAction(e) {
     var link = $(e.target);
     var comment = link.closest('.comment');
@@ -90,28 +127,45 @@ function deleteAction(e) {
     return false;
 }
 
+function editAction(e) {
+    var link = $(e.target);
+    var repliable = link.closest('.repliable');
+    var comment = link.closest('.comment');
+    var pk = comment.attr("rel");
+    var text = comment.find('.raw').html();
+    var form = repliable.find('form');
+
+    resetForm(form);
+
+    form.find("input[name=pk]").val(pk);
+    form.find('textarea').val(text);
+
+    if (form.hasClass('active')) {
+        form.css('opacity', 0).animate({opacity: 1});
+        form.find('textarea').focus();
+        return false;
+    }
+
+    form.hide().addClass('active').fadeIn();
+    form.find('textarea').focus();
+    return false;
+}
 
 function replyAction(e) {
     var link = $(e.target);
-    var comment = link.closest('.comment');
-    var form = link.closest('.discourse').find('form.add-comment').first()
-                   .clone()
-                   .addClass('reply');
-    var cancel = $('<input type="button" value="Cancel" class="cancel"/>')
-                   .prependTo(form.find('.buttons'))
-                   .click(function() {
-                        form.remove();
-                   });
+    var repliable = link.closest('.repliable');
+    var form = repliable.find('form');
 
-    comment.after(form);
+    resetForm(form);
 
-    form.find('textarea').attr('placeholder', "add your reply here").focus();
-    form.find('input[name=parent]').val( comment.attr('rel') );
-    form.find('input[type=submit]').val( "Add Reply" );
+    if (form.hasClass('active')) {
+        form.css('opacity', 0).animate({opacity: 1});
+        form.find('textarea').focus();
+        return false;
+    }
 
-    commentForm(form);
-
-    e.preventDefault();
+    form.hide().addClass('active').fadeIn();
+    form.find('textarea').focus();
     return false;
 }
 
@@ -148,6 +202,7 @@ $(function() {
     $('.discourse .thread form').each(function(i, e) { commentForm(e) });
 
     $(document).on('click', '.discourse .thread .comment .actions .delete', deleteAction);
+    $(document).on('click', '.discourse .thread .comment .actions .edit', editAction);
     $(document).on('click', '.discourse .thread .comment .actions .reply', replyAction);
     $(document).on('click', '.discourse .thread .comment .upvote', voteAction(1));
     $(document).on('click', '.discourse .thread .comment .downvote', voteAction(-1));

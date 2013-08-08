@@ -34,7 +34,7 @@ def thread(request, path):
         pk = request.POST.get('pk')
         if pk:
             comment = get_object_or_404(Comment, pk=pk, path=path)
-            comment.edit_by_request(request)
+            comment.edit_by_request(request, body=request.POST['body'])
         else:
             comment = Comment.create_by_request(request, path=path, body=request.POST['body'])
 

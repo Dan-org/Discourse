@@ -108,6 +108,7 @@ class Comment(models.Model):
 
     def info(self):
         return {
+            'id': self.id,
             'path': self.path,
             'body': self.body,
             'author': str(self.author),
@@ -123,9 +124,12 @@ class Comment(models.Model):
         return self
 
     def delete_by_request(self, request):
-        self.deleted = datetime.now()
         comment_manipulate.send(sender=self, request=request, action='delete')
-        self.save()
+        if (self.children.count() > 0):
+            self.deleted = datetime.now()
+            self.save()
+        else:
+            self.delete()
         return self
 
     class Meta:
@@ -152,13 +156,16 @@ class Comment(models.Model):
     @classmethod
     def get_thread(cls, path, user):
         """
-        Returns a QuerySet of the media in the given ``path``.
+        Returns a tree of comments.
         """
-        comments = cls._default_manager.filter(path=path, deleted__isnull=True)
-        votes = CommentVote.objects.filter(comment__path=path, 
-                                           comment__deleted__isnull=True,
-                                           user=user).values_list('comment_id', 'value')
-        votes = dict(votes)
+        comments = cls._default_manager.filter(path=path)
+        if (user.is_authenticated):
+            votes = CommentVote.objects.filter(comment__path=path,
+                                               user=user).values_list('comment_id', 'value')
+            votes = dict(votes)
+        else:
+            votes = {}
+
         map = {"root": []}
         for comment in comments:
             value = votes.get(comment.id, 0)
@@ -167,7 +174,6 @@ class Comment(models.Model):
             if (value < 0):
                 comment.down = True
             comment.thread = map.setdefault(comment.id, [])
-            print comment.parent_id or "root"
             map.setdefault(comment.parent_id or "root", []).append(comment)
         return map["root"]
 
