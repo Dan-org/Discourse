@@ -45,6 +45,7 @@ function commentForm(e) {
             form.before(newComment);
         else
             form.after(newComment);
+
         window.scrollTo(window.scrollX, window.scrollY + newComment.height());
         newComment.hide().fadeIn();
         if (form.hasClass('reply')) {
@@ -155,6 +156,7 @@ function replyAction(e) {
     var link = $(e.target);
     var repliable = link.closest('.repliable');
     var form = repliable.find('form');
+    console.log(repliable);
 
     resetForm(form);
 

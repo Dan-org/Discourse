@@ -77,6 +77,29 @@ class ThreadTag(ttag.Tag):
         name = "thread"
 
 
+class ThreadCountTag(ttag.Tag):
+    """
+    Returns the count of comments.
+    """
+    path = ttag.Arg(required=False)                                     # Path or model for the comment thread.
+    sub = ttag.Arg(default=None, keyword=True, required=False)          # The sub-thread
+
+    def render(self, context):
+        data = self.resolve(context)
+        path = get_path(context, data.get('path'), data.get('sub'))
+        scored = bool( data.get('scored') )
+        count = Comment.objects.filter(path=path, deleted__isnull=True).count()
+        if count == 0:
+            return ""
+        elif count == 1:
+            return "1 Comment"
+        else:
+            return "%d Comments" % count
+
+    class Meta:
+        name = "threadcount"
+
+
 class Library(ttag.Tag):
     """
     Creates a media library for the given object or current page.
@@ -319,6 +342,7 @@ class Path(ttag.Tag):
 ### Register ###
 register = template.Library()
 register.tag(ThreadTag)
+register.tag(ThreadCountTag)
 register.tag(Library)
 register.tag(Frame)
 register.tag(DocumentTag)

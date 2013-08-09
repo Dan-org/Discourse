@@ -98,6 +98,7 @@ def send_event(actor, type, path, **context):
     context['type'] = type
     context['object'] = object
     context['settings'] = settings
+    context['DOMAIN'] = settings.DOMAIN
 
     # Find users to be notified
     subscriptions = Subscription.objects.filter(path=path, toggle=True)
