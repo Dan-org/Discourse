@@ -46,6 +46,10 @@ function commentForm(e) {
         else
             form.after(newComment);
 
+        if (!comment.parent) {
+            newComment.addClass('repliable');
+        }
+
         window.scrollTo(window.scrollX, window.scrollY + newComment.height());
         newComment.hide().fadeIn();
         if (form.hasClass('reply')) {
@@ -88,24 +92,54 @@ function commentForm(e) {
         return false;
     }
 
-    function blur() {
-        var body = textarea.val().trim();
-        if (body.length == 0) form.hide().removeClass('active');
-    }
-
-    if (form.find('input[name=parent]').val().length > 0)
-        textarea.blur(blur);
-
     form.submit(submit);
     return form;
 }
 
 function resetForm(form) {
     form.find('textarea').attr('disabled', null);
-    form.find('input[name=pk]').val("");
     form.find('input').attr('disabled', null);
     form[0].reset();
 }
+
+function createReplyForm(options) {
+    var comment = options.comment;
+    var form = comment.closest('.repliable').find('form');
+
+    if (form.length == 0) {
+        var prototype = comment.closest('.thread').find('form').eq(0);
+        form = prototype.clone().hide().appendTo(comment).addClass('active').fadeIn();
+        commentForm(form[0]);
+        resetForm(form);
+    } else {
+        form.hide().fadeIn();
+        resetForm(form);
+    }
+
+    if (options.edit) {
+        form.find("input[name=pk]").val(options.edit);
+    } else {
+        form.find("input[name=pk]").val(null);
+    }
+
+    if (options.reply) {
+        form.addClass('reply');
+        form.find("input[name=parent]").val(options.reply);
+    } else {
+        form.find("input[name=parent]").val(null);
+    }
+
+    form.find('textarea').val(options.text || "");
+    form.find('textarea').focus();
+
+    form.find('textarea').one('blur', function() {
+        var body = form.find('textarea').val().trim();
+        if (body.length == 0) form.hide();
+    })
+    
+    return form;
+}
+
 
 /// Actions ///
 function deleteAction(e) {
@@ -130,44 +164,26 @@ function deleteAction(e) {
 
 function editAction(e) {
     var link = $(e.target);
-    var repliable = link.closest('.repliable');
     var comment = link.closest('.comment');
-    var pk = comment.attr("rel");
-    var text = comment.find('.raw').html();
-    var form = repliable.find('form');
 
-    resetForm(form);
+    var form = createReplyForm({
+        comment: comment,
+        edit: comment.attr("rel"),
+        text: comment.find('.raw').html()
+    });
 
-    form.find("input[name=pk]").val(pk);
-    form.find('textarea').val(text);
-
-    if (form.hasClass('active')) {
-        form.css('opacity', 0).animate({opacity: 1});
-        form.find('textarea').focus();
-        return false;
-    }
-
-    form.hide().addClass('active').fadeIn();
-    form.find('textarea').focus();
     return false;
 }
 
 function replyAction(e) {
     var link = $(e.target);
-    var repliable = link.closest('.repliable');
-    var form = repliable.find('form');
-    console.log(repliable);
+    var comment = link.closest('.repliable');
 
-    resetForm(form);
+    var form = createReplyForm({
+        comment: comment,
+        reply: comment.attr("rel")
+    });
 
-    if (form.hasClass('active')) {
-        form.css('opacity', 0).animate({opacity: 1});
-        form.find('textarea').focus();
-        return false;
-    }
-
-    form.hide().addClass('active').fadeIn();
-    form.find('textarea').focus();
     return false;
 }
 

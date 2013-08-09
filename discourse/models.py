@@ -113,7 +113,8 @@ class Comment(models.Model):
             'body': self.body,
             'author': str(self.author),
             'created': self.created,
-            'edited': self.edited
+            'edited': self.edited,
+            'parent': self.parent_id,
         }
 
     def edit_by_request(self, request, body):
