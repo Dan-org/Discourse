@@ -139,9 +139,9 @@ def send_event(actor, type, path, **context):
             print "Error sending email:", x
 
     # Use default email connection to send the messages.
-    if messages:
-        connection = mail.get_connection()   
-        connection.send_messages(messages)
+    #if messages:
+    #    connection = mail.get_connection()   
+    #    connection.send_messages(messages)
 
     return e
 
