@@ -1,16 +1,19 @@
 {% if not hidden %}
-    <div class="library" url="/discourse/attachments/{{path}}">
+    <section class="library" url="/discourse/attachments/{{path}}">
         <h4>Materials</h4>
         {% if attachments %}
-            <ul>
+            <ul class="list">
             {% for attachment in attachments %}
                 <li>
-                    <a href="{{attachment.url}}" class="{{attachment.icon}}" attachment="{{attachment.id}}">{{attachment.filename}}</a>
+                    <a href="{{attachment.url}}" class="{{attachment.icon}}" attachment="{{attachment.id}}">
+                        <div class="icon icon-{{attachment.icon}}"></div>
+                        <div class="text">{{attachment.filename}}</div>
+                    </a>
                 </li>
             {% endfor %}
             </ul>
         {% endif %}
-    </div>
+    </section>
 
     <div class="upload-button button">
         Upload Files
