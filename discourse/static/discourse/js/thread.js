@@ -33,7 +33,13 @@ function commentForm(e) {
     }
 
     function onFailure(xhr, status, error) {
-        console.log("onFailure", xhr, status, error);
+        if (xhr.status == 0) {
+            addError("Error communicating with the server.");
+        } else {
+            addError("Error posting message: " + xhr.statusText);
+        }
+        form.find('input').attr('disabled', null);
+        form.find('textarea').attr('disabled', null).focus();
     }
 
     function addComment(comment) {
@@ -64,7 +70,6 @@ function commentForm(e) {
         var body = textarea.val().trim();
 
         if (body.length == 0) {
-            console.log("body.length", textarea, textarea.val());
             addError("Please type a message.");
             textarea.focus();
             return false;
