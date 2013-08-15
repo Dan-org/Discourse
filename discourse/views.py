@@ -20,7 +20,7 @@ from models import attachment_manipulate, comment_manipulate, document_manipulat
 from models import get_instance_from_sig
 
 import redis
-redis = redis.Redis(host='localhost', port=6379, db=settings.REDIS_DB)
+redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
 
 
 ### Helpers ###

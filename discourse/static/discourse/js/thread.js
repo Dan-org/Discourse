@@ -1,5 +1,3 @@
-var socket = io.connect("/discourse");
-
 function commentForm(e) {
     var form = $(e);
     var textarea = form.find('textarea');
@@ -311,33 +309,41 @@ $(function() {
     $(document).on('click', '.discourse .thread .comment .downvote', voteAction(-1));
 });
 
-socket.on('connect', function () {
-    console.log("Connected!");
-});
 
-socket.on('comment', function (comment) {
-    addNewComment(comment);
-});
+if (window.io == undefined) {
+    var socket = {
+        emit: $.noop
+    };
+} else {
+    var socket = io.connect("/discourse");
 
-socket.on('vote', function (data) {
-    var id = data.id;
-    var value = data.value;
-    $('.comment').each(function(i, e) {
-        var source = $(e);
-        if (source.attr('rel') == id) {
-            var current = source.find('.score')[0].innerHTML;
-            if (value + "" == current) return;
-            source.find('.score').eq(0).empty().append(value).fadeOut().fadeIn();
-        }
+    socket.on('connect', function () {
+        console.log("Connected!");
     });
-});
 
-socket.on('delete', function(id) {
-    $('.comment').each(function(i, e) {
-        var source = $(e);
-        if (source.attr('rel') == id) {
-            deleteComment(source);
-        }
+    socket.on('comment', function (comment) {
+        addNewComment(comment);
     });
-});
 
+    socket.on('vote', function (data) {
+        var id = data.id;
+        var value = data.value;
+        $('.comment').each(function(i, e) {
+            var source = $(e);
+            if (source.attr('rel') == id) {
+                var current = source.find('.score')[0].innerHTML;
+                if (value + "" == current) return;
+                source.find('.score').eq(0).empty().append(value).fadeOut().fadeIn();
+            }
+        });
+    });
+
+    socket.on('delete', function(id) {
+        $('.comment').each(function(i, e) {
+            var source = $(e);
+            if (source.attr('rel') == id) {
+                deleteComment(source);
+            }
+        });
+    });
+}

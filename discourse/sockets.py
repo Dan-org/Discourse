@@ -6,7 +6,7 @@ from django.conf import settings
 
 class DiscourseSocket(BaseNamespace):
     def initialize(self):
-        self.redis = redis.Redis(host='localhost', port=6379, db=settings.REDIS_DB)
+        self.redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
 
     def follow_loop(self, path):
         o = self.redis.pubsub()
