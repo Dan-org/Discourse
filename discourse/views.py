@@ -12,11 +12,15 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.template.loader import render_to_string
 from django.template import RequestContext
+from django.conf import settings
 
 from ajax import JsonResponse
 from models import Attachment, Document, Comment, CommentVote
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig
+
+import redis
+redis = redis.Redis(host='localhost', port=6379, db=settings.REDIS_DB)
 
 
 ### Helpers ###
@@ -38,16 +42,22 @@ def thread(request, path):
         else:
             comment = Comment.create_by_request(request, path=path, body=request.POST['body'])
 
+        data = comment.info()
+        data['_html'] = render_comment(request, comment, scored=request.POST.get('scored'))
+
+        redis.publish(comment.path, json.dumps({'type': 'comment', 'comment': data}))
+
         if request.is_ajax():
-            response = comment.info()
-            response['_html'] = render_comment(request, comment, scored=request.POST.get('scored'))
-            return JsonResponse(response)
+            return JsonResponse(data)
         else:
             return HttpResponseRedirect("%s#discourse-comment-%s" % (next, comment.id))
 
     elif 'delete' in request.GET:
         comment = get_object_or_404(Comment, pk=request.GET['delete'], path=path)
+        redis.publish(comment.path, json.dumps({'type': 'delete', 'id': comment.id}))
+
         comment.delete_by_request(request)
+
         if request.is_ajax():
             return JsonResponse(True)
         else:
@@ -82,8 +92,9 @@ def vote(request):
                 return JsonResponse(comment.value)
         else:
             vote.save()
-        print comment.value
+
         comment.save()
+        redis.publish(comment.path, json.dumps({'type': 'vote', 'id': comment.id, 'value': comment.value}))
         return JsonResponse(comment.value)
     else:
         return HttpResponseBadRequest()

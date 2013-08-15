@@ -15,6 +15,7 @@ from django.template import Context, RequestContext, Template
 from django.core.exceptions import PermissionDenied
 from django.template.loader import render_to_string
 from django.db.models.signals import pre_save, post_save
+from django.utils.html import normalize_newlines, urlize
 
 
 ### Helpers ###
@@ -110,12 +111,18 @@ class Comment(models.Model):
         return {
             'id': self.id,
             'path': self.path,
-            'body': self.body,
+            'body': self.render_body(),
+            'raw': self.body,
             'author': str(self.author),
-            'created': self.created,
-            'edited': self.edited,
+            'created': tuple(self.created.timetuple()) if self.created else None,
+            'deleted': tuple(self.deleted.timetuple()) if self.deleted else None,
+            'edited': tuple(self.edited.timetuple()) if self.edited else None,
             'parent': self.parent_id,
+            'value': self.value
         }
+
+    def render_body(self):
+        return urlize(normalize_newlines(self.body).replace('\n', '<br>'))
 
     def edit_by_request(self, request, body):
         self.body = body
