@@ -116,7 +116,6 @@ ToolbarCommand = Tea.Element.extend({
         this.source.mousedown(function(e) { e.preventDefault() });
     },
     onClick : function(e) {
-        console.log(this);
         this._parent.execCommand(this.slug);
         e.stopPropagation();
         return false;
@@ -131,7 +130,6 @@ ToolbarGroup = Tea.Container.extend({
         this.activate(this.commands[0].slug);
     },
     addCommand : function(index, command) {
-        console.log(this);
         this._parent.addAccelerator(command);
 
         if (command.invisible) return;
@@ -169,7 +167,6 @@ ToolbarBlocktype = Tea.Container.extend({
         this.setActive(this.commands[0].slug);
     },
     addCommand : function(index, command) {
-        console.log(this);
         this._parent.addAccelerator(command);
 
         if (command.invisible) return;
