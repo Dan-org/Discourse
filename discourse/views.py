@@ -19,8 +19,11 @@ from models import Attachment, Document, Comment, CommentVote
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig
 
-import redis
-redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
+try:
+    import redis
+    redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
+except ImportError:
+    redis = None
 
 
 ### Helpers ###

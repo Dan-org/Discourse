@@ -3,6 +3,20 @@ $(function() {
 
     if (library.find('ul li').length == 0) library.hide();
 
+    $(document.body).on('click', '.view-options a', function(e) {
+        var a = $(e.currentTarget);
+        if (a.hasClass('selected')) return;
+        a.closest('.view-options').find('a.selected').removeClass('selected');
+        a.addClass('selected');
+
+        var ul = a.closest('.library').find('ul').eq(0);
+        if (a.hasClass('option-list')) {
+            ul.removeClass('tile').addClass('list');
+        } else {
+            ul.removeClass('list').addClass('tile');
+        }
+    })
+
     // Delete by holding the shift key.
     $(document.body).on('click', 'a', function(e) {
         var a = $(e.currentTarget);
@@ -87,21 +101,21 @@ $(function() {
                         found = true;
                     }
                 });
-
-                console.log("Finished", found);
                 
                 if (library.find('ul li').length == 0) library.fadeIn('fast');
 
                 if (!found) {
-                    var li = $('<li>');
+                    var icon = $('<div>').addClass('icon').addClass('icon-' + attachment.icon);
+                    var text = $('<div>').addClass('text').append(attachment.filename);
                     var a = $('<a>').attr({
                         'href': attachment.url,
                         'attachment': attachment.id,
-                    }).appendTo(li);
-                    a.append(attachment.filename);
-                    a.addClass(attachment.icon);
-                    library.find('ul').append(li);
-                    a.fadeOut().fadeIn();
+                    }).append(icon).append(text);
+                    
+                    var li = $('<li>').append(a);
+
+                    library.find('ul li.add').before(li);
+                    li.fadeOut().fadeIn();
                 }
             },
             progressUpdated: function(i, file, progress) {

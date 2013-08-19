@@ -1,35 +1,13 @@
-{% if hidden %}
-    <em>Content hidden</em>
-{% else %}
-    {% if request.user.is_superuser %}
-    <div class="discourse-admin-handle">
-        [<a href="{% url 'admin:discourse_document_change' document.id %}">edit document</a>]
+{% for section in content %}
+    {% if section.body|striptags or editable %}
+    <div class="content-block">
+        <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}">{{section.body|safe}}</div>
     </div>
     {% endif %}
+{% endfor %}
 
-    <ul class="tabs clearfix">
-    {% for page in content %}
-        {% if not page.is_empty or editable %}
-            <li><a href="#page_{{forloop.counter}}" class="tab" id="tab_{{forloop.counter}}">{{page.title}}</a></li>
-        {% endif %}
-    {% endfor %}
-    </ul>
-
-    <div class="content">
-        {% for page in content %}
-            {% if not page.is_empty or editable %}
-                <div class="panel" id="panel_{{forloop.counter}}">
-                    <h3><a name="page_{{forloop.counter}}"></a>{{page.title}}</h3>
-                    {% for section in page.sections %}
-                        {% if section.body|striptags or editable %}
-                        <div class="content-block">
-                            <h4 class="content-title">{{section.title}}</h4>
-                            <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}">{{section.body|safe}}</div>
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endfor %}
-    </div>
+{% if request.user.is_superuser %}
+<div class="discourse-admin-handle">
+    [<a href="{% url 'admin:discourse_document_change' document.id %}">edit document</a>]
+</div>
 {% endif %}

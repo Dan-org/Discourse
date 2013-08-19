@@ -145,6 +145,29 @@
 .discourse-toolbar .button-link           { background-image: url('../img/link.png'); }
 .discourse-toolbar .button-import         { background-image: url('../img/picture.png'); }
 
+.discourse-toolbar .button-group {
+    /* height: 42px; */
+    width: auto;
+    background: #444;
+}
+
+.discourse-toolbar .button-group:hover {
+    padding-bottom: 20px;
+}
+
+.discourse-toolbar .button-group .button  {
+    /* float: left; */
+    display: none;
+}
+
+.discourse-toolbar .button-group:hover .button {
+    display: block;
+}
+
+.discourse-toolbar .button-group .active {
+    display: block;
+}
+
 .discourse-toolbar .saver {
     width: 36px;
     background: transparent url('../img/save.png') no-repeat 10px 10px;

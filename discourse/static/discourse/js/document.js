@@ -8,6 +8,7 @@ Status
 Document = Tea.Element.extend({
     type: 'discourse-document',
     storage: null,
+    block_types: ["P", "UL", "OL", "BLOCKQUOTE"],
     init : function() {
         this.__super__();
         this.editing = false;
@@ -19,7 +20,7 @@ Document = Tea.Element.extend({
 
         this.hook($(document), 'click', this.onDocClick);
         this.hook($(document), 'unload', this.stopEditing);
-        this.hook(this.source, 'click', this.onClick);
+        this.hook(this.source, 'mouseup', this.onMouseup);
         this.hook(this.source, 'keydown', this.onKeyDown);
         this.hook(this.source, 'input', this.onInput);
 
@@ -42,6 +43,8 @@ Document = Tea.Element.extend({
             this.cursorSanityCheck();
         }
         this.editing = true;
+
+        this.trigger('block', [this.getBlockAroundSelection()]);
     },
     stopEditing : function() {
         Overlay.stopEdit(this);
@@ -103,9 +106,13 @@ Document = Tea.Element.extend({
             //Overlay.editImage($(e.target));
         }
     },
+    onMouseup : function() {
+        this.trigger('block', [this.getBlockAroundSelection()]);
+    },
     onKeyDown : function(e) {
         // If you tab, that means you leave focus
         if (e.keyCode == 9) this.stopEditing();
+        this.trigger('block', [this.getBlockAroundSelection()]);
     },
     onInput : function(e) {
         if (this.editing) {
@@ -122,6 +129,18 @@ Document = Tea.Element.extend({
     },
     exec : function(name) {
         return this['command_' + name]();
+    },
+    command_p : function() { 
+        var node = this.findClosestBlock();
+        if (node.nodeName == 'P') return this.sanitize(); 
+        return this.command_outdent();
+    },
+    command_blockquote : function(cls) {
+        this.command_indent();
+        if (cls) {
+            var node = this.findClosestBlock();
+            $(node).addClass(cls);
+        }
     },
     command_ul: function() { document.execCommand("insertUnorderedList"); this.sanitize(); },
     command_ol: function() { document.execCommand("insertOrderedList"); this.sanitize(); },
@@ -209,6 +228,24 @@ Document = Tea.Element.extend({
     },
     selectAllChildren : function(obj) {
         window.getSelection().selectAllChildren(obj[0]);
+    },
+    findClosestBlock : function() {
+        var base = this.source[0];
+        var sel = window.getSelection();
+        var blocks = this.block_types;
+        var node = sel.anchorNode;
+
+        while (node) {
+            var i = jQuery.inArray(node.tagName, blocks);
+            if (i > -1) return node;
+            if (node == base) break;
+            node = node.parentNode;
+        }
+
+        return null;
+    },
+    getBlockAroundSelection : function() {
+        return this.findClosestBlock().nodeName;
     }
 });
 

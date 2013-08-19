@@ -225,6 +225,8 @@ class DocumentTag(ttag.Tag):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
         template = data.get('template')
+        from pprint import pprint
+        pprint(vars(context))
         request = context['request']
         context['path'] = path
         context['__discourse_editable'] = True
