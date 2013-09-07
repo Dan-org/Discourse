@@ -27,7 +27,7 @@
                             {% if section.body|striptags or editable %}
                             <div class="content-block">
                                 <h4 class="content-title">{{section.title}}</h4>
-                                <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}">{{section.body|safe}}</div>
+                                <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}" clean="{{clean}}">{{section.body|safe}}</div>
                             </div>
                             {% endif %}
                         {% endfor %}
@@ -36,7 +36,7 @@
                     {% else %}
                         {% if page.body|striptags or editable %}
                             <div class="content-block">                                
-                                <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{page.attribute}}">{{page.body|safe}}</div>
+                                <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{page.attribute}}" clean="{{clean}}">{{page.body|safe}}</div>
                             </div>
                             {% endif %}
                     {% endif %}

@@ -19,5 +19,24 @@ ALLOWED_ATTRIBUTES = {
     'blockquote': ['class']
 }
 
-def clean_html(src):
-    return clean(src, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, strip=True)
+
+EDITOR_TAGS = """ 
+iframe embed
+""".split()
+
+EDITOR_ALLOWED_ATTRIBUTES = {
+    'iframe': ['src', 'width', 'height', 'frameborder', 'allowfullscreen'],
+    'embed': ['src', 'width', 'height', 'allowfullscren', 'wmmode', 'type']
+}
+
+
+def clean_html(src, clean_level=None):
+    if (clean_level == 'none'):
+        tags = EDITOR_TAGS + ALLOWED_TAGS
+        atts = dict(ALLOWED_ATTRIBUTES.items() + EDITOR_ALLOWED_ATTRIBUTES.items())
+    else:
+        tags = ALLOWED_TAGS
+        atts = ALLOWED_ATTRIBUTES        
+
+    return clean(src, tags=tags, attributes=atts, strip=True)
+

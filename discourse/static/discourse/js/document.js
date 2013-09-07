@@ -15,7 +15,8 @@ Document = Tea.Element.extend({
             this.storage = Storage({ document: this,
                                      url: this.source.attr('url'),
                                      attribute: this.source.attr('attribute'),
-                                     value: this.getValue() });
+                                     value: this.getValue(),
+                                     clean: this.source.attr('clean') });
 
         this.hook($(document), 'click', this.onDocClick);
         this.hook($(document), 'unload', this.stopEditing);

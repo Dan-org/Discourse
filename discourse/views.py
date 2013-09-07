@@ -158,7 +158,8 @@ def document(request, path):
                 return HttpResponse(status=403)
             attribute = request.POST['attribute']
             body = request.POST['body']
-            body = clean_html(body)
+            clean = request.POST['clean']       
+            body = clean_html(body, clean)
             if body.strip() == '':
                 document.content.filter(attribute=attribute).delete()
                 return HttpResponse(json.dumps(None), content_type="application/json")

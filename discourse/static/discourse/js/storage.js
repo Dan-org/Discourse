@@ -8,6 +8,7 @@ Storage = Tea.Class({
     attribute: null,
     value: null,
     save_timeout: 10000,
+    clean: null,                    // argument to view about how much html to clean
     init : function() {
         this.__super__();
         this._saved = this.value;   // Store what's been saved here.
@@ -52,7 +53,7 @@ Storage = Tea.Class({
         // Ajax!
         this._ajax = jQuery.ajax({
             url: this.url,
-            data: {attribute: this.attribute, body: this.value},
+            data: {attribute: this.attribute, body: this.value, clean: this.clean},
             method: 'post',
             success: jQuery.proxy(this.onSuccess, this),
             error: jQuery.proxy(this.onFailure, this)

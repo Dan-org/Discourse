@@ -206,9 +206,12 @@ class Frame(ttag.Tag):
 class DocumentTag(ttag.Tag):
     """
     Creates a document with multiple sections.
+
+    @param clean - if set to 'none' then additional html tags will be allowed.
     """
-    path = ttag.Arg(required=False)
-    template = ttag.Arg(required=False, keyword=True)
+    path        = ttag.Arg(required=False)
+    template    = ttag.Arg(required=False, keyword=True)
+    clean       = ttag.Arg(default=None, required=False, keyword=True)
 
     def get_default_template(self, path, template=None):
         if template:
@@ -225,6 +228,7 @@ class DocumentTag(ttag.Tag):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
         template = data.get('template')
+        clean = data.get('clean')
         request = context['request']
         context['path'] = path
         context['__discourse_editable'] = True
@@ -239,7 +243,8 @@ class DocumentTag(ttag.Tag):
                         'path': path,
                         'hidden': False,
                         'request': request,
-                        'editable': request.user.is_superuser}
+                        'editable': request.user.is_superuser,
+                        'clean': clean}
 
         try:
             document_view.send(sender=doc, request=request, context=context_vars)
