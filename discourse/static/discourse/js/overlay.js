@@ -2,13 +2,15 @@ Overlay = Tea.Container({
     cls: 'discourse-overlay',
     init : function() {
         this.__super__();
-        $(jQuery.proxy(this.ready, this));
+        $(jQuery.proxy(this.ready, this));        
     },
-    ready : function() {
+    ready : function() {                
         this.source.appendTo(document.body)
         this.toolbar = this.append('discourse-toolbar');
         this.linkEditor = this.append('discourse-link-editor');
         this.status = this.append('discourse-status-box');
+
+        
         //this.imageEditor = this.append('discourse-image-editor');
             //this.status = this.append('discourse-status');
     },

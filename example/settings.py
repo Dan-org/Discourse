@@ -21,7 +21,7 @@ INSTALLED_APPS = (
     'django.contrib.humanize',
 
     'discourse',
-    'example'
+    'example',
 )
 
 ### Data ###
@@ -43,3 +43,4 @@ SECRET_KEY = 'not-so-secret'
 
 ### Misc ###
 SITE_ID = 1
+

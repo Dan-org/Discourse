@@ -16,18 +16,31 @@
     </ul>
 
     <div class="content">
-        {% for page in content %}
+        {% for page in content %}        
             {% if not page.is_empty or editable %}
                 <div class="panel" id="panel_{{forloop.counter}}">
                     <h3><a name="page_{{forloop.counter}}"></a>{{page.title}}</h3>
-                    {% for section in page.sections %}
-                        {% if section.body|striptags or editable %}
-                        <div class="content-block">
-                            <h4 class="content-title">{{section.title}}</h4>
-                            <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}">{{section.body|safe}}</div>
-                        </div>
-                        {% endif %}
-                    {% endfor %}
+                    
+                    {# Page that has sections #}
+                    {% if page.sections %}
+                        {% for section in page.sections %}
+                            {% if section.body|striptags or editable %}
+                            <div class="content-block">
+                                <h4 class="content-title">{{section.title}}</h4>
+                                <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}">{{section.body|safe}}</div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+
+                    {# Page that has no sub sections #}
+                    {% else %}
+                        {% if page.body|striptags or editable %}
+                            <div class="content-block">                                
+                                <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{page.attribute}}">{{page.body|safe}}</div>
+                            </div>
+                            {% endif %}
+                    {% endif %}
+
                 </div>
             {% endif %}
         {% endfor %}

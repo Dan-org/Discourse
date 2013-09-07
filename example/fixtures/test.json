@@ -1,0 +1,1 @@
+[{"pk": "generic", "model": "discourse.documenttemplate", "fields": {"structure": "[{'content': 'Content'}]"}}, {"pk": 1, "model": "discourse.document", "fields": {"path": "example/page/1", "template": "generic"}}, {"pk": 1, "model": "example.page", "fields": {"path": "home", "title": "Home"}}]

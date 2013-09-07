@@ -1,4 +1,5 @@
 {% load discourse %}
+
 <!DOCTYPE html>
 
 <html>
@@ -6,15 +7,21 @@
         <link rel="stylesheet" href="{{STATIC_URL}}style.css">
         <script type="text/javascript" src="{{STATIC_URL}}jquery.js"></script>
 
-        {% include "discourse/assets.html" %}
+
+        <link rel="stylesheet" href="{{STATIC_URL}}discourse/css/document.css">
+        <link rel="stylesheet" href="{{STATIC_URL}}discourse/css/status.css">
+
     </head>
     <body>
         <div class="layout">
+
             <h1>{{ page.title }}</h1>
-
             {% document page %}
-
+          
             {% thread page %}
+          
         </div>
     </body>
 </html>
+
+
