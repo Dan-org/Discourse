@@ -124,11 +124,7 @@ class Library(ttag.Tag):
         except PermissionDenied:
             context_vars['hidden'] = True
 
-        source = render_to_string('discourse/library.html', context_vars, context)
-        if context_vars['editable'] and not context.get('__discourse_editable__', False):
-            context['__discourse_editable__'] = True
-            return "%s\n%s" % (render_to_string('discourse/assets/editable.html', {}, context), source)
-        return source
+        return render_to_string('discourse/library.html', context_vars, context)
 
 
 class AttachmentUrl(ttag.Tag):
@@ -196,11 +192,7 @@ class Frame(ttag.Tag):
         except PermissionDenied:
             context_vars['hidden'] = True
 
-        source = render_to_string('discourse/frame.html', context_vars, context)
-        if context_vars['editable'] and not context.get('__discourse_editable__', False):
-            context['__discourse_editable__'] = True
-            return "%s\n%s" % (render_to_string('discourse/assets/editable.html', {}, context), source)
-        return source
+        return render_to_string('discourse/frame.html', context_vars, context)
 
 
 class DocumentTag(ttag.Tag):
@@ -225,11 +217,8 @@ class DocumentTag(ttag.Tag):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
         template = data.get('template')
-        from pprint import pprint
-        pprint(vars(context))
         request = context['request']
         context['path'] = path
-        context['__discourse_editable'] = True
 
         try:
             doc = Document.objects.get(path=path)
@@ -248,12 +237,7 @@ class DocumentTag(ttag.Tag):
         except PermissionDenied:
             context_vars['hidden'] = True
 
-        src = render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)
-        if context_vars['editable'] and not context.get('__discourse_editable__', False):
-            context['__discourse_editable__'] = True
-            editable = render_to_string('discourse/assets/editable.html', {}, context)
-            return "%s\n%s" % (editable, src)
-        return src
+        return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)
 
     class Meta:
         name = "document"
@@ -299,9 +283,9 @@ class StreamTag(ttag.Tag):
         name = "stream"
 
 
-class Editable(ttag.Tag):
+class EditableTag(ttag.Tag):
     """
-    Outputs a property of an object in such a way so that it can be edited live, very easily.
+    Outputs a property of an model object in such a way so that it can be edited live, very easily.
     """
     object = ttag.Arg(required=True)
     property = ttag.Arg(required=True)
@@ -317,6 +301,8 @@ class Editable(ttag.Tag):
         default = data.get('default', None)
         value = getattr(object, property, default)
         path = get_path(context, object)
+        field = object.__class__._meta.get_field_by_name(property)
+        
         return render_to_string('discourse/editable.html', {'value': value, 
                                                             'object': object,
                                                             'property': property,
@@ -349,5 +335,5 @@ register.tag(Library)
 register.tag(Frame)
 register.tag(DocumentTag)
 register.tag(StreamTag)
-register.tag(Editable)
+register.tag(EditableTag)
 register.tag(Path)

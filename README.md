@@ -11,3 +11,23 @@ It adds the following capabilities:
 - Media Library (media uploads as attachment's to objects)
 - Calendar System (gleens support)
 - Event Stream System (like a facebook or twitter feed)
+
+
+
+Thoughts
+======================
+publish('comment.create', {
+    'path': 'loft/report/24/prompt/5/',
+    'url': '/discourse/{{asdf}}/',
+    't': 1235134523.42,
+    'comment': {
+        'id': comment.id,
+        'raw': comment.body,
+        'body': comment.render_body(),
+    },
+    'actor': {
+        'id': comment.
+        'name': 'Bill',
+        'thumbnail': '/static/{{asdf}}'
+    }
+})

@@ -1,4 +1,136 @@
+LibraryViewOptions = Tea.Element.extend({
+    value: 'list',
+    cls: 'view-options',
+    init : function() {
+        this.__super__();
+
+        if (this.source[0].childNodes.length == 0) {
+            this.build();
+        }
+
+        this.setValue(this.value);
+    },
+    build : function() {
+        this.source.append('<a class="option option-list">');
+        this.source.append('<a class="option option-tile">');
+    },
+    setValue : function(v) {
+        if (!this.listButton) return this.value = v;
+
+        this.source.find('a').removeClass('selected');
+        this.source.find('a.option-' + v).addClass('selected');
+        this.value = v;
+    },
+    getValue : function() {
+        return this.value;
+    }
+});
+
+Library = Tea.Container.extend({
+    type: 'library',
+    cls: 'library',
+    path: null,
+    init : function() {
+        this.__super__();
+
+        this.path = this.path || this.source.attr('path');
+
+        if (this.source[0].childNodes.length > 0) {
+            this.retrofit();
+        } else {
+            this.build();
+        }
+
+        this.insertBefore = this.adder;
+
+        this.hook(discourse, 'attachment', this.changeFile(data));
+        discourse.follow(this.path);
+    },
+    changeFile : function(data) {
+        if (data.path != this.path) return;
+        console.log("File changed", data);
+    },
+    retrofit : function() {
+        this.topbar = this.source.children('topbar');
+        this.content = this.source.children('files');
+
+        this.adder = this.content.children('add');
+    },
+    build : function() {
+        this.top = $('<div class="title">').appendTo(this.source);
+        this.content = $('<div class="content">').appendTo(this.source);
+
+        this.adder = $('<a class="add" href="#">')
+            .appendTo(this.content)
+            .append('<input type="file" name="upload[]" multiple="multiple">');
+
+        this.items = [];
+        this.content.find('a').each(function(i, e){
+            this.own({
+                type: 'library-icon',
+                source: e,
+                _index: i
+            })
+        });
+    }
+});
+
 $(function() {
+    $('.library').each(function(i, e) {
+        Library({source: $(e)});
+    });
+});
+
+LibraryIcon = Tea.Container.extend({
+    type: 'library-icon',
+    cls: 'icon',
+    icon: null,
+    url: null,
+    pk: null,
+    init : function() {
+        this.__super__();
+
+        if (this.source[0].childNodes.length > 0) {
+            this.retrofit();
+        } else {
+            this.build();
+        }
+    },
+    build : function() {
+
+    },
+    retrofit : function() {
+
+    }
+});
+
+
+$(function() {
+    return;
+    Library.retrofit()
+    $('.library').each(function() {
+        var div = $(this);
+        var path = div.attr('url');
+        Library({
+            source: this
+        });
+    });
+
+        var self = this;
+        var files = this.source.find('a');
+
+        files.each(function(i, item) {
+            this.items.push(LibraryIcon({
+                source: item,
+                mimetype: item.attr('mimetype', 'plain'),
+                url: item.attr('href'),
+                pk: item.attr('attachment')
+            }));
+        });
+
+
+    return;
+
     var library = $('.library');
 
     if (library.find('ul li').length == 0) library.hide();

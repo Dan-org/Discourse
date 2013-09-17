@@ -5,6 +5,12 @@ Status
     info("working", "Saving Document...", 0);
 */
 
+$(function() {
+    $('.discourse-edit .document').each(function(i, element) {
+        Document({source: element});
+    });
+});
+
 Document = Tea.Element.extend({
     type: 'discourse-document',
     storage: null,
@@ -23,7 +29,7 @@ Document = Tea.Element.extend({
         this.hook(this.source, 'mouseup', this.onMouseup);
         this.hook(this.source, 'keydown', this.onKeyDown);
         this.hook(this.source, 'input', this.onInput);
-
+        
         if (this.is_empty()) {
             return this.source.addClass('discourse-empty').empty();
         } else {

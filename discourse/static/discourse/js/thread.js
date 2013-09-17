@@ -265,7 +265,6 @@ function addNewComment(comment) {
     });
 
     if (existing.length > 0) {
-        console.log("Updating comment...");
         return updateComment(existing, comment);
     }
 
@@ -275,11 +274,15 @@ function addNewComment(comment) {
                         .attr("rel", comment.id)
                         .append(comment['_html']);
 
-    if (form.hasClass("response-form"))
-        form.before(newComment);
-    else
-        form.after(newComment);
-
+    if (comment.parent) {
+        $('#comment-' + comment.parent).find('form').before(newComment);
+    } else {
+        if (form.hasClass('response-form'))
+            form.before(newComment);
+        else
+            form.after(newComment);
+    }
+    
     if (!comment.parent) {
         newComment.addClass('repliable');
     }
@@ -297,53 +300,40 @@ function addNewComment(comment) {
 
 $(function() {
     $('.discourse .thread').each(function(i, e) {
-        socket.emit("follow", $(e).attr('rel'));
+        discourse.follow($(e).attr('rel'));
     })
     
     $('.discourse .thread form').each(function(i, e) { commentForm(e) });
 
-    $(document).on('click', '.discourse .thread .comment .actions .delete', deleteAction);
-    $(document).on('click', '.discourse .thread .comment .actions .edit', editAction);
-    $(document).on('click', '.discourse .thread .comment .actions .reply', replyAction);
-    $(document).on('click', '.discourse .thread .comment .upvote', voteAction(1));
-    $(document).on('click', '.discourse .thread .comment .downvote', voteAction(-1));
+    $(document).on('click', '.discourse .thread .actions .delete', deleteAction);
+    $(document).on('click', '.discourse .thread .actions .edit', editAction);
+    $(document).on('click', '.discourse .thread .actions .reply', replyAction);
+    $(document).on('click', '.discourse .thread .upvote', voteAction(1));
+    $(document).on('click', '.discourse .thread .downvote', voteAction(-1));
 });
 
+discourse.on('comment', function (comment) {
+    addNewComment(comment);
+});
 
-if (window.io == undefined) {
-    var socket = {
-        emit: $.noop
-    };
-} else {
-    var socket = io.connect("/discourse");
-
-    socket.on('connect', function () {
-        console.log("Connected!");
+discourse.on('vote', function (data) {
+    var id = data.id;
+    var value = data.value;
+    $('.comment').each(function(i, e) {
+        var source = $(e);
+        if (source.attr('rel') == id) {
+            var current = source.find('.score')[0].innerHTML;
+            if (value + "" == current) return;
+            source.find('.score').eq(0).empty().append(value).fadeOut().fadeIn();
+        }
     });
+});
 
-    socket.on('comment', function (comment) {
-        addNewComment(comment);
+discourse.on('delete', function(id) {
+    $('.comment').each(function(i, e) {
+        var source = $(e);
+        if (source.attr('rel') == id) {
+            deleteComment(source);
+        }
     });
-
-    socket.on('vote', function (data) {
-        var id = data.id;
-        var value = data.value;
-        $('.comment').each(function(i, e) {
-            var source = $(e);
-            if (source.attr('rel') == id) {
-                var current = source.find('.score')[0].innerHTML;
-                if (value + "" == current) return;
-                source.find('.score').eq(0).empty().append(value).fadeOut().fadeIn();
-            }
-        });
-    });
-
-    socket.on('delete', function(id) {
-        $('.comment').each(function(i, e) {
-            var source = $(e);
-            if (source.attr('rel') == id) {
-                deleteComment(source);
-            }
-        });
-    });
-}
+});
