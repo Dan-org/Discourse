@@ -1,10 +1,3 @@
-/*
-Status
-    info("failure", "Error with doing things.", 5000);
-    info("success", "Save success.", 1000);
-    info("working", "Saving Document...", 0);
-*/
-
 $(function() {
     $('.discourse-edit .document').each(function(i, element) {
         Document({source: element});

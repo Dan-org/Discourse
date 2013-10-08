@@ -453,7 +453,8 @@ class Document(models.Model):
                 body = content_map.get(left, '')
                 try:
                     body = Template(body).render(context)
-                except:
+                except Exception, e:
+                    print e
                     pass
                 is_empty = not bool( body.strip() )
                 parts.append({'attribute': left, 'title': right, 'body': body, 'is_empty': is_empty})

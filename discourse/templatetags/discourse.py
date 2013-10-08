@@ -204,7 +204,13 @@ class DocumentTag(ttag.Tag):
 
     def get_default_template(self, path, template=None):
         if template:
-            return DocumentTemplate.objects.get(slug=template)
+            try:
+                return DocumentTemplate.objects.get(slug=template)
+            except DocumentTemplate.DoesNotExist:
+                return DocumentTemplate.objects.create(
+                    slug=template,
+                    structure="- content: Content",
+                )
         try:
             return DocumentTemplate.objects.all()[0]
         except IndexError:

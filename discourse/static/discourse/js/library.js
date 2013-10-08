@@ -43,8 +43,8 @@ Library = Tea.Container.extend({
 
         this.insertBefore = this.adder;
 
-        this.hook(discourse, 'attachment', this.changeFile(data));
-        discourse.follow(this.path);
+        //this.hook(discourse, 'attachment', this.changeFile(data));
+        //discourse.follow(this.path);
     },
     changeFile : function(data) {
         if (data.path != this.path) return;
