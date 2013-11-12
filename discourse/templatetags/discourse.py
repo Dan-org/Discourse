@@ -68,6 +68,7 @@ class ThreadTag(ttag.Tag):
         scored = bool( data.get('scored') )
         comments = Comment.get_thread(path, context.get('request').user)
         template = data.get('template') or 'discourse/thread.html'
+
         return render_to_string(template, {'comments': comments, 
                                            'path': path,
                                            'depth': data.get('depth'),

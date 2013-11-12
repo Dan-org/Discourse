@@ -6,3 +6,11 @@
 <script type="text/javascript" src="{% static 'discourse/js/status.js' %}"></script>
 <script type="text/javascript" src="{% static 'discourse/js/overlay.js' %}"></script>
 <script type="text/javascript" src="{% static 'discourse/js/toolbar.js' %}"></script>
+
+<script type="text/javascript">
+    DISCOURSE_EXTRA_BLOCKS = [
+        {% for slug, type, img in DISCOURSE_EXTRA_BLOCKS %}
+            ["{{slug}}", "{{type}}", "{{img}}"]{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+</script>

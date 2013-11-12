@@ -277,10 +277,17 @@ class Stream(models.Model):
 
         TODO: Cache this.
         """
-        events = self.events.all().order_by('-id')
+        q = self.events.all().order_by('-id')[:size]
         if after:
-            events = events.filter(id__gt=after)
-        events = events[:size]
+            q = events.filter(id__gt=after)
+
+        events = []
+        for event in q:
+            try:
+                a = event.object
+                events.append(event)
+            except models.ObjectDoesNotExist:
+                event.delete()
 
         context = RequestContext(request, {'stream': self})
 
