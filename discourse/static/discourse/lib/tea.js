@@ -22,20 +22,20 @@
      **/
     Tea.require = function()
     {
-    	for(var i=0; i < arguments.length; i++)
-    	{
-    		var src = Tea.root + arguments[i];
-    		if (Tea.require.map[src])
-    			return;
-    		Tea.require.map[src] = true;
-    		try {
-    			extension = src.match(/.*?\.(js|css)/i)[1];
-    		} catch(e) { throw "Can only import .css or .js files, not whatever this is: " + src; }
-    		if (extension == 'js')
-    			document.write('<script type="text/javascript" src="' + src + '"></script>\n');
-    		else if (extension == 'css')
-    			document.write('<link rel="stylesheet" href="' + src + '" type="text/css"/>\n');
-    	}
+        for(var i=0; i < arguments.length; i++)
+        {
+            var src = Tea.root + arguments[i];
+            if (Tea.require.map[src])
+                return;
+            Tea.require.map[src] = true;
+            try {
+                extension = src.match(/.*?\.(js|css)/i)[1];
+            } catch(e) { throw "Can only import .css or .js files, not whatever this is: " + src; }
+            if (extension == 'js')
+                document.write('<script type="text/javascript" src="' + src + '"></script>\n');
+            else if (extension == 'css')
+                document.write('<link rel="stylesheet" href="' + src + '" type="text/css"/>\n');
+        }
     }
     Tea.require.map = {}
 
@@ -47,9 +47,10 @@
     {
         return function()
         {
+            var prevSuper = this.__super__;
             this.__super__ = function() { return super_func.apply(this, arguments) };
             var r = func.apply(this, arguments);
-            delete this.__super__;
+            this.__super__ = prevSuper;
             return r;
         }
     }
@@ -135,7 +136,6 @@
     Tea.createInstance = function(Type) {
         _creating = true;
         var instance = new Type();
-        //console.log('createInstance', instance, instance.constructor, Type);
         _creating = false;
         return instance;
     }
@@ -184,7 +184,6 @@
         
         Type.create = function(options) {
             var instance = Tea.createInstance(Type);
-            //console.log("create", instance, instance.constructor, Type, options);
             instance.__options__ = options || {};
             Tea.extend(instance, instance.__options__);
             instance.init(instance.__options__);
@@ -807,7 +806,6 @@ Tea.Fieldset = Tea.Container.extend({
         return errorMap;
     }
 });
-
 Tea.Form = Tea.Fieldset.extend({
     type: 't-form',
     cls: 't-form t-fieldset',
@@ -815,6 +813,7 @@ Tea.Form = Tea.Fieldset.extend({
     method: "post",
     source: '<form/>',
     submit: jQuery.noop,
+    submitSource: '<input type="submit" class="t-submit t-hide"/>',
     context: null,
     render : function() {
         var source = this.__super__();
@@ -824,7 +823,7 @@ Tea.Form = Tea.Fieldset.extend({
             method: this.method
         });
 
-        this._submit = $('<input type="submit" class="t-submit t-hide"/>').appendTo(source);
+        this._submit = this.insertBefore = $(this.submitSource).appendTo(source);
 
         this.hook(source, 'submit', this.triggerSubmit);
 
