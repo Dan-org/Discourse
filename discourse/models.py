@@ -242,6 +242,10 @@ class Event(models.Model):
         return self._object
 
     @property
+    def object_type(self):
+        return self.object.__class__.__name__.lower()
+
+    @property
     def template(self):
         return "discourse/stream/%s.html" % self.type
 
@@ -476,8 +480,6 @@ class DocumentContent(models.Model):
     document = models.ForeignKey(Document, related_name="content")
     attribute = models.SlugField()
     body = models.TextField()
-    #author = models.ForeignKey(settings.AUTH_USER_MODEL)
-    #modified = models.DateTimeField()
 
     def __unicode__(self):
         return self.attribute
@@ -488,6 +490,28 @@ class DocumentContent(models.Model):
             'body': self.body,
             'url': self.document.url,
         }
+
+
+#class DocumentChange(models.Model):
+#    """
+#    A change made on a document.
+#    """
+#    content = models.ForeignKey(DocumentContent, related_name="changes")
+#    delta = models.TextField()
+#    author = models.ForeignKey(settings.AUTH_USER_MODEL)
+#    created = models.DateTimeField()
+#    version = models.PositiveIntegerField(default=0)
+#
+#    def __unicode__(self):
+#        return "DocumentChange."
+#
+#    def info(self):
+#        return {
+#            'delta': self.delta,
+#            'author': self.author,
+#            ''
+#        }
+
 
 
 #    def save(self, *args, **kwargs):

@@ -14,7 +14,6 @@ class DiscourseSocket(BaseNamespace):
         for item in o.listen():
             if item['type'] == 'message':
                 item = json.loads(item['data'])
-                print item
                 if item['type'] == 'vote':
                     self.emit('vote', item)
                 elif item['type'] == 'comment':

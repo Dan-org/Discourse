@@ -806,6 +806,7 @@ Tea.Fieldset = Tea.Container.extend({
         return errorMap;
     }
 });
+
 Tea.Form = Tea.Fieldset.extend({
     type: 't-form',
     cls: 't-form t-fieldset',
@@ -830,7 +831,6 @@ Tea.Form = Tea.Fieldset.extend({
         return source;
     },
     triggerSubmit : function(e) {
-        return false;
         if (this.submit)
             return this.submit.call(this || this.context, e);
         else
@@ -1285,10 +1285,10 @@ Tea.TextArea = Tea.Input.extend({
     cls: 't-textarea',
     source: '<textarea/>',
     getValue : function() {
-        return this.source.html();
+        return this.source.val();
     },
     setValue : function(v) {
-        this.source.empty().append(v);
+        this.source.val(v);
     }
 });
 

@@ -201,7 +201,9 @@ class DocumentTag(ttag.Tag):
     Creates a document with multiple sections.
     """
     path = ttag.Arg(required=False)
-    template = ttag.Arg(required=False, keyword=True)
+    sub = ttag.Arg(default=None, keyword=True, required=False)          # Optional sub-document
+    template = ttag.Arg(required=False, keyword=True)                   # Optional template name
+    seed = ttag.Arg(default=None, keyword=True, required=False )        # Optional seed for the content
 
     def get_default_template(self, path, template=None):
         if template:
@@ -216,13 +218,13 @@ class DocumentTag(ttag.Tag):
             return DocumentTemplate.objects.all()[0]
         except IndexError:
             return DocumentTemplate.objects.create(
-                slug="generic",
+                slug="simple",
                 structure="- content: Content",
             )
 
     def render(self, context):
         data = self.resolve(context)
-        path = get_path(context, data.get('path'))
+        path = get_path(context, data.get('path'), data.get('sub'))
         template = data.get('template')
         request = context['request']
         context['path'] = path
@@ -232,8 +234,11 @@ class DocumentTag(ttag.Tag):
         except Document.DoesNotExist:
             doc = Document.objects.create(path=path, template=self.get_default_template(path, template))
 
+        content = doc.get_content(context)
+        #print path, "CONTENT", content
+
         context_vars = {'document': doc,
-                        'content': doc.get_content(context),
+                        'content': content,
                         'path': path,
                         'hidden': False,
                         'request': request,
