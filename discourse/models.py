@@ -516,12 +516,20 @@ class DocumentContent(models.Model):
 
 #    def save(self, *args, **kwargs):
 #        try:
-#            zero = self.deltas.get()
+#            zero = self.deltas.get(version=0)
 #        except DocumentContent.DoesNotExist:
 #            zero = DocumentContent(attribute=attribute, version=0, body="")
-#        delta = difflib.diff(zero.body, body)
+#        delta = difflib.diff(zero.body, self.body)
 #
 #
+
+#def update(self, body):
+#    delta = difflib.diff(zero.body, self.body)
+
+#def save(self):
+#    self.body
+
+
 #class DocumentDelta(models.Model):
 #    content = models.ForeignKey(DocumentContent, related_name="deltas")
 #    version = models.PositiveIntegerField()

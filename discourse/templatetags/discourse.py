@@ -235,7 +235,7 @@ class DocumentTag(ttag.Tag):
             doc = Document.objects.create(path=path, template=self.get_default_template(path, template))
 
         content = doc.get_content(context)
-        #print path, "CONTENT", content
+        print "CONTENT", content
 
         context_vars = {'document': doc,
                         'content': content,
