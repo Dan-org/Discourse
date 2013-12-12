@@ -132,6 +132,7 @@ class Library(ttag.Tag):
         context_vars = {'attachments': attachments,
                         'path': path,
                         'hidden': False,
+                        'is_empty': False,
                         'request': request,
                         'editable': request.user.is_superuser}
 
@@ -139,6 +140,9 @@ class Library(ttag.Tag):
             library_view.send(sender=Attachment, request=request, context=context_vars)
         except PermissionDenied:
             context_vars['hidden'] = True
+
+        if context_vars['hidden']:
+            return ""
 
         return render_to_string('discourse/library.html', context_vars, context)
 
@@ -264,6 +268,7 @@ class DocumentTag(ttag.Tag):
                         'content': content,
                         'path': path,
                         'hidden': False,
+                        'is_empty': all([p['is_empty'] for p in content]),
                         'request': request,
                         'editable': request.user.is_superuser}
 
@@ -271,6 +276,9 @@ class DocumentTag(ttag.Tag):
             document_view.send(sender=doc, request=request, context=context_vars)
         except PermissionDenied:
             context_vars['hidden'] = True
+
+        if context_vars['hidden']:
+            return ""
 
         return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)
 
