@@ -52,20 +52,18 @@ Storage = Tea.Class({
         // Ajax!
         this._ajax = jQuery.ajax({
             url: this.url,
-            data: {attribute: this.attribute, body: this.value},
+            data: {attribute: this.attribute, value: this.value},
             method: 'post',
             success: jQuery.proxy(this.onSuccess, this),
             error: jQuery.proxy(this.onFailure, this)
         });
 
-        console.log(this._ajax);
-
         // Trigger an event, yo.
         this.trigger('saving');
     },
-    onSuccess : function() {
+    onSuccess : function(value) {
         this._failures = 0;
-        this.trigger('success');
+        this.trigger('success', [value]);
     },
     onFailure : function(xhr, status, error) {
         if (error == 'abort') return;

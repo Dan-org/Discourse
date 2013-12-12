@@ -157,19 +157,20 @@ def document(request, path):
     document = get_object_or_404(Document, path=path.rstrip('/'))
     try:
         if request.method == 'POST':
-            if not request.user.is_superuser:
-                return HttpResponse(status=403)
             attribute = request.POST['attribute']
-            body = request.POST['body']
-            body = clean_html(body)
-            if body.strip() == '':
+            value = request.POST['value']
+            for reciever, response in document_manipulate.send(sender=document, request=request, action='edit'):
+                if isinstance(response, HttpResponse):
+                    return response
+            value = clean_html(value)
+            if value.strip() == '':
                 document.content.filter(attribute=attribute).delete()
                 return HttpResponse(json.dumps(None), content_type="application/json")
-            content, created = document.content.get_or_create(attribute=attribute, defaults={'body': body})
+            content, created = document.content.get_or_create(attribute=attribute, defaults={'body': value})
             if not created:
-                content.body = body
+                content.body = value
                 content.save()
-            return HttpResponse(json.dumps(content.info()), content_type="application/json")
+            return HttpResponse(json.dumps(content.info(locals())), content_type="application/json")
     except Exception, e:
         print e
         raise

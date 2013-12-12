@@ -1,9 +1,11 @@
 import urllib
 import ttag
+import json
 
 from django.core.exceptions import PermissionDenied
 from django.template.loader import render_to_string
 from django.template import Template
+from django.utils.safestring import mark_safe
 from django.conf import settings
 from django.db import models
 from django import template
@@ -30,6 +32,19 @@ def get_path(context, path, sub=None):
     if sub:
         path = "%s:%s" % (path, sub)
     return path
+
+
+def get_path_list(context, parts):
+    """Returns a real path for the given path parts."""
+    path = []
+    for part in parts:
+        if isinstance(part, models.Model):
+            path.append( model_sig(part) )
+        else:
+            path.append( part )
+    if path:
+        return ":".join(path)
+    return "url:" + urllib.quote( context['request'].get_full_path() )
 
 
 ### Tags ###
@@ -163,21 +178,30 @@ class Frame(ttag.Tag):
     Create a frame with a class of "big-image":
 
         {% frame class="big-image" %}
+
+    Create a frame with only the featured images in the library:
+
+        {% frame featured=True %}
     """
-    library = ttag.Arg(required=False)
+    path = ttag.MultiArg()
     width = ttag.Arg(required=False, keyword=True)
     height = ttag.Arg(required=False, keyword=True)
     class_ = ttag.Arg(required=False, keyword=True)
+    featured = ttag.Arg(required=False, keyword=True)
 
     def render(self, context):
         data = self.resolve(context)
         request = context['request']
         width = data.get('width')
         height = data.get('height')
+        featured = data.get('featured')
         cls = data.get('class_')
-        path = get_path(context, data.get('path'))
+        path = get_path_list(context, data.get('path'))
         attachments = Attachment.get_folder(path)
         context['library'] = path
+
+        if (featured):
+            attachments = attachments.filter(featured=True)
 
         context_vars = {'attachments': attachments,
                         'path': path,
@@ -235,7 +259,6 @@ class DocumentTag(ttag.Tag):
             doc = Document.objects.create(path=path, template=self.get_default_template(path, template))
 
         content = doc.get_content(context)
-        print "CONTENT", content
 
         context_vars = {'document': doc,
                         'content': content,
@@ -349,3 +372,10 @@ register.tag(DocumentTag)
 register.tag(StreamTag)
 register.tag(EditableTag)
 register.tag(Path)
+
+
+### Filters ###
+@register.filter(is_safe=True)
+def to_json(value):
+    return mark_safe(json.dumps(value))
+

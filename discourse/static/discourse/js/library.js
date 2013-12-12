@@ -42,6 +42,8 @@ Library = Tea.Container.extend({
         }
 
         this.insertBefore = this.adder;
+        
+        this.source.hide();
 
         //this.hook(discourse, 'attachment', this.changeFile(data));
         //discourse.follow(this.path);

@@ -1,4 +1,5 @@
 import re
+import traceback
 import posixpath
 
 from datetime import datetime
@@ -426,6 +427,7 @@ class Document(models.Model):
         """
         if context is None:
             context = Context({})
+        context['document'] = self
         structure = self.template.structure
         content_map = dict((c.attribute, c.body) for c in self.content.all())
         return self._content_tree(structure, content_map, context)
@@ -446,10 +448,10 @@ class Document(models.Model):
         e.g.
         [
             {'title': 'Page 1', 'is_empty': False, sections': [
-                {'attribute': 'summary', 'title': 'Summary', 'body': '...', 'is_empty': False}
+                {'attribute': 'summary', 'title': 'Summary', 'html': '...', 'is_empty': False}
             ]},
             {'title': 'Page 2', 'is_empty': True, sections': [
-                {'attribute': 'overview', 'title': 'Overview', 'body': '', 'is_empty': True}
+                {'attribute': 'overview', 'title': 'Overview', 'html': '', 'is_empty': True}
             ]},
         ]
         """
@@ -461,14 +463,13 @@ class Document(models.Model):
                 is_empty = all(x['is_empty'] for x in sections)
                 parts.append({'title': left, 'sections': sections, 'is_empty': is_empty})
             else:
-                body = content_map.get(left, '')
+                src = content_map.get(left, '')
                 try:
-                    body = Template(body).render(context)
+                    html = Template(src).render(context)
                 except Exception, e:
-                    print e
-                    pass
-                is_empty = not bool( body.strip() )
-                parts.append({'attribute': left, 'title': right, 'body': body, 'is_empty': is_empty})
+                    html = '<div class="template-error"><strong>Error rendering body</strong><br>%s: %s<br>%s</div>' % (e.__class__.__name__, e, traceback.format_exc())
+                is_empty = not bool( html.strip() )
+                parts.append({'attribute': left, 'title': right, 'html': html, 'src': src, 'is_empty': is_empty})
         return parts
 
 
@@ -484,12 +485,23 @@ class DocumentContent(models.Model):
     def __unicode__(self):
         return self.attribute
 
-    def info(self):
+    def info(self, context=None):
         return {
             'attribute': self.attribute,
-            'body': self.body,
+            'src': self.body,
+            'html': self.render(context),
             'url': self.document.url,
         }
+
+    def render(self, context):
+        context = RequestContext(context or {})
+        context['document'] = self.document
+        try:
+            html = Template(self.body).render(context)
+        except Exception, e:
+            is_error = True
+            html = '<div class="template-error"><strong>Error rendering body</strong><br>%s: %s<br>%s</div>' % (e.__class__.__name__, e, traceback.format_exc())
+        return html
 
 
 #class DocumentChange(models.Model):

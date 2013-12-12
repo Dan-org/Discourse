@@ -11,11 +11,19 @@ Document = Tea.Element.extend({
     init : function() {
         this.__super__();
         this.editing = false;
+
+        this._src = this.source.children('.src');
+        this._html = this.source.children('.html');
+
         if (!this.storage)
             this.storage = Storage({ document: this,
                                      url: this.source.attr('url'),
                                      attribute: this.source.attr('attribute'),
                                      value: this.getValue() });
+
+        this.hook(this.storage, 'success', function(value) {
+            this.setValue(value);
+        })
 
         this.hook($(document), 'click', this.onDocClick);
         this.hook($(document), 'unload', this.stopEditing);
@@ -24,7 +32,9 @@ Document = Tea.Element.extend({
         this.hook(this.source, 'input', this.onInput);
         
         if (this.is_empty()) {
-            return this.source.addClass('discourse-empty').empty();
+            this.source.addClass('discourse-empty');
+            this._src.empty();
+            this._html.empty();
         } else {
             this.source.removeClass('discourse-empty');
         }
@@ -36,7 +46,8 @@ Document = Tea.Element.extend({
                    .removeClass('discourse-empty')
                    .focus();
 
-        this.collapseRepr();
+        this._src.show();
+        this._html.hide();
 
         if (this.is_empty()) {
             this.cursorSanityCheck();
@@ -48,6 +59,9 @@ Document = Tea.Element.extend({
     stopEditing : function() {
         Overlay.stopEdit(this);
         
+        this._src.hide();
+        this._html.show();
+
         this.sanitize();
 
         if (this.is_empty()) {
@@ -58,10 +72,12 @@ Document = Tea.Element.extend({
 
         this.source.attr('contenteditable', false)
                    .removeClass('discourse-editing');
-        this.storage.setValue(this.getValue());
+        this.storage.setValue(this.getValue().src);
         this.storage.save();
 
-        this.expandRepr();
+        this._html.empty().append(this._src.html());
+
+        //this.expandRepr();
         this.editing = false;
     },
     collapseRepr : function() {
@@ -121,10 +137,14 @@ Document = Tea.Element.extend({
         }
     },
     getValue : function() {
-        return this.source.html().trim();
+        return {
+            'src': this._src.html().trim(),
+            'html': this._html.html().trim()
+        }
     },
     setValue : function(v) {
-        this.source.html(v);
+        this._src.html(v.src);
+        this._html.html(v.html);
     },
     exec : function(name) {
         return this['command_' + name]();
@@ -162,10 +182,10 @@ Document = Tea.Element.extend({
             document.execCommand("insertHTML", false, '<img src="' + media_src + '"/>');
     },
     is_empty : function() {
-        return (this.source.text().trim() == '' && this.source.find('image').length == 0);
+        return (this._src.text().trim() == '' && this._src.find('image').length == 0);
     },
     sanitize : function() {
-        var src = this.source;
+        var src = this._src;
 
         // Unwrap unnatural structures.
         while(src.find('p p').length > 0) { src.find('p p').unwrap(); }
@@ -178,7 +198,7 @@ Document = Tea.Element.extend({
         // Tags allowed to be in the first level.
         var first_level = ['p', 'header', 'blockquote', 'ul', 'ol', 'div'];
 
-        // Remove style tags on blackquotes / paragraphs, wtf.
+        // Remove style tags on blockquotes / paragraphs, wtf.
         src.find('p').attr('style', null);
         src.find('blockquote').attr('style', null);
 
@@ -202,12 +222,12 @@ Document = Tea.Element.extend({
         }
     },
     cursorSanityCheck : function() {
-        var src = this.source;
+        var src = this._src;
 
         // Ensures the cursor that there is at least one block object.
         if (src.children().length == 0) {
             var p = $("<p>&nbsp;</p>");
-            this.source.empty().append(p);
+            src.empty().append(p);
             this.selectAllChildren( p );
             return;
         }
@@ -229,7 +249,7 @@ Document = Tea.Element.extend({
         window.getSelection().selectAllChildren(obj[0]);
     },
     findClosestBlock : function() {
-        var base = this.source[0];
+        var base = this._src[0];
         var sel = window.getSelection();
         var blocks = this.block_types;
         var node = sel.anchorNode;
@@ -244,7 +264,9 @@ Document = Tea.Element.extend({
         return null;
     },
     getBlockAroundSelection : function() {
-        return this.findClosestBlock().nodeName;
+        var block = this.findClosestBlock();
+        if (block)
+            return block.nodeName;
     }
 });
 
