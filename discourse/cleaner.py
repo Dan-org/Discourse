@@ -1,7 +1,7 @@
 from bleach import clean
 
 ALLOWED_TAGS = """
-p blockquote ul ol li br
+p blockquote ul ol li br h4
 b strong em i u strike sup sub
 img video source a
 table td tr th tbody thead caption

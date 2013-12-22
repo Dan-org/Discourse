@@ -1,6 +1,9 @@
 import re
 import traceback
 import posixpath
+import thread, zipfile, hashlib, os
+
+from cStringIO import StringIO
 
 from datetime import datetime
 from yamlfield import YAMLField
@@ -17,6 +20,7 @@ from django.core.exceptions import PermissionDenied
 from django.template.loader import render_to_string
 from django.db.models.signals import pre_save, post_save
 from django.utils.html import normalize_newlines, urlize
+from django.core.files.base import ContentFile
 
 
 ### Helpers ###
@@ -306,7 +310,9 @@ class Attachment(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL)
     caption = models.TextField(blank=True)
     featured = models.BooleanField(default=False)
+    hidden = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True, blank=True, null=True)
     order = models.IntegerField(default=0)
     file = models.FileField(upload_to="attachments")
 
@@ -347,7 +353,8 @@ class Attachment(models.Model):
             'order': self.order,
             'filename': self.filename,
             'url': self.url,
-            'icon': self.icon
+            'icon': self.icon,
+            'hidden': self.hidden
         }
 
     def __unicode__(self):
@@ -366,34 +373,85 @@ class Attachment(models.Model):
         return cls._default_manager.filter(path__startswith=path)
 
 
+ATTACHMENT_ZIP_STATUSES = (
+    ('working', 'Working'),
+    ('ready', 'Ready'),
+    ('failed', 'Failed'),
+)
 
-class WikiNode(models.Model):
+
+class AttachmentZip(models.Model):
     """
-    A node for a wiki.
+    A zip of many attachments.
     """
-    parent = models.ForeignKey("WikiNode", blank=True, null=True, related_name="children")
-    title = models.CharField(max_length=255)
-    slug = models.SlugField()
-    path = models.CharField(blank=True, max_length=255)
+    hash = models.CharField(primary_key=True, max_length=255)
+    attachments = models.ManyToManyField(Attachment, blank=True, null=True)
+    updated = models.DateTimeField(blank=True, null=True)
+    file = models.FileField(upload_to='attachment_zips', blank=True, null=True)
+    status = models.SlugField(default='working', choices=ATTACHMENT_ZIP_STATUSES)
+
+    @property
+    def url(self):
+        return reverse('discourse:zip', args=[self.hash])
 
     def __unicode__(self):
-        return self.path
+        return "AttachmentZip:%s" % self.hash
+    __repr__ = __unicode__
 
-    def branch(self):
-        if self.parent:
-            return self.parent.branch() + (self,)
-        else:
-            return (self,)
+    def is_current(self):
+        return False
 
-    def save(self, *args, **kwargs):
-        self.path = "/%s" % ("/".join(x.slug for x in self.branch()))
-        super(WikiNode, self).save()
+        if not self.updated:
+            return False
 
-        # If we changed our slug, we have to update our children as well so that their paths
-        # are correct.
-        for c in self.children.all():
-            c.save()
+        for a in self.attachments:
+            if self.updated < a.modified:
+                return False
 
+        return True
+
+    def update(self):
+        self.status = 'working'
+        self.save()
+        thread.start_new_thread(self._update, ())
+
+    def _update(self):
+        io = StringIO()
+        
+        try:
+            zp = zipfile.ZipFile(io, "w")
+            for attachment in self.attachments.all():
+                zp.writestr('Attachments/%s' % os.path.basename(attachment.path), attachment.file.read())
+            zp.close()
+            io.seek(0)
+            self.file.save("%s.zip" % self.hash, ContentFile(io.read()))
+            self.updated = datetime.now()
+            self.status = 'ready'
+            self.save()
+            print self.url
+        except:
+            raise
+            self.status = 'failed'
+            self.save()
+
+    @classmethod
+    def create(cls, attachments):
+        hash = hashlib.new('md5')
+        for a in attachments:
+            hash.update(a.path)
+        instance, created = cls.objects.get_or_create(hash=hash.hexdigest())
+        if created:
+            instance.attachments = attachments
+        if not instance.is_current():
+            instance.update()
+        return instance
+
+    def info(self):
+        return {
+            'hash': self.hash,
+            'status': self.status,
+            'url': self.url
+        }
 
 
 class DocumentTemplate(models.Model):

@@ -15,7 +15,7 @@ from django.template import RequestContext
 from django.conf import settings
 
 from ajax import JsonResponse
-from models import Attachment, Document, Comment, CommentVote
+from models import Attachment, AttachmentZip, Document, Comment, CommentVote
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig
 
@@ -29,6 +29,13 @@ except ImportError:
 ### Helpers ###
 def render_comment(request, comment, scored=False):
     return render_to_string('discourse/thread-comment.html', locals(), RequestContext(request))
+
+
+def get_files(request, default):
+    files = request.POST.getlist('paths', request.POST.getlist('paths[]', None))
+    if files is None:
+        files = [default]
+    return files
 
 
 ### Views ###
@@ -114,9 +121,45 @@ def attachments(request, path):
     On get without path, return a list of files in the thread.
     TODO: On head with path, return info about the file.
     """
-    if request.method == 'POST':
-        if not request.user.is_superuser:
-            return HttpResponse(status=403)
+    if request.method == 'DELETE' or request.POST.get('method') == 'delete':
+        for path in get_files(request, path):
+            attachment = Attachment.objects.get(path=path)
+            for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='delete'):
+                if isinstance(response, HttpResponse):
+                    return response
+            attachment.delete()
+        return HttpResponse(json.dumps(True), content_type="application/json")
+    elif request.POST.get('method') == 'hide':
+        for path in get_files(request, path):
+            attachment = Attachment.objects.get(path=path)
+            for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='hide'):
+                if isinstance(response, HttpResponse):
+                    return response
+            attachment.hidden = True
+            attachment.save()
+        return HttpResponse(json.dumps(True), content_type="application/json")
+    elif request.POST.get('method') == 'show':
+        for path in get_files(request, path):
+            attachment = Attachment.objects.get(path=path)
+            for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='show'):
+                if isinstance(response, HttpResponse):
+                    return response
+            attachment.hidden = False
+            attachment.save()
+        return HttpResponse(json.dumps(True), content_type="application/json")
+    elif request.POST.get('method') == 'zip':
+        attachments = []
+        for path in get_files(request, path):
+            attachment = Attachment.objects.get(path=path)
+            for reciever, response in attachment_view.send(sender=attachment, request=request):
+                if isinstance(response, HttpResponse):
+                    return response
+            attachments.append(attachment)
+        zip = AttachmentZip.create(attachments)
+        response = HttpResponse(json.dumps(zip.info()), content_type="application/json", status=202)
+        response['Location'] = zip.url
+        return response
+    elif request.method == 'POST':
         file = request.FILES['file']
         path = posixpath.join(path, file._name)
         try:
@@ -126,21 +169,37 @@ def attachments(request, path):
         attachment.file = file
         attachment.mimetype = file.content_type
         attachment.author = request.user
+        for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='create'):
+            if isinstance(response, HttpResponse):
+                return response
         attachment.save()
         return HttpResponse(json.dumps(attachment.info()), content_type="application/json")
-    elif request.method == 'DELETE' or request.GET.get('method') == 'DELETE':
-        if not request.user.is_superuser:
-            return HttpResponse(status=403)
-        Attachment.objects.filter(path=path).delete()
-        return HttpResponse(json.dumps(True), content_type="application/json")
     elif path:
         attachment = get_object_or_404(Attachment, path=path)
         for reciever, response in attachment_view.send(sender=attachment, request=request):
             if isinstance(response, HttpResponse):
                 return response
         response = HttpResponse(FileWrapper(attachment.file), content_type=attachment.mimetype)
-        response['Content-Disposition'] = 'attachment; filename="%s"' % attachment.filename
         return response
+
+
+def zip(request, hash):
+    """
+    Downloads the zip with the given hash.
+    """
+    zip = get_object_or_404(AttachmentZip, hash=hash)
+    #zip.status = 'working'
+    if 'poll' in request.GET:
+        response = HttpResponse(json.dumps(zip.info()), content_type='application/json')
+    elif zip.status == 'failed':
+        response = HttpResponse("Attachment compression failed.", status=500)
+    elif zip.status == 'working':
+        response = HttpResponse("Attachment compression working.", status=202)
+        response['Location'] = zip.url
+    else:
+        response = HttpResponse(FileWrapper(zip.file), content_type='application/zip')
+        response['Content-Disposition'] = 'attachment; filename="Attachments.zip"'
+    return response
 
 
 def document(request, path):

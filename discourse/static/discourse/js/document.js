@@ -7,7 +7,7 @@ $(function() {
 Document = Tea.Element.extend({
     type: 'discourse-document',
     storage: null,
-    block_types: ["P", "UL", "OL", "BLOCKQUOTE"],
+    block_types: ["P", "UL", "OL", "BLOCKQUOTE", "H4"],
     init : function() {
         this.__super__();
         this.editing = false;
@@ -133,7 +133,7 @@ Document = Tea.Element.extend({
         if (this.editing) {
             this.sanitize();
             this.cursorSanityCheck();
-            this.storage.setValue(this.getValue());
+            this.storage.setValue(this.getValue().src);
         }
     },
     getValue : function() {
@@ -151,15 +151,24 @@ Document = Tea.Element.extend({
     },
     command_p : function() { 
         var node = this.findClosestBlock();
-        if (node.nodeName == 'P') return this.sanitize(); 
-        return this.command_outdent();
+        if (node.nodeName == 'UL' || node.nodeName == 'OL') {
+            return this.command_outdent();
+        } else if (node.nodeName != 'P') {
+            document.execCommand("formatBlock", false, "p");
+            return this.sanitize();
+        }
     },
     command_blockquote : function(cls) {
         this.command_indent();
         if (cls) {
-            var node = this.findClosestBlock();
-            $(node).addClass(cls);
+            window._node = this.findClosestBlock();
+            var node = $(this.findClosestBlock()).nearest('blockquote');
+            node.addClass(cls);
         }
+    },
+    command_h : function() {
+        document.execCommand('outdent'); document.execCommand('outdent');
+        document.execCommand("formatBlock", false, "h4"); this.sanitize();
     },
     command_ul: function() { document.execCommand("insertUnorderedList"); this.sanitize(); },
     command_ol: function() { document.execCommand("insertOrderedList"); this.sanitize(); },
@@ -196,7 +205,7 @@ Document = Tea.Element.extend({
         src.children('li').contents().unwrap();
         
         // Tags allowed to be in the first level.
-        var first_level = ['p', 'header', 'blockquote', 'ul', 'ol', 'div'];
+        var first_level = ['p', 'h4', 'blockquote', 'ul', 'ol', 'div'];
 
         // Remove style tags on blockquotes / paragraphs, wtf.
         src.find('p').attr('style', null);

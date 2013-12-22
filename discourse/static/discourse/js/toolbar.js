@@ -10,7 +10,8 @@ Toolbar = Tea.Container.extend({
         {type: 'toolbar-group', commands: [
             {slug: 'p'},
             {slug: 'ul'},
-            {slug: 'ol'}
+            {slug: 'ol'},
+            {slug: 'h', nodeName: 'h4'}
         ]},
 
         {slug: 'indent', key: 221},
@@ -77,32 +78,22 @@ Toolbar = Tea.Container.extend({
 
         return command;
     },
-    addButton : function(index, command) {
-        if (command.icon == false) return;
-        var icon = command.icon || command.slug;
-        var button = this.append({
-            type: 't-element',
-            cls: 'button button-' + icon
-        });
-
-        var self = this;
-        button.source.click(function(e) {
-                self.execCommand(command);
-                e.stopPropagation();
-                return false;
-            }).mousedown(function(e) {
-                // Prevents focus being lost when clicking on this.
-                e.preventDefault();          
-            })
-    },
     execCommand : function(slug) {
         if (this.editor)
             this.editor.exec(slug);
     },
     activateBlock : function(block) {
+        if (block == null) return;
         this.items[0].activate(block.toLowerCase());
     }
 });
+
+Toolbar.addBlockStyle = function(config) {
+    function execute(toolbar) {
+        toolbar._parent.editor.command_blockquote(config.cls);
+    }
+    Toolbar.prototype.commands[0].commands.push({slug: config.slug, execute: execute});
+}
 
 ToolbarCommand = Tea.Element.extend({
     type: 'toolbar-button',
@@ -116,7 +107,11 @@ ToolbarCommand = Tea.Element.extend({
         this.source.mousedown(function(e) { e.preventDefault() });
     },
     onClick : function(e) {
-        this._parent.execCommand(this.slug);
+        if (this.execute) {
+            this.execute(this._parent);
+        } else {
+            this._parent.execCommand(this.slug);
+        }
         e.stopPropagation();
         return false;
     }
@@ -143,7 +138,7 @@ ToolbarGroup = Tea.Container.extend({
     },
     activate : function(slug) {
         this.each(function(i, item) {
-            if (item.slug == slug) {
+            if (item.slug == slug || item.nodeName == slug) {
                 item.source.addClass('active');
             } else {
                 item.source.removeClass('active');

@@ -31,3 +31,10 @@ publish('comment.create', {
         'thumbnail': '/static/{{asdf}}'
     }
 })
+
+
+
+ATTRIBUTION
+===============
+Icons via gentleface.com (http://www.gentleface.com/free_icon_set.html) non-attribution, well guess what I'm attributing you anyways.
+Hah, take that, awesome icon designer!

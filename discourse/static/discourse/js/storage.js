@@ -49,10 +49,12 @@ Storage = Tea.Class({
         // Mark the value as saved.
         this._saved = this.value;
 
+        console.log("storage.value", this.value);
+
         // Ajax!
         this._ajax = jQuery.ajax({
             url: this.url,
-            data: {attribute: this.attribute, value: this.value},
+            data: {attribute: this.attribute, value:this.value},
             method: 'post',
             success: jQuery.proxy(this.onSuccess, this),
             error: jQuery.proxy(this.onFailure, this)

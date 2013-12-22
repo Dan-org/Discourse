@@ -13,6 +13,7 @@
     border: 1px solid #EEE;
     border-bottom: none;
     padding: 7px 0px 8px 4px;
+    min-height: 18px;
 }
 
 .discourse-editing ul li, .discourse-editing ol li {
@@ -134,6 +135,7 @@
 .discourse-toolbar .button-p              { background-image: url('../img/paragraph.png'); }
 .discourse-toolbar .button-ul             { background-image: url('../img/list_bullets.png'); }
 .discourse-toolbar .button-ol             { background-image: url('../img/list_numbers.png'); }
+.discourse-toolbar .button-h              { background-image: url('../img/header.png'); }
 .discourse-toolbar .button-indent         { background-image: url('../img/indent.png'); }
 .discourse-toolbar .button-outdent        { background-image: url('../img/outdent.png'); }
 
@@ -149,10 +151,11 @@
     /* height: 42px; */
     width: auto;
     background: #444;
+    border-bottom: 1px solid #666;
 }
 
 .discourse-toolbar .button-group:hover {
-    padding-bottom: 20px;
+    margin-bottom: 20px;
 }
 
 .discourse-toolbar .button-group .button  {
@@ -166,6 +169,7 @@
 
 .discourse-toolbar .button-group .active {
     display: block;
+    background-color: #666;
 }
 
 .discourse-toolbar .saver {
