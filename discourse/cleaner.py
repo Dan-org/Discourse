@@ -14,8 +14,9 @@ ALLOWED_ATTRIBUTES = {
     'video': ['width', 'height', 'controls'],
     'source': ['src', 'type'],
     'table': ['cellpadding', 'cellspacing'],
-    'td': ['colspan', 'rowspan'],
+    'td': ['colspan', 'rowspan', 'width'],
     'th': ['colspan', 'rowspan'],
+    'tr': ['colspan', 'rowspan'],
     'blockquote': ['class']
 }
 
