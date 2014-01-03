@@ -7,7 +7,7 @@ $(function() {
 Document = Tea.Element.extend({
     type: 'discourse-document',
     storage: null,
-    block_types: ["P", "UL", "OL", "BLOCKQUOTE", "H4"],
+    block_types: ["P", "UL", "OL", "BLOCKQUOTE", "H4", "TABLE"],
     init : function() {
         this.__super__();
         this.editing = false;
@@ -205,7 +205,7 @@ Document = Tea.Element.extend({
         src.children('li').contents().unwrap();
         
         // Tags allowed to be in the first level.
-        var first_level = ['p', 'h4', 'blockquote', 'ul', 'ol', 'div'];
+        var first_level = ['p', 'h4', 'blockquote', 'ul', 'ol', 'div', 'table'];
 
         // Remove style tags on blockquotes / paragraphs, wtf.
         src.find('p').attr('style', null);
