@@ -22,7 +22,8 @@ Document = Tea.Element.extend({
                                      value: this.getValue() });
 
         this.hook(this.storage, 'success', function(value) {
-            this.setValue(value);
+            if (!this.editing)
+                this.setValue(value);
         })
 
         this.hook($(document), 'click', this.onDocClick);

@@ -49,8 +49,6 @@ Storage = Tea.Class({
         // Mark the value as saved.
         this._saved = this.value;
 
-        console.log("storage.value", this.value);
-
         // Ajax!
         this._ajax = jQuery.ajax({
             url: this.url,
