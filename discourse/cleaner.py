@@ -1,7 +1,7 @@
 from bleach import clean
 
 ALLOWED_TAGS = """
-p blockquote ul ol li br h4
+p blockquote ul ol li br h4 h5
 b strong em i u strike sup sub
 img video source a
 table td tr th tbody thead caption
@@ -15,7 +15,7 @@ ALLOWED_ATTRIBUTES = {
     'source': ['src', 'type'],
     'table': ['cellpadding', 'cellspacing'],
     'td': ['colspan', 'rowspan', 'width'],
-    'th': ['colspan', 'rowspan'],
+    'th': ['colspan', 'rowspan', 'width'],
     'tr': ['colspan', 'rowspan'],
     'blockquote': ['class']
 }
