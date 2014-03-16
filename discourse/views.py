@@ -179,6 +179,8 @@ def attachments(request, path):
         for reciever, response in attachment_view.send(sender=attachment, request=request):
             if isinstance(response, HttpResponse):
                 return response
+        if not attachment.file.storage.exists(attachment.file.path):
+            raise Http404
         response = HttpResponse(FileWrapper(attachment.file), content_type=attachment.mimetype)
         response['Content-Length'] = attachment.file.storage.size(attachment.file.path)
         response['Content-Disposition'] = "attachment; filename=%s" % attachment.file.name

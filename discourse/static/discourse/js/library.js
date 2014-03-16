@@ -84,7 +84,9 @@ Library = Tea.Container.extend({
         this.source.find('li a').each(function(i, e) {
             var link = $(e);
             var mimetype = link.attr('mimetype');
-            if (!mimetype) return;
+            var path = link.attr('path');
+
+            if (!path) return;
 
             value.push({
                 url: link.attr('href'),

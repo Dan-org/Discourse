@@ -16,7 +16,7 @@ ALLOWED_ATTRIBUTES = {
     'table': ['cellpadding', 'cellspacing'],
     'td': ['colspan', 'rowspan', 'width'],
     'th': ['colspan', 'rowspan', 'width'],
-    'tr': ['colspan', 'rowspan'],
+    'tr': ['colspan', 'rowspan', 'width'],
     'blockquote': ['class']
 }
 
