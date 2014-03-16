@@ -7,7 +7,7 @@ $(function() {
 Document = Tea.Element.extend({
     type: 'discourse-document',
     storage: null,
-    block_types: ["P", "UL", "OL", "BLOCKQUOTE", "H4", "TABLE"],
+    block_types: ["P", "UL", "OL", "BLOCKQUOTE", "H4", "H5", "TABLE"],
     init : function() {
         this.__super__();
         this.editing = false;
