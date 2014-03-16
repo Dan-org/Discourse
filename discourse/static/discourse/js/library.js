@@ -222,6 +222,11 @@ Library = Tea.Container.extend({
                 paths.push(this.selected[i].value.path);
             }
 
+            if (paths.length == 1 && method == 'zip') {
+                window.open('/discourse/attachments/' + paths[0]);
+                return false;
+            }
+
             this.fixButtons();
 
             jQuery.ajax({
