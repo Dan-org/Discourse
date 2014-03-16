@@ -56,6 +56,7 @@ Library = Tea.Container.extend({
         this.iconMap = {};
         this.path = this.path || this.source.attr('path');
         this.url = this.url || this.source.attr('url');
+        this.archive_zip = null;
 
         this.scrapeValue();
         this.build();
@@ -63,6 +64,12 @@ Library = Tea.Container.extend({
 
         if (this.editable)
             this.source.addClass('editable');
+
+        this.hook(this.source, 'click', function(e) {
+            if (e.target.tagName == 'UL') {
+                this.select(null);
+            }
+        })
 
         //this.hook(discourse, 'attachment', this.changeFile(data));
         //discourse.follow(this.path);
@@ -107,8 +114,6 @@ Library = Tea.Container.extend({
         this.hook(this.actions.hide, 'click', this.manipulator('hide', function(icon) { icon.setFileHidden(true); }));
         this.hook(this.actions.show, 'click', this.manipulator('show', function(icon) { icon.setFileHidden(false); }));
         this.hook(this.actions.del, 'click', this.manipulator('delete', function(icon) { icon.destroy(); }));
-
-        this.insertInto = this.adder;
 
         if (this.editable) {
             this.adder = $('<li class="add">')
@@ -171,6 +176,21 @@ Library = Tea.Container.extend({
         this.fixButtons();
     },
     fixButtons : function() {
+        if (this.archive_zip) {
+            this.actions.hide.hide();
+            this.actions.show.hide();
+            this.actions.del.hide();
+            this.actions.download.empty().append('Download Attachments');
+
+            if (this.archive_zip.status == 'ready') {
+                this.actions.download.show();
+            } else {
+                this.actions.download.hide();
+            }
+
+            return;
+        }
+
         if (this.items.length == 0) {
             this.actions.download.addClass('disabled');
         } else {
@@ -208,6 +228,10 @@ Library = Tea.Container.extend({
     },
     manipulator : function(method, fn) {
         return function() {
+            if (method == 'zip' && this.archive_zip) {
+                window.open(this.archive_zip.url);
+            }
+
             if (this.selected.length == 0) {
                 if (method == 'zip')
                     this.selectAll();
@@ -224,7 +248,7 @@ Library = Tea.Container.extend({
 
             if (paths.length == 1 && method == 'zip') {
                 window.open('/discourse/attachments/' + paths[0]);
-                return false;
+                return;
             }
 
             this.fixButtons();
@@ -239,7 +263,7 @@ Library = Tea.Container.extend({
                 },
                 success: function(response) {
                     if (method == 'zip') {
-                        this.poll_download(response);
+                        this.setArchiving(response);
                     } else {
                         Overlay.status.confirm("File Management", "Success!");
                     }
@@ -254,11 +278,12 @@ Library = Tea.Container.extend({
         this.selected = this.items.slice();
     },
     check_download : function(zipinfo) {
+        this.archive_zip = zipinfo;
+
         if (zipinfo.status == 'ready') {
-            Overlay.status.progress("Archiving...", 1);
-            window.open(zipinfo.url);
+            this.title.empty().append("Download Ready");
+            this.fixButtons();
         } else if (zipinfo.status == 'working') {
-            Overlay.status.progress("Archiving...", .5);
             this.poll_download_soon(zipinfo, 1000);
         } else {
             Overlay.status.error("Server Error", "Unnable to create zip of attachments.");
@@ -276,6 +301,19 @@ Library = Tea.Container.extend({
         var self = this;
 
         setTimeout(function() { self.poll_download(zipinfo) }, delay);
+    },
+    setArchiving : function(zipinfo) {
+        this.archive_zip = zipinfo;
+        this.title.empty().append("Creating attachment zip...");
+        this.content.hide();
+        this.fixButtons();
+        this.poll_download(zipinfo);
+    },
+    ready : function() {
+        this.title.empty().append("Materials");
+        this.content.show();
+        this.archive_zip = null;
+        this.select(null);
     }
 });
 

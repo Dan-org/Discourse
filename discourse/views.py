@@ -180,6 +180,8 @@ def attachments(request, path):
             if isinstance(response, HttpResponse):
                 return response
         response = HttpResponse(FileWrapper(attachment.file), content_type=attachment.mimetype)
+        response['Content-Length'] = attachment.file.storage.size(attachment.file.path)
+        response['Content-Disposition'] = "attachment; filename=%s" % attachment.file.name
         return response
 
 
@@ -188,7 +190,6 @@ def zip(request, hash):
     Downloads the zip with the given hash.
     """
     zip = get_object_or_404(AttachmentZip, hash=hash)
-    #zip.status = 'working'
     if 'poll' in request.GET:
         response = HttpResponse(json.dumps(zip.info()), content_type='application/json')
     elif zip.status == 'failed':

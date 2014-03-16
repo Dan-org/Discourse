@@ -71,6 +71,8 @@ Document = Tea.Element.extend({
             this.source.removeClass('discourse-empty');
         }
 
+        console.log(this.getValue().src);
+
         this.source.attr('contenteditable', false)
                    .removeClass('discourse-editing');
         this.storage.setValue(this.getValue().src);

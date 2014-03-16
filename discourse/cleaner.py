@@ -21,4 +21,5 @@ ALLOWED_ATTRIBUTES = {
 }
 
 def clean_html(src):
+    print src
     return clean(src, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, strip=True)

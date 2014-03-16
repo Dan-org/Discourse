@@ -399,13 +399,11 @@ class AttachmentZip(models.Model):
     __repr__ = __unicode__
 
     def is_current(self):
-        return False
-
         if not self.updated:
             return False
 
-        for a in self.attachments:
-            if self.updated < a.modified:
+        for a in self.attachments.all():
+            if self.updated.replace(tzinfo=None) < a.file.storage.modified_time(a.file.path):
                 return False
 
         return True
@@ -428,7 +426,6 @@ class AttachmentZip(models.Model):
             self.updated = datetime.now()
             self.status = 'ready'
             self.save()
-            print self.url
         except:
             raise
             self.status = 'failed'
