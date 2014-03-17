@@ -136,6 +136,7 @@
 .discourse-toolbar .button-ul             { background-image: url('../img/list_bullets.png'); }
 .discourse-toolbar .button-ol             { background-image: url('../img/list_numbers.png'); }
 .discourse-toolbar .button-h              { background-image: url('../img/header.png'); }
+.discourse-toolbar .button-h5             { background-image: url('../img/header-5.png'); }
 .discourse-toolbar .button-indent         { background-image: url('../img/indent.png'); }
 .discourse-toolbar .button-outdent        { background-image: url('../img/outdent.png'); }
 

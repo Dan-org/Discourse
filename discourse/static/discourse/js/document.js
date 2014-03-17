@@ -173,6 +173,10 @@ Document = Tea.Element.extend({
         document.execCommand('outdent'); document.execCommand('outdent');
         document.execCommand("formatBlock", false, "h4"); this.sanitize();
     },
+    command_h5 : function() {
+        document.execCommand('outdent'); document.execCommand('outdent');
+        document.execCommand("formatBlock", false, "h5"); this.sanitize();
+    },
     command_ul: function() { document.execCommand("insertUnorderedList"); this.sanitize(); },
     command_ol: function() { document.execCommand("insertOrderedList"); this.sanitize(); },
     command_indent: function() { document.execCommand("indent"); this.sanitize(); },

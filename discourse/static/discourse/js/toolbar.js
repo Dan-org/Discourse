@@ -11,7 +11,8 @@ Toolbar = Tea.Container.extend({
             {slug: 'p'},
             {slug: 'ul'},
             {slug: 'ol'},
-            {slug: 'h', nodeName: 'h4'}
+            {slug: 'h', nodeName: 'h4'},
+            {slug: 'h5', nodeName: 'h5'}
         ]},
 
         {slug: 'indent', key: 221},
