@@ -5,7 +5,7 @@ $(function() {
         library = Library({source: $(e)});
     });
 
-    if (library) {
+    if (library && $('.attach').length > 0) {
         var toolup = LibraryToolup({library: library});
 
         $(document).on('click', '.attach', function(e) {
@@ -13,6 +13,8 @@ $(function() {
             e.preventDefault();
             return false;
         });
+    } else {
+        library.ready("Attachments");
     }
 });
 
@@ -103,7 +105,7 @@ Library = Tea.Container.extend({
     build : function() {
         this.source.empty();
 
-        this.title = $('<div class="title">').append('Materials').appendTo(this.source);
+        this.title = $('<h4 class="title">').append('Attachments').appendTo(this.source);
         this.content = $('<ul class="list content">').appendTo(this.source);
         this.actions = $('<div class="actions">').appendTo(this.source);
 
@@ -194,9 +196,10 @@ Library = Tea.Container.extend({
         }
 
         if (this.items.length == 0) {
-            this.actions.download.addClass('disabled');
+            this.selected = [];
+            this.actions.download.hide();
         } else {
-            this.actions.download.removeClass('disabled');
+            this.actions.download.show();
         }
 
         if (this.selected.length == 0) {
@@ -225,8 +228,6 @@ Library = Tea.Container.extend({
     },
     onDownload : function() {
         if (this.selected.length == 0) return;
-
-
     },
     manipulator : function(method, fn) {
         return function() {
@@ -311,8 +312,8 @@ Library = Tea.Container.extend({
         this.fixButtons();
         this.poll_download(zipinfo);
     },
-    ready : function() {
-        this.title.empty().append("Materials");
+    ready : function(name) {
+        this.title.empty().append(name || "Materials");
         this.content.show();
         this.archive_zip = null;
         this.select(null);

@@ -13,12 +13,13 @@ ALLOWED_ATTRIBUTES = {
     'a': ['rel', 'href'],
     'video': ['width', 'height', 'controls'],
     'source': ['src', 'type'],
-    'table': ['cellpadding', 'cellspacing'],
-    'td': ['colspan', 'rowspan', 'width'],
-    'th': ['colspan', 'rowspan', 'width'],
-    'tr': ['colspan', 'rowspan', 'width'],
+    'table': ['cellpadding', 'cellspacing', 'class'],
+    'td': ['colspan', 'rowspan', 'width', 'class'],
+    'th': ['colspan', 'rowspan', 'width', 'class'],
+    'tr': ['colspan', 'rowspan', 'width', 'class'],
     'blockquote': ['class']
 }
+
 
 def clean_html(src):
     return clean(src, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, strip=True)
