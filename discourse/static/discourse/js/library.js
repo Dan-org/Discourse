@@ -5,16 +5,18 @@ $(function() {
         library = Library({source: $(e)});
     });
 
-    if (library && $('.attach').length > 0) {
-        var toolup = LibraryToolup({library: library});
+    if (library) {
+        if ($('.attach').length > 0) {
+            var toolup = LibraryToolup({library: library});
 
-        $(document).on('click', '.attach', function(e) {
-            toolup.go($(this));
-            e.preventDefault();
-            return false;
-        });
-    } else {
-        library.ready("Attachments");
+            $(document).on('click', '.attach', function(e) {
+                toolup.go($(this));
+                e.preventDefault();
+                return false;
+            });
+        } else {
+            library.ready("Attachments");
+        }
     }
 });
 
