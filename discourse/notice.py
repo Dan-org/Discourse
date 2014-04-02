@@ -12,7 +12,7 @@ logger = logging.getLogger('discourse')
 
 
 ### Helpers ###
-def render_mail(to, slug, context, from_address=None, template_path='discourse/mail/'):
+def render_mail(to, slug, context, from_address=None, template_path='mail/'):
     """
     Renders an EmailMultiAlternatives object to be sent to the given address, based on the slug.
 
@@ -35,11 +35,13 @@ def render_mail(to, slug, context, from_address=None, template_path='discourse/m
     return msg
 
 
-def send_render_mail(to, slug, context, from_address=None, template_path='discourse/mail/'):
+def send_mail(to, slug, context=None, from_address=None, template_path='discourse/mail/'):
     """
     Convenience function to render and send an email message.  See ``render_mail()`` above for more
     information.
     """
+    context = context or {}
+    context['settings'] = settings
     msg = render_mail(to, slug, context, from_address)
     msg.send()
 

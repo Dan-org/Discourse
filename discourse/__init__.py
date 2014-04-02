@@ -1,4 +1,4 @@
-from notice import subscribe, unsubscribe, is_subscribed, send_event, render_mail, send_render_mail
+from notice import subscribe, unsubscribe, is_subscribed, send_event, render_mail, send_mail
 
 from models import (model_sig,
                     get_instance_from_sig,
