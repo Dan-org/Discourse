@@ -147,6 +147,7 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ('path', '-value', 'id')
+        app_label = 'discourse'
 
     @classmethod
     def create_by_request(cls, request, path, body):
@@ -211,6 +212,9 @@ class CommentVote(models.Model):
         else:
             return "Sidevote by %s" % self.user
 
+    class Meta:
+        app_label = 'discourse'
+
 
 class Subscription(models.Model):
     path = models.CharField(max_length=255)
@@ -219,6 +223,9 @@ class Subscription(models.Model):
 
     def __unicode__(self):
         return "Subscription(%r, %r, toggle=%r)" % (self.user, self.path, self.toggle)
+
+    class Meta:
+        app_label = 'discourse'
 
 
 class Event(models.Model):
@@ -259,6 +266,9 @@ class Event(models.Model):
         if self.object:
             return self.object.url
 
+    class Meta:
+        app_label = 'discourse'
+
 
 class Notice(models.Model):
     """
@@ -271,6 +281,9 @@ class Notice(models.Model):
 
     def __unicode__(self):
         return "Notice(%s)" % self.id
+
+    class Meta:
+        app_label = 'discourse'
 
 
 class Stream(models.Model):
@@ -302,6 +315,9 @@ class Stream(models.Model):
 
         for e in events:
             yield e.render(request)
+
+    class Meta:
+        app_label = 'discourse'
 
 
 class Attachment(models.Model):
@@ -371,6 +387,9 @@ class Attachment(models.Model):
         if not path.endswith('/'):
             path = path + '/'
         return cls._default_manager.filter(path__startswith=path)
+
+    class Meta:
+        app_label = 'discourse'
 
 
 ATTACHMENT_ZIP_STATUSES = (
@@ -450,6 +469,9 @@ class AttachmentZip(models.Model):
             'url': self.url
         }
 
+    class Meta:
+        app_label = 'discourse'
+
 
 class DocumentTemplate(models.Model):
     """
@@ -460,6 +482,9 @@ class DocumentTemplate(models.Model):
 
     def __unicode__(self):
         return self.slug
+
+    class Meta:
+        app_label = 'discourse'
 
 
 class Document(models.Model):
@@ -527,6 +552,8 @@ class Document(models.Model):
                 parts.append({'attribute': left, 'title': right, 'html': html, 'src': src, 'is_empty': is_empty})
         return parts
 
+    class Meta:
+        app_label = 'discourse'
 
 
 class DocumentContent(models.Model):
@@ -557,6 +584,9 @@ class DocumentContent(models.Model):
             is_error = True
             html = '<div class="template-error"><strong>Error rendering body</strong><br>%s: %s<br>%s</div>' % (e.__class__.__name__, e, traceback.format_exc())
         return html
+
+    class Meta:
+        app_label = 'discourse'
 
 
 #class DocumentChange(models.Model):

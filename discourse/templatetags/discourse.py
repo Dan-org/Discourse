@@ -67,7 +67,7 @@ class ThreadTag(ttag.Tag):
         {% thread instance %}
 
     Also, add up and down voting.
-        {% thread instance voting=True %}
+        {% thread instance scored=True %}
 
     See ``discourse/models.py`` on options to change how comments are rendered.
     """
