@@ -9,6 +9,8 @@ urlpatterns = patterns('',
     url(r'^vote/$', 'discourse.views.vote', name="vote"),
     url(r'^view/(?P<path>.+)$', 'discourse.views.redirect',  name="discourse"),
     url(r'^property/(?P<path>.+)$', 'discourse.views.property',  name="property"),
+
+    url(r'^monitor/$', 'discourse.views.monitor',  name="monitor"),
 )
 
 # Import the events module to ensure signal subscriptions are properly hooked up.

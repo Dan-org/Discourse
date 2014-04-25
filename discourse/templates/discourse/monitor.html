@@ -1,0 +1,75 @@
+{% load humanize %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Discourse Monitor</title>
+
+    <style type="text/css">
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            padding: 0;
+            margin: 0;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+
+        section {
+            width: 800px;
+            margin: 40px auto;
+        }
+
+        h1 {
+            font-size: 22px;
+        }
+
+        table {
+            width: 100%;
+        }
+
+        table th {
+            text-align: left;
+            width: 20%;
+            padding: 0px 8px 4px;
+            border-bottom: 1px solid #DDD;
+        }
+
+        table td {
+            padding: 6px 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <article>
+        <section>
+            <h1>Discourse Events</h1>
+
+            <table cellpadding="0" cellspacing="0">
+                <tr>
+                    <th>Type</th>
+                    <th>Actor</th>
+                    <th>Path</th>
+                    <th>Time</th>
+                    <th>Streams</th>
+                </tr>
+                <tbody>
+                {% for e in events %}
+                    <tr>
+                        <td>{{ e.type }}</td>
+                        <td><a href="{{ e.actor.get_absolute_url }}" class="name">{{ e.actor.get_full_name }}</a></td>
+                        <td><a href="{{ e.url }}">{{ e.path }}</a></td>
+                        <td><span class="date" title="{{e.created}}">{{ e.created|naturaltime }}</span></td>
+                        <td>
+                            {% for stream in e.streams.all %}
+                                <a href="{{ stream.get_absolute_url }}">{{ stream.path }}</a>{% if not forloop.last %}; {% endif %}
+                            {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </article>
+</body>
+</html>

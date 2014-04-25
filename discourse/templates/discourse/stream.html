@@ -1,0 +1,7 @@
+<div class="discourse {% if not request.user.is_authenticated %}discourse-anonymous{% endif %}">
+    <div class="stream">
+        {% for event in events %}
+            {{ event|safe }}
+        {% endfor %}
+    </div>
+</div>

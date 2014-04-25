@@ -6,7 +6,7 @@ from cleaner import clean_html
 
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest, HttpResponseForbidden, Http404
 from django.core.servers.basehttp import FileWrapper
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -15,7 +15,7 @@ from django.template import RequestContext
 from django.conf import settings
 
 from ajax import JsonResponse
-from models import Attachment, AttachmentZip, Document, Comment, CommentVote
+from models import Attachment, AttachmentZip, Document, Comment, CommentVote, Event
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig
 
@@ -27,6 +27,11 @@ except ImportError:
 
 
 ### Helpers ###
+def publish(path, **args):
+    if redis:
+        redis.publish(path, json.dumps(args))
+
+
 def render_comment(request, comment, scored=False):
     return render_to_string('discourse/thread-comment.html', locals(), RequestContext(request))
 
@@ -55,7 +60,7 @@ def thread(request, path):
         data = comment.info()
         data['_html'] = render_comment(request, comment, scored=request.POST.get('scored'))
 
-        redis.publish(comment.path, json.dumps({'type': 'comment', 'comment': data}))
+        publish(comment.path, type='comment', comment=data)
 
         if request.is_ajax():
             return JsonResponse(data)
@@ -64,7 +69,8 @@ def thread(request, path):
 
     elif 'delete' in request.GET:
         comment = get_object_or_404(Comment, pk=request.GET['delete'], path=path)
-        redis.publish(comment.path, json.dumps({'type': 'delete', 'id': comment.id}))
+
+        publish(comment.path, type='delete', id=comment.id)
 
         comment.delete_by_request(request)
 
@@ -104,7 +110,7 @@ def vote(request):
             vote.save()
 
         comment.save()
-        redis.publish(comment.path, json.dumps({'type': 'vote', 'id': comment.id, 'value': comment.value}))
+        publish(type='vote', id=comment.id, value=comment.value)
         return JsonResponse(comment.value)
     else:
         return HttpResponseBadRequest()
@@ -263,3 +269,13 @@ def property(request, path):
     instance.save()
     return HttpResponse(json.dumps( getattr(instance, property, value) ), content_type="application/json")
 
+
+@login_required
+def monitor(request):
+    """
+    Monitor all events happening on the system.
+    """
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    events = Event.objects.all()[:50]
+    return render(request, 'discourse/monitor.html', locals())

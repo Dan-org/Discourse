@@ -1,0 +1,7 @@
+{% load humanize %}
+
+<div class="event">
+    <span class="type">{{ event.type }}</span>
+    <span><a href="{{ event.actor.get_absolute_url }}" class="name">{{ event.actor.get_full_name }}</a></span>
+    <span class="date" title="{{event.created}}">{{ event.created|naturaltime }}</span>
+</div>

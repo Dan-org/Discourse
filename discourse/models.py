@@ -242,7 +242,7 @@ class Event(models.Model):
 
     def render(self, request):
         context = RequestContext(request, {'path': self.path, 'event': self})
-        return render_to_string(self.template, context)
+        return render_to_string([self.template, 'discourse/event_generic.html'], context)
 
     def __unicode__(self):
         return "Event(%r, %r, %r)" % (self.actor, self.type, self.path)
@@ -264,10 +264,15 @@ class Event(models.Model):
     @property
     def url(self):
         if self.object:
-            return self.object.url
+            return self.object.get_absolute_url()
+
+    @property
+    def my_path(self):
+        return model_sig(self)
 
     class Meta:
         app_label = 'discourse'
+        ordering = ['-created']
 
 
 class Notice(models.Model):
@@ -315,6 +320,11 @@ class Stream(models.Model):
 
         for e in events:
             yield e.render(request)
+
+    def get_absolute_url(self):
+        obj = get_instance_from_sig(self.path)
+        if obj:
+            return obj.get_absolute_url()
 
     class Meta:
         app_label = 'discourse'

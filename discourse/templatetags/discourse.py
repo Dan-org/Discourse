@@ -297,15 +297,20 @@ class StreamTag(ttag.Tag):
 
     Set the initial size of shown events to 5 instead of the default of 10:
     {% stream object size=5 %}
+
+    Allow comments
+    {% stream object comments=True %}
     """
     path = ttag.Arg(required=False)
     size = ttag.Arg(required=False, keyword=True)
+    comments = ttag.Arg(required=False, keyword=True)
 
     def render(self, context):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
         request = context['request']
         size = data.get('size', 10)
+        comments = data.get('comments', False)
 
         try:
             stream = Stream.objects.get(path=path)
