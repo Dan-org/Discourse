@@ -10,8 +10,10 @@
             font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
             padding: 0;
             margin: 0;
-            margin-top: 20px;
+            margin-top: 100px;
             font-size: 12px;
+            color: #555;
+            background-color: #F2F2F2;
         }
 
         section {
@@ -20,7 +22,12 @@
         }
 
         h1 {
-            font-size: 22px;
+            font-size: 64px;
+            position: absolute;
+            top: -12px;
+            left: 0px;
+            color: #FDFDFD;
+            margin: 0;
         }
 
         table {
@@ -29,7 +36,6 @@
 
         table th {
             text-align: left;
-            width: 20%;
             padding: 0px 8px 4px;
             border-bottom: 1px solid #DDD;
         }
@@ -42,16 +48,15 @@
 </head>
 <body>
     <article>
+        <h1>Discourse Events</h1>
         <section>
-            <h1>Discourse Events</h1>
-
             <table cellpadding="0" cellspacing="0">
                 <tr>
-                    <th>Type</th>
-                    <th>Actor</th>
-                    <th>Path</th>
-                    <th>Time</th>
-                    <th>Streams</th>
+                    <th width='14%'>Type</th>
+                    <th width='20%'>Actor</th>
+                    <th width='16%'>Path</th>
+                    <th width='16%'>Time</th>
+                    <th width='34%'>Streams</th>
                 </tr>
                 <tbody>
                 {% for e in events %}

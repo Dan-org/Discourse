@@ -58,7 +58,7 @@ def thread(request, path):
             comment = Comment.create_by_request(request, path=path, body=request.POST['body'])
 
         data = comment.info()
-        data['_html'] = render_comment(request, comment, scored=request.POST.get('scored'))
+        data['_html'] = render_comment(request, comment, scored=request.POST.get('scored', '').lower() == 'true')
 
         publish(comment.path, type='comment', comment=data)
 

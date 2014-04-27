@@ -1,7 +1,7 @@
 function commentForm(e) {
     var form = $(e);
     var textarea = form.find('textarea');
-    // Todo: length counter | ajax indicator | hide comments | reply | edit | report
+    // Todo: length counter | ajax indicator | hide comments | report
 
     function addError(err) {
         var errors = form.find('ul.errors');
@@ -322,7 +322,10 @@ discourse.on('vote', function (data) {
     $('.comment').each(function(i, e) {
         var source = $(e);
         if (source.attr('rel') == id) {
-            var current = source.find('.score')[0].innerHTML;
+            var score = source.find('.score');
+            if (score.length == 0) return;
+
+            var current = score[0].innerHTML;
             if (value + "" == current) return;
             source.find('.score').eq(0).empty().append(value).fadeOut().fadeIn();
         }
