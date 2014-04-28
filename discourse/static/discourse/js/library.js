@@ -406,7 +406,7 @@ function setupFileDrop(library) {
             }
         },
         maxfiles: 32,
-        maxfilesize: 30,
+        maxfilesize: 2000,
         dragOver: function() {
             // user dragging files over #dropzone
         },
@@ -420,7 +420,7 @@ function setupFileDrop(library) {
             // user dragging files out of the browser document window
         },
         drop: function() {
-            Overlay.status.progress("Beggining upload...", 0);
+            Overlay.status.progress("Begining upload...", 0);
         },
         uploadStarted: function(i, file, len) {
             // a file began uploading
