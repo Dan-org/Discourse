@@ -242,7 +242,9 @@ Library = Tea.Container.extend({
             }
         }
         
-        this.focus.focus();
+        if (this.selected.length) {
+            this.focus.focus();
+        }
         this.trigger('select', [this.selected]);
     },
     onDownload : function() {

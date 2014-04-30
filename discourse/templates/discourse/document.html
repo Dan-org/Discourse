@@ -1,7 +1,9 @@
 {% for section in content %}
     {% if section.body|striptags or editable %}
     <div class="content-block">
-        <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}">{{section.body|safe}}</div>
+        <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}">
+            {{section.body|safe|default:"-"}}
+        </div>
     </div>
     {% endif %}
 {% endfor %}
