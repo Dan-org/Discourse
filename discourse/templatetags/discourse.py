@@ -1,6 +1,7 @@
 import urllib
 import ttag
 import json
+import re
 
 from django.core.exceptions import PermissionDenied
 from django.template.loader import render_to_string
@@ -99,12 +100,17 @@ class ThreadCountTag(ttag.Tag):
     """
     path = ttag.Arg(required=False)                                     # Path or model for the comment thread.
     sub = ttag.Arg(default=None, keyword=True, required=False)          # The sub-thread
+    parent = ttag.Arg(default=None, keyword=True, required=False)       # Only count comments below this one
 
     def render(self, context):
         data = self.resolve(context)
         path = get_path(context, data.get('path'), data.get('sub'))
+        parent = data.get('parent')
         scored = bool( data.get('scored') )
-        count = Comment.objects.filter(path=path, deleted__isnull=True).count()
+        if parent:
+            count = Comment.objects.filter(path=path, deleted__isnull=True, parent=parent).count()
+        else:
+            count = Comment.objects.filter(path=path, deleted__isnull=True).count()
         if count == 0:
             return ""
         elif count == 1:
@@ -361,7 +367,6 @@ class EditableTag(ttag.Tag):
                                                             'auth_login': settings.LOGIN_REDIRECT_URL}, context)
 
 
-
 class Path(ttag.Tag):
     """
     Returns the discourse path associated with the object given as the first argument.
@@ -375,6 +380,7 @@ class Path(ttag.Tag):
         data = self.resolve(context)
         object = data['object']
         return get_path(context, object)
+
 
 
 ### Register ###
@@ -393,4 +399,15 @@ register.tag(Path)
 @register.filter(is_safe=True)
 def to_json(value):
     return mark_safe(json.dumps(value))
+
+
+re_hash = re.compile(r'\#[-_\w]+')
+def hash_link(m):
+    tag = m.group(0)
+    return '<a href="/search/?q=%s">%s</a>' % (urllib.quote(tag), tag)
+
+@register.filter(is_safe=True)
+def hashtags(value):
+    return mark_safe( re_hash.sub(hash_link, value) )
+
 

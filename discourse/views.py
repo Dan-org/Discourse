@@ -118,7 +118,7 @@ def vote(request):
             vote.save()
 
         comment.save()
-        publish(type='vote', id=comment.id, value=comment.value)
+        publish(comment.path, type='vote', id=comment.id, value=comment.value)
         return JsonResponse(comment.value)
     else:
         return HttpResponseBadRequest()

@@ -162,7 +162,6 @@ Library = Tea.Container.extend({
         this.hook($(document), 'click', function(e) {
             if ($(e.target).closest('.library').length == 0)
                 this.select(null);
-            window.e = e;
         });
 
         this.select(null);

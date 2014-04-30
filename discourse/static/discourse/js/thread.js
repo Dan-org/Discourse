@@ -109,7 +109,7 @@ function resetForm(form) {
 
 function createReplyForm(options) {
     var comment = options.comment;
-    var form = comment.closest('.repliable').find('form');
+    var form = comment.find('form');
 
     if (form.length == 0) {
         var prototype = comment.closest('.thread').find('form').eq(0);
@@ -151,6 +151,8 @@ function deleteAction(e) {
     var link = $(e.target);
     var comment = link.closest('.comment');
 
+    comment.trigger('delete');
+
     $.ajax({
         url: link.attr('href'),
         success: function() {
@@ -171,6 +173,8 @@ function editAction(e) {
     var link = $(e.target);
     var comment = link.closest('.comment');
 
+    comment.trigger('edit');
+
     var form = createReplyForm({
         comment: comment,
         edit: comment.attr("rel"),
@@ -183,6 +187,8 @@ function editAction(e) {
 function replyAction(e) {
     var link = $(e.target);
     var comment = link.closest('.repliable');
+
+    comment.trigger('reply');
 
     var form = createReplyForm({
         comment: comment,
@@ -200,6 +206,8 @@ function voteAction(updown) {
         var thread = comment.closest('.thread');
         var form = thread.find('form');
         var dir = updown;
+
+        comment.trigger('vote', [updown]);
 
         if (arrow.hasClass('selected')) {
             comment.find('.voting a').removeClass('selected');
