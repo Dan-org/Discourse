@@ -7,6 +7,7 @@ $(function() {
             url: $(this).attr('rel'),
             controls: $(this).find('.actions'),
             contents: $(this).find('.contents'),
+            editable: $(this).attr('editable')
         })
     })
 
@@ -143,10 +144,10 @@ Library = Tea.Container.extend({
         this.insertInto = this.contents;
 
         if (!this.prototype) {
-            if (this.contents.children().length) {
-                this.prototype = this.contents.children().first().clone().detach();
-            } else {
+            if (this.contents.find('.prototype').length) {
                 this.prototype = this.contents.find('.prototype').detach().removeClass('prototype');
+            } else {
+                this.prototype = this.contents.children().first().clone().detach();
             }
         }
 
@@ -165,6 +166,7 @@ Library = Tea.Container.extend({
         });
 
         this.select(null);
+        setupFileDrop(this);
     },
     setupItems : function() {
         var self = this;
@@ -178,12 +180,11 @@ Library = Tea.Container.extend({
     },
     createItem : function(file) {
         var item = this.prototype.clone();
-        this.setItemValue(item, file);
         return item;
     },
     changeFile : function(file) {
         this.addIcon(file);
-        this.fixButtons();
+        this.trigger('select', [this.selected]);
     },
     setValue : function(value) {
         for(var i = 0; i < value.length; i++) {
@@ -204,11 +205,21 @@ Library = Tea.Container.extend({
             return icon;
         }
      
-        var icon = this.append({type: 'library-icon', value: file, selectable: this.editable});
+        var icon = this.append({
+            type: 'library-icon', 
+            value: file, 
+            selectable: this.editable, 
+            source: this.prototype.clone()
+        });
+
         this.iconMap[file.url] = icon;
         return icon;
     },
     select : function(icon, e) {
+        if (icon && !this.editable) {
+            window.open(icon.getValue().url);
+        }
+
         if (e && (e.shiftKey || e.metaKey || e.altKey || e.ctrlKey)) {
             icon.setSelected(!icon.selected);
             var selected = this.selected = [];
@@ -323,7 +334,12 @@ LibraryIcon = Tea.Element.extend({
             this.hook(this.source, 'click', function(e) {
                 this._parent.select(this, e);
                 e.preventDefault();
-            })
+            });
+
+        this.hook(this.source, 'dblclick', function(e) {
+            window.open(this.getValue().url);
+            e.preventDefault();
+        })
     },
     getValue : function() {
         var src = this.source;
@@ -337,7 +353,7 @@ LibraryIcon = Tea.Element.extend({
         var src = this.source;
 
         src.attr('href', file.url);
-        src.find.attr('title', file.filename);
+        src.find('img').attr('title', file.filename);
         src.find('div[name=name]').empty().append(file.filename);
         if (file.hidden)
             src.addClass('hidden');
@@ -421,8 +437,12 @@ function setupFileDrop(library) {
             // len = total files user dropped
         },
         uploadFinished: function(i, file, response, time) {
-            var attachment = eval(response);
-            if (!attachment) return;
+            try {
+                var attachment = eval(response);
+                if (!attachment) return;
+            } catch(e) {
+                return;
+            }
 
             library.changeFile(attachment);
         },

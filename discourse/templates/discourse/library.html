@@ -1,4 +1,4 @@
-<div class="library cf" rel="{% url 'discourse:attachments' path %}">
+<div class="library cf" rel="{% url 'discourse:attachments' path %}" editable="{{ editable }}">
     <div class="contents">
     {% for file in attachments %}
         <a href="{{file.url}}" class="file {% if file.hidden %}hidden{% endif %}">
@@ -15,8 +15,6 @@
     
     <div class="actions">
         <a name="upload" class="button" href="#">Add Files</a>
-        <a name="download" class="button" href="#">Download</a>
-        <a name="download_all" class="button" href="#">Download All</a>
         <a name="hide" class="button" href="#">Hide</a>
         <a name="show" class="button" href="#">Unhide</a>
         <a name="delete" class="button" href="#">Delete</a>

@@ -9,7 +9,7 @@
     width: 300px;
     background-color: black;
     margin: 4px;
-    border: 1px solid #888;
+    border: 1px solid black;
 }
 
 .discourse-status-box .message .title {
@@ -34,16 +34,16 @@
     border: 0;
     height: 22px;
     margin: 6px 10px 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     position: relative;
 }
 
 .discourse-status-box .progress-value {
-    background-color: #f79032;
+    background-color: #FFF;
     border: 0;
     height: 22px;
     width: 50%;
-    border-radius: 8px;
+    border-radius: 4px;
     position: absolute;
     top: 0;
     bottom: 0;

@@ -132,6 +132,7 @@ StatusProgress = StatusMessage.extend({
         this._value = $('<div class="progress-value"/>').appendTo(this._progress);
         this.__super__();
         this.source.append(this._progress);
+        this.setValue(this.value);
     },
     setValue : function(v) {
         if (v < 0) v = 0;
