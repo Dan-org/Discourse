@@ -1,22 +1,24 @@
-{% if not hidden %}
-    <section class="library" url="/discourse/attachments/{{path}}">
-        <h4>Materials</h4>
-        {% if attachments %}
-            <ul class="list">
-            {% for attachment in attachments %}
-                <li>
-                    <a href="{{attachment.url}}" class="{{attachment.icon}}" attachment="{{attachment.id}}">
-                        <div class="icon icon-{{attachment.icon}}"></div>
-                        <div class="text">{{attachment.filename}}</div>
-                    </a>
-                </li>
-            {% endfor %}
-            </ul>
-        {% endif %}
-    </section>
-
-    <div class="upload-button button">
-        Upload Files
-        <input type="file" name="upload[]" multiple="multiple" id="library-upload">
+<div class="library cf" rel="{% url 'discourse:attachments' path %}">
+    <div class="contents">
+    {% for file in attachments %}
+        <a href="{{file.url}}" class="file {% if file.hidden %}hidden{% endif %}">
+            <img src="{{STATIC_URL}}img/file-icon.png" title="{{ file.filename }}" />
+            <div name="name">{{file.filename}}</div>
+        </a>
+    {% empty %}
+        <a href="" class="file prototype">
+            <img src="{{STATIC_URL}}img/file-icon.png" title="" />
+            <div name="name"></div>
+        </a>
+    {% endfor %}
     </div>
-{% endif %}
+    
+    <div class="actions">
+        <a name="upload" class="button" href="#">Add Files</a>
+        <a name="download" class="button" href="#">Download</a>
+        <a name="download_all" class="button" href="#">Download All</a>
+        <a name="hide" class="button" href="#">Hide</a>
+        <a name="show" class="button" href="#">Unhide</a>
+        <a name="delete" class="button" href="#">Delete</a>
+    </div>
+</div>

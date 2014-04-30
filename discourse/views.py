@@ -37,10 +37,18 @@ def render_comment(request, comment, scored=False):
 
 
 def get_files(request, default):
-    files = request.POST.getlist('paths', request.POST.getlist('paths[]', None))
-    if files is None:
-        files = [default]
-    return files
+    urls = request.POST.getlist('urls', request.POST.getlist('urls[]', None))
+    if urls is None:
+        urls = [default]
+
+    strip = '/discourse/attachments/'
+
+    paths = []
+    for url in urls:
+        if url.startswith(strip):
+            paths.append(url[len(strip):])       # +1 for the beginning slash.
+    print paths
+    return paths
 
 
 ### Views ###
@@ -138,6 +146,7 @@ def attachments(request, path):
     elif request.POST.get('method') == 'hide':
         for path in get_files(request, path):
             attachment = Attachment.objects.get(path=path)
+            print path, attachment
             for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='hide'):
                 if isinstance(response, HttpResponse):
                     return response

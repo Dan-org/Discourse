@@ -1,7 +1,16 @@
 $(function() {
     var library = null;
 
-    $('.library').each(function(i, e) {
+    $('.library').each(function(i) {
+        Library({
+            source: $(this),
+            url: $(this).attr('rel'),
+            controls: $(this).find('.actions'),
+            contents: $(this).find('.contents'),
+        })
+    })
+
+    $('.discourse-library').each(function(i, e) {
         library = Library({source: $(e)});
     });
 
@@ -48,89 +57,133 @@ LibraryViewOptions = Tea.Element.extend({
     }
 });
 
+LibraryControls = Tea.Element.extend({
+    type: 'library-controls',
+    library: null,
+    hiddenStates: {
+        'none': ['hide', 'show', 'del'],
+        'one': [],
+        'more': [],
+        'hidden': ['hide'],
+        'visible': ['show'],
+        'editable': ['upload', 'hide', 'show', 'del']
+    },
+    init : function() {
+        this.__super__();
+
+        var source = this.source;
+
+        this.upload = source.find('[name=upload]');
+        this.hide = source.find('[name=hide]');
+        this.show = source.find('[name=show]');
+        this.del = source.find('[name=delete]');
+
+        this.hook(this.hide, 'click', this.library.manipulator('hide', function(icon) { icon.setFileHidden(true); }));
+        this.hook(this.show, 'click', this.library.manipulator('show', function(icon) { icon.setFileHidden(false); }));
+        this.hook(this.del,  'click', this.library.manipulator('delete', function(icon) { icon.destroy(); }));
+
+        this.upload.append('<input type="file" name="upload[]" multiple="multiple" id="library-upload">');
+
+        this.hook(this.library, 'select', this.showButtons);
+    },
+    showButtons : function(selected) {
+        var hide = [];
+
+        this.source.children().show();
+
+        if (selected.length == 0) {
+            hide = hide.concat( this.hiddenStates.none );
+        } else if (selected.length == 1) {
+            hide = hide.concat( this.hiddenStates.one );
+        } else if (selected.length > 1) {
+            hide = hide.concat( this.hiddenStates.more );
+        }
+
+        var hidden = false;
+        var visible = false;
+        for(var i = 0; i < selected.length; i++) {
+            if (selected[i].getValue().hidden) {
+                hidden = true;
+            } else {
+                visible = true;
+            }
+        }
+
+        if (hidden && !visible) {
+            hide = hide.concat( this.hiddenStates.hidden );
+        }
+        if (visible && !hidden) {
+            hide = hide.concat( this.hiddenStates.visible );   
+        }
+
+        if (!this.library.editable) {
+            hide = hide.concat( this.hiddenStates.editable );
+        }
+     
+        for(var i = 0; i < hide.length; i++) {
+            this[hide[i]].hide();
+        }
+    }
+})
+
 Library = Tea.Container.extend({
     type: 'library',
     cls: 'library',
-    path: null,
     url: null,
     editable: true,
+    files: null,
+    prototype: null,
+    contents: null,
+    controls: null,
     init : function() {
         this.__super__();
 
         this.iconMap = {};
-        this.path = this.path || this.source.attr('path');
-        this.url = this.url || this.source.attr('url');
         this.archive_zip = null;
+        this.insertInto = this.contents;
 
-        this.scrapeValue();
-        this.build();
-        this.setValue(this.value);
+        if (!this.prototype) {
+            if (this.contents.children().length) {
+                this.prototype = this.contents.children().first().clone().detach();
+            } else {
+                this.prototype = this.contents.find('.prototype').detach().removeClass('prototype');
+            }
+        }
+
+        this.setupItems();
+        this.controls = this.own({type: 'library-controls', source: this.controls, library: this});
 
         if (this.editable)
             this.source.addClass('editable');
 
-        this.hook(this.source, 'click', function(e) {
-            if (e.target.tagName == 'UL') {
-                this.select(null);
-            }
-        })
+        this.focus = $('<a href="#">').appendTo(this.source);
 
-        //this.hook(discourse, 'attachment', this.changeFile(data));
-        //discourse.follow(this.path);
+        this.hook($(document), 'click', function(e) {
+            if ($(e.target).closest('.library').length == 0)
+                this.select(null);
+            window.e = e;
+        });
+
+        this.select(null);
+    },
+    setupItems : function() {
+        var self = this;
+        var items = [];
+        this.contents.children().each(function() {
+            var icon = self.own({type: 'library-icon', source: $(this)});
+            items.push(icon);
+            self.iconMap[icon.getValue().url] = icon;
+        });
+        this.items = items;
+    },
+    createItem : function(file) {
+        var item = this.prototype.clone();
+        this.setItemValue(item, file);
+        return item;
     },
     changeFile : function(file) {
         this.addIcon(file);
         this.fixButtons();
-    },
-    scrapeValue : function() {
-        var value = [];
-
-        this.source.find('li a').each(function(i, e) {
-            var link = $(e);
-            var mimetype = link.attr('mimetype');
-            var path = link.attr('path');
-
-            if (!path) return;
-
-            value.push({
-                url: link.attr('href'),
-                path: link.attr('path'),
-                icon: link.attr('icon'),
-                hidden: link.hasClass('hidden'),
-                content_type: mimetype,
-                filename: link.find('.text').html()
-            });
-        });
-
-        this.value = value;
-    },
-    build : function() {
-        this.source.empty();
-
-        this.title = $('<h4 class="title">').append('Attachments').appendTo(this.source);
-        this.content = $('<ul class="list content">').appendTo(this.source);
-        this.actions = $('<div class="actions">').appendTo(this.source);
-
-        this.actions.download = $('<a class="action download"><span></span>Download</a>').appendTo(this.actions);
-        this.actions.hide = $('<a class="action hide"><span></span>Hide</a>').appendTo(this.actions);
-        this.actions.show = $('<a class="action hide"><span></span>Show</a>').appendTo(this.actions);
-        this.actions.del = $('<a class="action delete"><span></span>Delete</a>').appendTo(this.actions);
-
-        this.hook(this.actions.download, 'click', this.manipulator('zip'));
-        this.hook(this.actions.hide, 'click', this.manipulator('hide', function(icon) { icon.setFileHidden(true); }));
-        this.hook(this.actions.show, 'click', this.manipulator('show', function(icon) { icon.setFileHidden(false); }));
-        this.hook(this.actions.del, 'click', this.manipulator('delete', function(icon) { icon.destroy(); }));
-
-        if (this.editable) {
-            this.adder = $('<li class="add">')
-                .appendTo(this.content)
-                .append('<a href="#">+<input type="file" name="upload[]" multiple="multiple" id="library-upload"></a>');
-            this.insertBefore = this.adder;
-        } else {
-            this.insertInto = this.content;
-        }
-
-        setupFileDrop(this);
     },
     setValue : function(value) {
         for(var i = 0; i < value.length; i++) {
@@ -151,8 +204,7 @@ Library = Tea.Container.extend({
             return icon;
         }
      
-        var icon = LibraryIcon({value: file, selectable: this.editable});
-        this.append(icon);
+        var icon = this.append({type: 'library-icon', value: file, selectable: this.editable});
         this.iconMap[file.url] = icon;
         return icon;
     },
@@ -164,117 +216,55 @@ Library = Tea.Container.extend({
                 if (other.selected) 
                     selected.push(other);
             });
-            return this.fixButtons();
-        }
-        
-        this.each(function(i, other) {
-            if (icon != other)
-                other.setSelected(false);
-        });
 
-        if (icon) {
-            icon.setSelected(true);
-            this.selected = [icon];
         } else {
-            this.selected = [];
-        }
-
-        this.fixButtons();
-    },
-    fixButtons : function() {
-        if (this.archive_zip) {
-            this.actions.hide.hide();
-            this.actions.show.hide();
-            this.actions.del.hide();
-            this.actions.download.empty().append('Download Attachments');
-
-            if (this.archive_zip.status == 'ready') {
-                this.actions.download.show();
-            } else {
-                this.actions.download.hide();
-            }
-
-            return;
-        }
-
-        if (this.items.length == 0) {
-            this.selected = [];
-            this.actions.download.hide();
-        } else {
-            this.actions.download.show();
-        }
-
-        if (this.selected.length == 0) {
-            this.actions.hide.hide();
-            this.actions.show.hide();
-            this.actions.del.hide();
-            this.actions.download.empty().append('Download All');
-        } else {
-            this.actions.del.show();
-            this.actions.download.empty().append('Download');
-
-            var visible = 0;
-            this.each(function(i, item) {
-                if (item.selected && !item.value.hidden)
-                    visible += 1;
+            this.each(function(i, other) {
+                if (icon != other)
+                    other.setSelected(false);
             });
 
-            if (visible > 0) {
-                this.actions.hide.show();
-                this.actions.show.hide();
+            if (icon) {
+                icon.setSelected(true);
+                this.selected = [icon];
             } else {
-                this.actions.hide.hide();
-                this.actions.show.show();
+                this.selected = [];
             }
         }
+        
+        this.focus.focus();
+        this.trigger('select', [this.selected]);
     },
     onDownload : function() {
         if (this.selected.length == 0) return;
     },
     manipulator : function(method, fn) {
-        return function() {
-            if (method == 'zip' && this.archive_zip) {
-                window.open(this.archive_zip.url);
-            }
+        return jQuery.proxy(function(e) {
+            e.preventDefault();
 
             if (this.selected.length == 0) {
-                if (method == 'zip')
-                    this.selectAll();
-                else
-                    return;
-            }
-
-            var paths = [];
-            for(var i = 0; i < this.selected.length; i++) {
-                if (fn)
-                    fn(this.selected[i]);
-                paths.push(this.selected[i].value.path);
-            }
-
-            if (paths.length == 1 && method == 'zip') {
-                window.open('/discourse/attachments/' + paths[0]);
                 return;
             }
 
-            this.fixButtons();
+            var urls = [];
+            for(var i = 0; i < this.selected.length; i++) {
+                if (fn)
+                    fn(this.selected[i]);
+                urls.push(this.selected[i].getValue().url);
+            }
+
+            this.trigger('select', [this.selected]);     // Trigger in case icons are hidden.
 
             jQuery.ajax({
                 url: this.url,
                 type: 'POST',
-                data: {method: method, paths: paths},
+                data: {method: method, urls: urls},
                 context: this,
                 error: function() {
                     Overlay.status.error("File Management", "Server error.");
                 },
-                success: function(response) {
-                    if (method == 'zip') {
-                        this.setArchiving(response);
-                    } else {
-                        Overlay.status.confirm("File Management", "Success!");
-                    }
-                }
+                success: function(response) {}
             });
-        }
+        }, this);
     },
     selectAll : function() {
         this.each(function(i, item) {
@@ -286,7 +276,6 @@ Library = Tea.Container.extend({
         this.archive_zip = zipinfo;
 
         if (zipinfo.status == 'ready') {
-            this.title.empty().append("Download Ready");
             this.fixButtons();
         } else if (zipinfo.status == 'working') {
             this.poll_download_soon(zipinfo, 1000);
@@ -309,13 +298,11 @@ Library = Tea.Container.extend({
     },
     setArchiving : function(zipinfo) {
         this.archive_zip = zipinfo;
-        this.title.empty().append("Creating attachment zip...");
         this.content.hide();
         this.fixButtons();
         this.poll_download(zipinfo);
     },
     ready : function(name) {
-        this.title.empty().append(name || "Materials");
         this.content.show();
         this.archive_zip = null;
         this.select(null);
@@ -329,27 +316,33 @@ LibraryIcon = Tea.Element.extend({
     value: null,
     selected: false,
     selectable: true,
-    render : function() {
+    init : function() {
         this.__super__();
-        this.link = $('<a target="_blank">').appendTo(this.source);
-        this.icon = $('<div>').addClass('icon').appendTo(this.link);
-        this.text = $('<div>').addClass('text').appendTo(this.link);
 
         if (this.selectable)
             this.hook(this.source, 'click', function(e) {
-                this._parent.select(this, e)
+                this._parent.select(this, e);
                 e.preventDefault();
             })
     },
-    setValue : function(file) {
-        this.link.attr('href', file.url);
-        this.text.empty().append(file.filename);
-        this.icon.attr('class', 'icon').addClass('icon-' + file.icon);
-        if (file.hidden) {
-            this.source.addClass('hidden');
-        } else {
-            this.source.removeClass('hidden');
+    getValue : function() {
+        var src = this.source;
+        return {
+            'url': src.attr('href'),
+            'hidden': src.hasClass('hidden'),
+            'filename': src.find('div[name=name]').val(),
         }
+    },
+    setValue : function(file) {
+        var src = this.source;
+
+        src.attr('href', file.url);
+        src.find.attr('title', file.filename);
+        src.find('div[name=name]').empty().append(file.filename);
+        if (file.hidden)
+            src.addClass('hidden');
+        else
+            src.removeClass('hidden');
     },
     setSelected : function(toggle) {
         this.selected = toggle;
@@ -365,7 +358,6 @@ LibraryIcon = Tea.Element.extend({
         this.setSelected(false);
     },
     setFileHidden : function(t) {
-        this.value.hidden = t;
         if (t) {
             this.source.addClass('hidden');
         } else {

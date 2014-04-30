@@ -83,7 +83,7 @@ class ThreadTag(ttag.Tag):
         scored = bool( data.get('scored') )
         comments = Comment.get_thread(path, context.get('request').user)
         template = data.get('template') or 'discourse/thread.html'
-        
+
         return render_to_string(template, {'comments': comments, 
                                            'path': path,
                                            'depth': data.get('depth'),
@@ -144,6 +144,8 @@ class Library(ttag.Tag):
         if context_vars['hidden']:
             return ""
 
+        context_vars['json'] = json.dumps([a.info() for a in attachments])
+        
         return render_to_string('discourse/library.html', context_vars, context)
 
 
