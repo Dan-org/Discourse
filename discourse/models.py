@@ -241,7 +241,7 @@ class Event(models.Model):
         stream.events.add(self)
 
     def render(self, request):
-        context = RequestContext(request, {'path': self.path, 'event': self})
+        context = RequestContext(request, {'path': self.path, 'event': self, 'object': get_instance_from_sig(self.path)})
         return render_to_string([self.template, 'discourse/event_generic.html'], context)
 
     def __unicode__(self):

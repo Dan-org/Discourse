@@ -68,7 +68,7 @@ def thread(request, path):
         data = comment.info()
         data['_html'] = render_comment(request, comment, scored=request.POST.get('scored', '').lower() == 'true')
 
-        publish(comment.path, type='comment', comment=data)
+        publish(comment, type='comment', comment=data)
 
         if request.is_ajax():
             return JsonResponse(data)
@@ -78,7 +78,7 @@ def thread(request, path):
     elif 'delete' in request.GET:
         comment = get_object_or_404(Comment, pk=request.GET['delete'], path=path)
 
-        publish(comment.path, type='delete', id=comment.id)
+        publish(comment, type='delete', id=comment.id)
 
         comment.delete_by_request(request)
 
@@ -118,7 +118,7 @@ def vote(request):
             vote.save()
 
         comment.save()
-        publish(comment.path, type='vote', id=comment.id, value=comment.value)
+        publish(comment, type='vote', id=comment.id, value=comment.value)
         return JsonResponse(comment.value)
     else:
         return HttpResponseBadRequest()

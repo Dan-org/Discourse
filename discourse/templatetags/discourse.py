@@ -401,7 +401,7 @@ def to_json(value):
     return mark_safe(json.dumps(value))
 
 
-re_hash = re.compile(r'\#[-_\w]+')
+re_hash = re.compile(r'\#\w[-_\w]+\w')
 def hash_link(m):
     tag = m.group(0)
     return '<a href="/search/?q=%s">%s</a>' % (urllib.quote(tag), tag)

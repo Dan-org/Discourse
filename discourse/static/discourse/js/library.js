@@ -2,6 +2,8 @@ $(function() {
     var library = null;
 
     $('.library').each(function(i) {
+        console.log("Library");
+
         Library({
             source: $(this),
             url: $(this).attr('rel'),
