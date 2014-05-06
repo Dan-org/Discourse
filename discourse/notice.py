@@ -28,6 +28,8 @@ def render_mail(to, slug, context, from_address=None, template_path='mail/', bli
     if blind:
         bcc = to
         to = []
+    else:
+        bcc = None
     if from_address is None:
         from_address = settings.DEFAULT_FROM_EMAIL
     subject = render_to_string("%s%s.subject.txt" % (template_path, slug), context).strip()
