@@ -43,14 +43,30 @@ function commentForm(e) {
     }
 
     function addComment(comment) {
-        var newComment = $('<div class="comment new">')
+        var prototype = form.find('.prototype');
+
+        if (prototype) {
+            var newComment = prototype.clone()
+                                .removeClass('prototype')
+                                .attr("id", "comment-" + comment.id)
+                                .attr("rel", comment.id)
+                                .append(comment['_html']);
+        } else {
+            var newComment = $('<div class="comment new">')
                             .attr("id", "comment-" + comment.id)
                             .attr("rel", comment.id)
                             .append(comment['_html']);
-        if (form.hasClass("response-form"))
+        }
+        
+        if (form.hasClass("response-form")) {
             form.before(newComment);
-        else
-            form.after(newComment);
+        } else {
+            var insert = form.closest('.discourse').find('.insert').eq(0);
+            if (insert)
+                insert.append(newComment)
+            else
+                form.after(newComment);
+        }
 
         if (!comment.parent) {
             newComment.addClass('repliable');
