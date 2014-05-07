@@ -91,9 +91,8 @@ def thread(request, path):
         return HttpResponseBadRequest()
 
 
-@login_required
 def vote(request):
-    if request.method == 'POST':
+    if request.method == 'POST' and request.user.is_authenticated():
         direction = request.POST['dir']
         comment = get_object_or_404(Comment, pk=request.POST['pk'])
         try:
