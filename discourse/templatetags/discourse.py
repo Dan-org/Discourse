@@ -81,7 +81,7 @@ class ThreadTag(ttag.Tag):
     def render(self, context):
         data = self.resolve(context)
         path = get_path(context, data.get('path'), data.get('sub'))
-        scored = bool( data.get('scored') )
+        scored = (data.get('scored') == True)
         comments = Comment.get_thread(path, context.get('request').user)
         template = data.get('template') or 'discourse/thread.html'
 

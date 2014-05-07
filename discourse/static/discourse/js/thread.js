@@ -113,6 +113,10 @@ function commentForm(e) {
         return false;
     }
 
+    if (form.hasClass("response-form")) {
+        form.removeClass('active').hide();
+    }
+
     form.submit(submit);
     return form;
 }
