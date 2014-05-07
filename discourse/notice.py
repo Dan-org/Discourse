@@ -12,7 +12,7 @@ logger = logging.getLogger('discourse')
 
 
 ### Helpers ###
-def render_mail(to, slug, context, from_address=None, template_path='mail/', blind=False):
+def render_mail(to, slug, context, from_address=None, template_path='mail/', bcc=None, headers=None):
     """
     Renders an EmailMultiAlternatives object to be sent to the given address, based on the slug.
 
@@ -25,29 +25,24 @@ def render_mail(to, slug, context, from_address=None, template_path='mail/', bli
     """
     if isinstance(to, basestring):
         to = [to]
-    if blind:
-        bcc = to
-        to = []
-    else:
-        bcc = None
     if from_address is None:
         from_address = settings.DEFAULT_FROM_EMAIL
     subject = render_to_string("%s%s.subject.txt" % (template_path, slug), context).strip()
     html = render_to_string("%s%s.html" % (template_path, slug), context)
     text = render_to_string("%s%s.txt" % (template_path, slug), context)
-    msg = mail.EmailMultiAlternatives(subject, text, from_address, to=to, bcc=bcc)
+    msg = mail.EmailMultiAlternatives(subject, text, from_address, to=to, bcc=bcc, headers=headers)
     msg.attach_alternative(html, "text/html")
     return msg
 
 
-def send_mail(to, slug, context=None, from_address=None, template_path='discourse/mail/', blind=False):
+def send_mail(to, slug, context=None, from_address=None, template_path='discourse/mail/', bcc=None, headers=None):
     """
     Convenience function to render and send an email message.  See ``render_mail()`` above for more
     information.
     """
     context = context or {}
     context['settings'] = settings
-    msg = render_mail(to, slug, context, from_address, blind=blind)
+    msg = render_mail(to, slug, context, from_address, bcc=bcc, headers=headers)
     msg.send()
 
 
