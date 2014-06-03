@@ -46,14 +46,17 @@ def send_mail(to, slug, context=None, from_address=None, template_path='discours
     msg.send()
 
 
-def subscribe(user, path):
+def subscribe(user, path, force=False):
     """
     Subscribe a user to a path, thereon whenever an update occurs on the path, the user will be
     notified of the event.
     """
     if isinstance(path, models.Model):
         path = model_sig(path)
-    Subscription.objects.get_or_create(user=user, path=path)
+    sub, _ = Subscription.objects.get_or_create(user=user, path=path)
+    if force:
+        sub.toggle = True
+        sub.save()
 
 
 def unsubscribe(user, path):
@@ -102,8 +105,10 @@ def send_event(actor, type, path, **context):
     context['settings'] = settings
     context['DOMAIN'] = settings.DOMAIN
 
+    sub_path, _, _  = path.partition(':')
+
     # Find users to be notified
-    subscriptions = Subscription.objects.filter(path=path, toggle=True)
+    subscriptions = Subscription.objects.filter(path=sub_path, toggle=True)
     users = set([s.user for s in subscriptions])
     users.discard( actor )
 
@@ -117,7 +122,7 @@ def send_event(actor, type, path, **context):
     )
 
     streams = set([actor])
-
+    
     # Trigger event signal
     # Receivers are expected to alter notify or context.
     for reciever, response in event.send(sender=e, notify=users, streams=streams, **context):
@@ -128,7 +133,7 @@ def send_event(actor, type, path, **context):
 
     for stream in streams:
         e.add_to_stream(stream)
-
+    
     # Notify all the ya'lls
     messages = []
     for user in users:
@@ -138,12 +143,12 @@ def send_event(actor, type, path, **context):
             msg = render_mail(user.email, type, context)
             messages.append(msg)
         except Exception, x:
-            print "Error sending email:", x
+            print "Error sending email (%s):" % type, x
 
     # Use default email connection to send the messages.
-    #if messages:
-    #    connection = mail.get_connection()   
-    #    connection.send_messages(messages)
+    if messages:
+        connection = mail.get_connection()
+        connection.send_messages(messages)
 
     return e
 

@@ -19,6 +19,8 @@ from models import Attachment, AttachmentZip, Document, Comment, CommentVote, Ev
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig
 
+from notice import subscribe, unsubscribe
+
 try:
     import redis
     redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
@@ -268,6 +270,21 @@ def property(request, path):
     setattr(instance, property, value)
     instance.save()
     return HttpResponse(json.dumps( getattr(instance, property, value) ), content_type="application/json")
+
+
+@login_required
+def subscriber(request):
+    if not request.method == 'POST':
+        return HttpResponseBadRequest()
+
+    path = request.POST.get('path')
+    toggle = request.POST.get('toggle', 'true').lower() in ('true', 'on', 'yes')
+    if toggle:
+        subscribe(request.user, path, force=True)
+    else:
+        unsubscribe(request.user, path)
+
+    return HttpResponse(toggle, content_type="application/json")
 
 
 @login_required

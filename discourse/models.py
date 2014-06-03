@@ -37,8 +37,11 @@ def get_instance_from_sig(path):
     if (':' in path):
         path = path.split(':', 1)[0]
     m = re_sig.match(path)
-    if m:
-        app, model, pk = m.groups()
+    parts = path.split('/')
+    if len(parts) >= 3:
+        app = parts[0]
+        model = parts[1]
+        pk = parts[2]
         cls = get_model(app, model)
         if cls is None:
             return None
@@ -156,11 +159,11 @@ class Comment(models.Model):
         comment = cls(path=path, body=body, author=request.user)
         if parent_pk:
             comment.parent = Comment.objects.get(pk=parent_pk)
-        comment_manipulate.send(sender=comment, request=request, action='create')
         comment.value = 1
         comment.up = True
         comment.save()
         comment.votes.create(user=request.user, value=1)
+        comment_manipulate.send(sender=comment, request=request, action='create')
         return comment
 
     @property

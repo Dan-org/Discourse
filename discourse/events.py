@@ -26,5 +26,6 @@ def subscribe_on_comment(sender, request, action, **kwargs):
     """
     comment = sender
     if action == 'create':
-        subscribe(comment.author, comment.path)
+        sub_path, _, _  = comment.path.partition(':')
+        subscribe(comment.author, sub_path)
         send_event(comment.author, "comment", comment.path, comment=comment)

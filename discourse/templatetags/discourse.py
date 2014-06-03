@@ -3,6 +3,7 @@ import ttag
 import json
 
 from django.core.exceptions import PermissionDenied
+from django.core.urlresolvers import reverse
 from django.template.loader import render_to_string
 from django.template import Template
 from django.utils.safestring import mark_safe
@@ -11,6 +12,7 @@ from django.db import models
 from django import template
 
 from ..models import Comment, Attachment, Document, DocumentTemplate, Stream, model_sig, document_view, library_view
+from ..notice import is_subscribed
 
 
 ### Helpers ###
@@ -359,7 +361,6 @@ class EditableTag(ttag.Tag):
                                                             'auth_login': settings.LOGIN_REDIRECT_URL}, context)
 
 
-
 class Path(ttag.Tag):
     """
     Returns the discourse path associated with the object given as the first argument.
@@ -375,6 +376,28 @@ class Path(ttag.Tag):
         return get_path(context, object)
 
 
+class Subscriber(ttag.Tag):
+    """
+    Creates a subscribe button for the given path
+    """
+    object = ttag.Arg(required=True)
+
+    class Meta:
+        name = "subscriber"
+
+    def render(self, context):
+        data = self.resolve(context)
+        object = data['object']
+        request = context['request']
+        path = get_path(context, object)
+        url = reverse("discourse:subscribe")
+        if request.user.is_authenticated():
+            subscribed = is_subscribed(request.user, path)
+        else:
+            subscribed = False
+        return render_to_string('discourse/subscriber.html', locals())
+
+
 ### Register ###
 register = template.Library()
 register.tag(ThreadTag)
@@ -385,6 +408,7 @@ register.tag(DocumentTag)
 register.tag(StreamTag)
 register.tag(EditableTag)
 register.tag(Path)
+register.tag(Subscriber)
 
 
 ### Filters ###
