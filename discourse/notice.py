@@ -43,6 +43,10 @@ def send_mail(to, slug, context=None, from_address=None, template_path='discours
     context = context or {}
     context['settings'] = settings
     msg = render_mail(to, slug, context, from_address)
+    only_allowed = getattr(settings, 'DISCOURSE_ALLOW_MAIL', None)
+    if only_allowed is not None and to.lower() not in only_allowed:
+        logger.info("Email address not allowed, cause it ain't in settings.DISCOURSE_ALLOW_MAIL: %s" % to)
+        return
     msg.send()
 
 
@@ -139,6 +143,10 @@ def send_event(actor, type, path, **context):
     for user in users:
         notice = Notice.objects.create(user=user)
         notice.events = [e]
+        only_allowed = getattr(settings, 'DISCOURSE_ALLOW_MAIL', None)
+        if only_allowed is not None and user.email.lower() not in only_allowed:
+            logger.info("Email address not allowed, cause it ain't in settings.DISCOURSE_ALLOW_MAIL: %s" % user.email)
+            continue
         try:
             msg = render_mail(user.email, type, context)
             messages.append(msg)
