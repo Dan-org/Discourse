@@ -11,7 +11,7 @@ from django.conf import settings
 from django.db import models
 from django import template
 
-from ..models import Comment, Attachment, Document, DocumentTemplate, Stream, model_sig, document_view, library_view
+from ..models import Comment, Attachment, Document, DocumentContent, DocumentTemplate, Stream, model_sig, document_view, library_view
 from ..notice import is_subscribed
 
 
@@ -234,6 +234,7 @@ class DocumentTag(ttag.Tag):
     sub = ttag.Arg(default=None, keyword=True, required=False)          # Optional sub-document
     template = ttag.Arg(required=False, keyword=True)                   # Optional template name
     seed = ttag.Arg(default=None, keyword=True, required=False )        # Optional seed for the content
+    plain = ttag.Arg(default=None, keyword=True, required=False)        # Optional render all the content plainly for search indexing
 
     def get_default_template(self, path, template=None):
         if template:
@@ -256,6 +257,10 @@ class DocumentTag(ttag.Tag):
         data = self.resolve(context)
         path = get_path(context, data.get('path'), data.get('sub'))
         template = data.get('template')
+
+        if data.get('plain'):
+            return "\n".join( [o.body for o in DocumentContent.objects.filter(document__path=path)] )
+
         request = context['request']
         context['path'] = path
 
