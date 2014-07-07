@@ -403,6 +403,7 @@ class Subscriber(ttag.Tag):
         return render_to_string('discourse/subscriber.html', locals())
 
 
+
 ### Register ###
 register = template.Library()
 register.tag(ThreadTag)

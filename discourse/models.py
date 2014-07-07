@@ -109,6 +109,10 @@ class Comment(models.Model):
     edited = models.DateTimeField(blank=True, null=True)
     value = models.IntegerField(default=0)
 
+    class Meta:
+        ordering = ('path', '-value', 'id')
+        app_label = 'discourse'
+
     def __repr__(self):
         return "Comment(%r, %s)" % (self.path, self.id)
 
@@ -148,9 +152,14 @@ class Comment(models.Model):
             self.delete()
         return self
 
-    class Meta:
-        ordering = ('path', '-value', 'id')
-        app_label = 'discourse'
+    def fix_value(self):
+        self.value = ( CommentVote.objects.filter(comment=self).aggregate(models.Sum('value'))['value__sum'] or 0 )
+
+    @classmethod
+    def fix_all_values(cls):
+        for comment in cls.objects.all():
+            comment.fix_value()
+            comment.save()
 
     @classmethod
     def create_by_request(cls, request, path, body):
@@ -197,8 +206,7 @@ class Comment(models.Model):
 
 def on_comment_save(sender, instance, **kwargs):
     if instance.id is not None:
-        instance.value = (
-            CommentVote.objects.filter(comment=instance).aggregate(models.Sum('value'))['value__sum'] or 0 )
+        instance.fix_value()
 pre_save.connect(on_comment_save, sender=Comment)
 
 
@@ -589,7 +597,7 @@ class DocumentContent(models.Model):
         }
 
     def render(self, context):
-        context = RequestContext(context or {})
+        context = Context(context or {})
         context['document'] = self.document
         try:
             html = Template(self.body).render(context)

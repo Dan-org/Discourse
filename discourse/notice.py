@@ -43,10 +43,6 @@ def send_mail(to, slug, context=None, from_address=None, template_path='discours
     context = context or {}
     context['settings'] = settings
     msg = render_mail(to, slug, context, from_address)
-    only_allowed = getattr(settings, 'DISCOURSE_ALLOW_MAIL', None)
-    if only_allowed is not None and to.lower() not in only_allowed:
-        logger.info("Email address not allowed, cause it ain't in settings.DISCOURSE_ALLOW_MAIL: %s" % to)
-        return
     msg.send()
 
 
@@ -87,6 +83,13 @@ def is_subscribed(user, path):
     return Subscription.objects.filter(user=user, path=path, toggle=True).count() > 0
 
 
+def get_subscribers(path):
+    if isinstance(path, models.Model):
+        path = model_sig(path)
+    subscriptions = Subscription.objects.filter(path=path, toggle=True)
+    return set([s.user for s in subscriptions])
+
+
 def send_event(actor, type, path, **context):
     """
     Log an event performed by actor, of the type, on the path, and any other context arguments needed
@@ -112,9 +115,7 @@ def send_event(actor, type, path, **context):
     sub_path, _, _  = path.partition(':')
 
     # Find users to be notified
-    subscriptions = Subscription.objects.filter(path=sub_path, toggle=True)
-    users = set([s.user for s in subscriptions])
-    users.discard( actor )
+    users = get_subscribers(sub_path)
 
     logger.info("Event: %s %s %s", actor, type, path)
 
@@ -141,12 +142,10 @@ def send_event(actor, type, path, **context):
     # Notify all the ya'lls
     messages = []
     for user in users:
+        if user.email == actor.email:
+            continue
         notice = Notice.objects.create(user=user)
         notice.events = [e]
-        only_allowed = getattr(settings, 'DISCOURSE_ALLOW_MAIL', None)
-        if only_allowed is not None and user.email.lower() not in only_allowed:
-            logger.info("Email address not allowed, cause it ain't in settings.DISCOURSE_ALLOW_MAIL: %s" % user.email)
-            continue
         try:
             msg = render_mail(user.email, type, context)
             messages.append(msg)
