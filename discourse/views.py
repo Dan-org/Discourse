@@ -296,3 +296,9 @@ def monitor(request):
         return HttpResponseForbidden()
     events = Event.objects.all()[:50]
     return render(request, 'discourse/monitor.html', locals())
+
+
+def test(request):
+    if not settings.DEBUG:
+        raise Http404
+    return render(request, 'discourse/test.html', locals())
