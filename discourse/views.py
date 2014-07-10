@@ -19,6 +19,8 @@ from models import Attachment, AttachmentZip, Document, Comment, CommentVote, Ev
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig
 
+from notice import subscribe, unsubscribe
+
 try:
     import redis
     redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
@@ -117,7 +119,7 @@ def vote(request):
             vote.save()
 
         comment.save()
-        publish(comment, type='vote', id=comment.id, value=comment.value)
+        publish(comment.path, type='vote', id=comment.id, value=comment.value)
         return JsonResponse(comment.value)
     else:
         return HttpResponseBadRequest()
@@ -279,6 +281,21 @@ def property(request, path):
 
 
 @login_required
+def subscriber(request):
+    if not request.method == 'POST':
+        return HttpResponseBadRequest()
+
+    path = request.POST.get('path')
+    toggle = request.POST.get('toggle', 'true').lower() in ('true', 'on', 'yes')
+    if toggle:
+        subscribe(request.user, path, force=True)
+    else:
+        unsubscribe(request.user, path)
+
+    return HttpResponse(toggle, content_type="application/json")
+
+
+@login_required
 def monitor(request):
     """
     Monitor all events happening on the system.
@@ -287,3 +304,9 @@ def monitor(request):
         return HttpResponseForbidden()
     events = Event.objects.all()[:50]
     return render(request, 'discourse/monitor.html', locals())
+
+
+def test(request):
+    if not settings.DEBUG:
+        raise Http404
+    return render(request, 'discourse/test.html', locals())

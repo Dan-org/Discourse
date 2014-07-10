@@ -1,0 +1,36 @@
+{% load discourse %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Discourse Test</title>
+
+    <style type="text/css">
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            background-color: #F0F0F0;
+            color: #444;
+            padding: 20px 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Discourse Test Page</h1>
+
+    <h2>Document</h2>
+    <section>
+        {% document %}
+    </section>
+
+    <h2>Library</h2>
+    <section>
+        {% library %}
+    </section>
+
+    <h2>Thread</h2>
+    <section>
+        {% thread %}
+    </section>
+</body>
+</html>

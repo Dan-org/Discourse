@@ -4,6 +4,7 @@ import json
 import re
 
 from django.core.exceptions import PermissionDenied
+from django.core.urlresolvers import reverse
 from django.template.loader import render_to_string
 from django.template import Template
 from django.utils.safestring import mark_safe
@@ -11,7 +12,8 @@ from django.conf import settings
 from django.db import models
 from django import template
 
-from ..models import Comment, Attachment, Document, DocumentTemplate, Stream, model_sig, document_view, library_view
+from ..models import Comment, Attachment, Document, DocumentContent, DocumentTemplate, Stream, model_sig, document_view, library_view
+from ..notice import is_subscribed
 
 
 ### Helpers ###
@@ -240,6 +242,7 @@ class DocumentTag(ttag.Tag):
     sub = ttag.Arg(default=None, keyword=True, required=False)          # Optional sub-document
     template = ttag.Arg(required=False, keyword=True)                   # Optional template name
     seed = ttag.Arg(default=None, keyword=True, required=False )        # Optional seed for the content
+    plain = ttag.Arg(default=None, keyword=True, required=False)        # Optional render all the content plainly for search indexing
 
     def get_default_template(self, path, template=None):
         if template:
@@ -262,6 +265,10 @@ class DocumentTag(ttag.Tag):
         data = self.resolve(context)
         path = get_path(context, data.get('path'), data.get('sub'))
         template = data.get('template')
+
+        if data.get('plain'):
+            return "\n".join( [o.body for o in DocumentContent.objects.filter(document__path=path)] )
+
         request = context['request']
         context['path'] = path
 
@@ -382,6 +389,28 @@ class Path(ttag.Tag):
         return get_path(context, object)
 
 
+class Subscriber(ttag.Tag):
+    """
+    Creates a subscribe button for the given path
+    """
+    object = ttag.Arg(required=True)
+
+    class Meta:
+        name = "subscriber"
+
+    def render(self, context):
+        data = self.resolve(context)
+        object = data['object']
+        request = context['request']
+        path = get_path(context, object)
+        url = reverse("discourse:subscribe")
+        if request.user.is_authenticated():
+            subscribed = is_subscribed(request.user, path)
+        else:
+            subscribed = False
+        return render_to_string('discourse/subscriber.html', locals())
+
+
 
 ### Register ###
 register = template.Library()
@@ -393,6 +422,7 @@ register.tag(DocumentTag)
 register.tag(StreamTag)
 register.tag(EditableTag)
 register.tag(Path)
+register.tag(Subscriber)
 
 
 ### Filters ###

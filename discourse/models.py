@@ -37,8 +37,11 @@ def get_instance_from_sig(path):
     if (':' in path):
         path = path.split(':', 1)[0]
     m = re_sig.match(path)
-    if m:
-        app, model, pk = m.groups()
+    parts = path.split('/')
+    if len(parts) >= 3:
+        app = parts[0]
+        model = parts[1]
+        pk = parts[2]
         cls = get_model(app, model)
         if cls is None:
             return None
@@ -106,6 +109,10 @@ class Comment(models.Model):
     edited = models.DateTimeField(blank=True, null=True)
     value = models.IntegerField(default=0)
 
+    class Meta:
+        ordering = ('path', '-value', 'id')
+        app_label = 'discourse'
+
     def __repr__(self):
         return "Comment(%r, %s)" % (self.path, self.id)
 
@@ -145,9 +152,14 @@ class Comment(models.Model):
             self.delete()
         return self
 
-    class Meta:
-        ordering = ('path', '-value', 'id')
-        app_label = 'discourse'
+    def fix_value(self):
+        self.value = ( CommentVote.objects.filter(comment=self).aggregate(models.Sum('value'))['value__sum'] or 0 )
+
+    @classmethod
+    def fix_all_values(cls):
+        for comment in cls.objects.all():
+            comment.fix_value()
+            comment.save()
 
     @classmethod
     def create_by_request(cls, request, path, body):
@@ -156,11 +168,11 @@ class Comment(models.Model):
         comment = cls(path=path, body=body, author=request.user)
         if parent_pk:
             comment.parent = Comment.objects.get(pk=parent_pk)
-        comment_manipulate.send(sender=comment, request=request, action='create')
         comment.value = 1
         comment.up = True
         comment.save()
         comment.votes.create(user=request.user, value=1)
+        comment_manipulate.send(sender=comment, request=request, action='create')
         return comment
 
     @property
@@ -194,8 +206,7 @@ class Comment(models.Model):
 
 def on_comment_save(sender, instance, **kwargs):
     if instance.id is not None:
-        instance.value = (
-            CommentVote.objects.filter(comment=instance).aggregate(models.Sum('value'))['value__sum'] or 0 )
+        instance.fix_value()
 pre_save.connect(on_comment_save, sender=Comment)
 
 
@@ -586,7 +597,7 @@ class DocumentContent(models.Model):
         }
 
     def render(self, context):
-        context = RequestContext(context or {})
+        context = Context(context or {})
         context['document'] = self.document
         try:
             html = Template(self.body).render(context)
