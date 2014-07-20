@@ -89,6 +89,11 @@ def get_subscribers(path):
     subscriptions = Subscription.objects.filter(path=path, toggle=True)
     return set([s.user for s in subscriptions])
 
+def get_subscriptions(path):
+    if isinstance(path, models.Model):
+        path = model_sig(path)
+    return Subscription.objects.filter(path=path, toggle=True)
+
 
 def send_event(actor, type, path, **context):
     """
