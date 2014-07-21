@@ -30,7 +30,7 @@
   jQuery.event.props.push("dataTransfer");
 
   var default_opts = {
-      fallback_id: '',
+      input: null,
       url: '',
       refresh: 1000,
       paramname: 'userfile',
@@ -73,11 +73,10 @@
     this.on('drop', drop).on('dragstart', opts.dragStart).on('dragenter', dragEnter).on('dragover', dragOver).on('dragleave', dragLeave);
     $(document).on('drop', docDrop).on('dragenter', docEnter).on('dragover', docOver).on('dragleave', docLeave);
 
-    $('#' + opts.fallback_id).change(function(e) {
+    $(opts.input).change(function(e) {
       opts.drop(e);
       files = e.target.files;
       files_count = files.length;
-      console.log("CHANGE!", files_count, files);
       upload();
     });
 

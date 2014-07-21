@@ -1,9 +1,10 @@
 """
 
 """
-import json, posixpath
+import json, posixpath, mimetypes
 from cleaner import clean_html
 
+from django.utils.text import slugify
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest, HttpResponseForbidden, Http404
 from django.core.servers.basehttp import FileWrapper
 from django.shortcuts import get_object_or_404, render
@@ -38,19 +39,9 @@ def render_comment(request, comment, scored=False):
     return render_to_string('discourse/thread-comment.html', locals(), RequestContext(request))
 
 
-def get_files(request, default):
-    urls = request.POST.getlist('urls', request.POST.getlist('urls[]', None))
-    if urls is None:
-        urls = [default]
-
-    strip = '/discourse/attachments/'
-
-    paths = []
-    for url in urls:
-        if url.startswith(strip):
-            paths.append(url[len(strip):])       # +1 for the beginning slash.
-    print paths
-    return paths
+def get_files(request):
+    ids = request.POST.getlist('ids', request.POST.getlist('ids[]', None))
+    return Attachment.objects.filter(id__in=ids)
 
 
 ### Views ###
@@ -137,17 +128,14 @@ def attachments(request, path):
     TODO: On head with path, return info about the file.
     """
     if request.method == 'DELETE' or request.POST.get('method') == 'delete':
-        for path in get_files(request, path):
-            attachment = Attachment.objects.get(path=path)
+        for attachment in get_files(request):
             for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='delete'):
                 if isinstance(response, HttpResponse):
                     return response
             attachment.delete()
         return HttpResponse(json.dumps(True), content_type="application/json")
     elif request.POST.get('method') == 'hide':
-        for path in get_files(request, path):
-            attachment = Attachment.objects.get(path=path)
-            print path, attachment
+        for attachment in get_files(request):
             for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='hide'):
                 if isinstance(response, HttpResponse):
                     return response
@@ -155,8 +143,7 @@ def attachments(request, path):
             attachment.save()
         return HttpResponse(json.dumps(True), content_type="application/json")
     elif request.POST.get('method') == 'show':
-        for path in get_files(request, path):
-            attachment = Attachment.objects.get(path=path)
+        for attachment in get_files(request):
             for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='show'):
                 if isinstance(response, HttpResponse):
                     return response
@@ -165,8 +152,7 @@ def attachments(request, path):
         return HttpResponse(json.dumps(True), content_type="application/json")
     elif request.POST.get('method') == 'zip':
         attachments = []
-        for path in get_files(request, path):
-            attachment = Attachment.objects.get(path=path)
+        for attachment in get_files(request):
             for reciever, response in attachment_view.send(sender=attachment, request=request):
                 if isinstance(response, HttpResponse):
                     return response
@@ -175,6 +161,40 @@ def attachments(request, path):
         response = HttpResponse(json.dumps(zip.info()), content_type="application/json", status=202)
         response['Location'] = zip.url
         return response
+    elif request.POST.get('method') == 'rename':
+        attachment = get_files(request)[0]
+        for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='rename'):
+            if isinstance(response, HttpResponse):
+                return response
+        attachment.filename = request.POST['filename']
+        attachment.save()
+        return HttpResponse(json.dumps(attachment.info()), content_type="application/json")
+    elif request.method == 'POST' and request.POST.get('link'):
+        url = request.POST['link']
+        if '://' not in url:
+            url = 'http://' + url
+        filename = url
+        if '?' in filename:
+            filename = filename.split('?', 1)[0]
+        if '/' in filename:
+            filename = url.rsplit('/', 1)[1]
+        if '.' not in filename:
+            filename = slugify(filename)
+        path = posixpath.join(path, filename)
+        try:
+            attachment = Attachment.objects.get(path=path)
+        except:
+            attachment = Attachment(path=path, link=url)
+        attachment.file = None
+        attachment.mimetype, encoding = mimetypes.guess_type(filename)
+        if attachment.mimetype is None:
+            attachment.mimetype = '?'
+        attachment.author = request.user
+        for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='create'):
+            if isinstance(response, HttpResponse):
+                return response
+        attachment.save()
+        return HttpResponse(json.dumps(attachment.info()), content_type="application/json")
     elif request.method == 'POST':
         file = request.FILES['file']
         path = posixpath.join(path, file._name)

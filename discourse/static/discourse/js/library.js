@@ -1,9 +1,10 @@
+
+
 $(function() {
     var library = null;
+    return;
 
     $('.library').each(function(i) {
-        console.log("Library");
-
         Library({
             source: $(this),
             url: $(this).attr('rel'),
@@ -385,6 +386,88 @@ LibraryIcon = Tea.Element.extend({
     }
 });
 
+function setupFileInput(options) {
+    options = $.extend({
+        url: options.url,
+        paramname: 'file',
+        withCredentials: true,
+        maxfiles: 32,
+        maxfilesize: 2000,
+        headers: {
+            'X-CSRFToken': $.cookie('csrftoken')
+        },
+        error : function(err, file) {
+            alert("Error uploading file - " + err + ": " + file);
+        }
+    }, options);
+
+    options.uploadFinished = function(i, file, response, time) {
+        try {
+            var attachment = eval(response);
+            if (!attachment) return;
+        } catch(e) {
+            return;
+        }
+
+        if (options.uploadComplete) {
+            return options.uploadComplete(i, file, attachment, time);
+        }
+    }
+
+    options.source.filedrop(options);
+}
+
+
+function libraryManipulate(options) {
+    var icon = $();
+    var url = options.url;
+    var ids = options.ids;
+    var method = options.method;
+    var success = options.success || jQuery.noop();
+    var error = options.error;
+    var data = options.data;
+
+    for (var i = 0; i < ids.length; i++) {
+        icon = icon.add('#file-' + ids[i]);
+    }
+
+    data = $.extend({method: method, ids: ids}, data);
+
+    jQuery.ajax({
+        url: url,
+        type: 'POST',
+        data: data,
+        context: this,
+        error: function() {
+            if (error) {
+                error();
+            } else {
+                Overlay.status.error("File Management", "Server error.");    
+            }
+        },
+        success: function(response) {
+            if (method == 'delete') {
+                icon.fadeOut(400, function() {
+                    icon.remove();
+                });
+            } else if (method == 'hide') {
+                icon.addClass('hidden');
+            } else if (method == 'rename') {
+                //
+            } else if (method == 'show') {
+                icon.removeClass('hidden');
+            }
+
+            success(response);
+        }
+    });
+}
+
+// via: http://stackoverflow.com/a/20732091/201069, thanks Andrew V.
+function humanFileSize(size) {
+    var i = Math.floor( Math.log(size) / Math.log(1024) );
+    return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
+};
 
 function setupFileDrop(library) {
     $(document.body).filedrop({
@@ -394,27 +477,6 @@ function setupFileDrop(library) {
         withCredentials: true,            // make a cross-origin request with cookies
         headers: {          // Send additional request headers
             'X-CSRFToken': $.cookie('csrftoken')
-        },
-        error: function(err, file) {
-            switch(err) {
-                case 'BrowserNotSupported':
-                    console.log('BrowserNotSupported');
-                    break;
-                case 'TooManyFiles':
-                    console.log('TooManyFiles');
-                    break;
-                case 'FileTooLarge':
-                    // program encountered a file whose size is greater than 'maxfilesize'
-                    // FileTooLarge also has access to the file which was too large
-                    // use file.name to reference the filename of the culprit file
-                    console.log('FileTooLarge');
-                    break;
-                case 'FileTypeNotAllowed':
-                    console.log('FileTypeNotAllowed');
-                    // The file type is not in the specified list 'allowedfiletypes'
-                default:
-                    break;
-            }
         },
         maxfiles: 32,
         maxfilesize: 2000,

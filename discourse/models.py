@@ -351,24 +351,36 @@ class Attachment(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True, blank=True, null=True)
     order = models.IntegerField(default=0)
-    file = models.FileField(upload_to="attachments")
+    file = models.FileField(upload_to="attachments", blank=True, null=True)
+    link = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        ordering = ('path',)
 
     def is_an_image(self):
         return "image/" in self.mimetype
 
     @property
     def url(self):
+        if self.link:
+            return self.link
         return "/discourse/attachments/%s" % (self.path)
 
     @property
     def filename(self):
         return posixpath.basename(self.path)
 
+    @filename.setter
+    def filename(self, value):
+        self.path = posixpath.join( posixpath.dirname(self.path), posixpath.basename(value) )
+    
     @property
     def icon(self):
         """
         Returns the icon type for the file.
         """
+        if self.link:
+            return 'link'
         if "application/pdf" in self.mimetype:
             return "pdf"
         elif "image/" in self.mimetype:
@@ -391,7 +403,8 @@ class Attachment(models.Model):
             'filename': self.filename,
             'url': self.url,
             'icon': self.icon,
-            'hidden': self.hidden
+            'hidden': self.hidden,
+            'link': self.link
         }
 
     def __unicode__(self):
@@ -407,7 +420,7 @@ class Attachment(models.Model):
         """
         if not path.endswith('/'):
             path = path + '/'
-        return cls._default_manager.filter(path__startswith=path)
+        return cls._default_manager.filter(path__startswith=path).order_by('path')
 
     class Meta:
         app_label = 'discourse'
