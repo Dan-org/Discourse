@@ -18,7 +18,7 @@ from django.conf import settings
 from ajax import JsonResponse
 from models import Attachment, AttachmentZip, Document, Comment, CommentVote, Event
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
-from models import get_instance_from_sig
+from models import get_instance_from_sig, model_sig
 
 from notice import subscribe, unsubscribe
 
@@ -31,8 +31,12 @@ except ImportError:
 
 ### Helpers ###
 def publish(path, **args):
+    path = model_sig(path)
     if redis:
+        print "PUBLISH", path, args
         redis.publish(path, json.dumps(args))
+    else:
+        print "No redis available."
 
 
 def render_comment(request, comment, scored=False):
@@ -59,11 +63,11 @@ def thread(request, path):
             comment = Comment.create_by_request(request, path=path, body=request.POST['body'])
 
         data = comment.info()
-        data['_html'] = render_comment(request, comment, scored=request.POST.get('scored', '').lower() == 'true')
-
-        publish(comment, type='comment', comment=data)
+        publish(comment.path, type='comment', comment=data)
 
         if request.is_ajax():
+            data['editable'] = True
+            print "DATA", data
             return JsonResponse(data)
         else:
             return HttpResponseRedirect("%s#discourse-comment-%s" % (next, comment.id))
@@ -71,37 +75,31 @@ def thread(request, path):
     elif 'delete' in request.GET:
         comment = get_object_or_404(Comment, pk=request.GET['delete'], path=path)
 
-        publish(comment, type='delete', id=comment.id)
+        id = comment.id
 
         comment.delete_by_request(request)
+
+        publish(comment.path, type='delete', id=id)
 
         if request.is_ajax():
             return JsonResponse(True)
         else:
             return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
 
-    else:
-        return HttpResponseBadRequest()
+    elif 'vote' in request.GET and request.user.is_authenticated():
+        comment = get_object_or_404(Comment, pk=request.GET['pk'], path=path)
 
-
-def vote(request):
-    if request.method == 'POST' and request.user.is_authenticated():
-        direction = request.POST['dir']
-        comment = get_object_or_404(Comment, pk=request.POST['pk'])
         try:
             vote = comment.votes.get(user=request.user)
         except CommentVote.DoesNotExist:
             vote = CommentVote(user=request.user, comment=comment)
-        if direction == '-1':
-            vote.value = -1
-        elif direction == '1':
-            vote.value = 1
-        else:
-            vote.value = 0
+
+        vote.value = int(request.GET['vote'])
         for reciever, response in comment_vote.send(sender=comment, request=request, vote=vote):
             if isinstance(response, HttpResponse):
                 return response
-        if (vote.value == 0):
+
+        if vote.value == 0:
             if vote.id is not None:
                 vote.delete()
             else:

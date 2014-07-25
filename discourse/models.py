@@ -21,12 +21,17 @@ from django.template.loader import render_to_string
 from django.db.models.signals import pre_save, post_save
 from django.utils.html import normalize_newlines, urlize
 from django.core.files.base import ContentFile
+from django.contrib.humanize.templatetags.humanize import naturaltime
+
+from sorl.thumbnail import get_thumbnail
 
 
 ### Helpers ###
 re_sig = re.compile(r"^(\w+)/(\w+)/([^/]+)$")
 
 def model_sig(instance):
+    if isinstance(instance, basestring):
+        return instance
     cls = instance.__class__
     name = cls._meta.module_name  # activity
     app = cls._meta.app_label     # loft
@@ -123,14 +128,20 @@ class Comment(models.Model):
         return {
             'id': self.id,
             'path': self.path,
-            'body': self.render_body(),
-            'raw': self.body,
-            'author': str(self.author),
+            'html': self.render_body(),
+            'text': self.body,
             'created': tuple(self.created.timetuple()) if self.created else None,
+            'naturaltime': naturaltime(self.created) if self.created else None,
             'deleted': tuple(self.deleted.timetuple()) if self.deleted else None,
             'edited': tuple(self.edited.timetuple()) if self.edited else None,
             'parent': self.parent_id,
-            'value': self.value
+            'value': self.value,
+            'up': getattr(self, 'up', None),
+            'down': getattr(self, 'down', None),
+            'author': self.author.simple() if self.author else {
+                'name': deleted,
+                'url': '#'
+            }
         }
 
     def render_body(self):
@@ -145,12 +156,22 @@ class Comment(models.Model):
 
     def delete_by_request(self, request):
         comment_manipulate.send(sender=self, request=request, action='delete')
-        if (self.children.count() > 0):
+        if self.children.count() > 0 and not self.all_children_are_deleted():
             self.deleted = datetime.now()
             self.save()
         else:
             self.delete()
         return self
+
+    def all_children_are_deleted(self):
+        for child in self.children.all():
+            if not child.deleted:
+                print "I'm not deleted:", child
+                return False
+            if not child.all_children_are_deleted():
+                print "My children are not deleted:", child
+                return False
+        return True
 
     def fix_value(self):
         self.value = ( CommentVote.objects.filter(comment=self).aggregate(models.Sum('value'))['value__sum'] or 0 )
@@ -311,8 +332,6 @@ class Stream(models.Model):
 
     def render_events(self, request, size=10, after=None):
         """
-        Generates a sequence of events for the stream as simple dicts.
-
         TODO: Cache this.
         """
         q = self.events.all().order_by('-id')[:size]

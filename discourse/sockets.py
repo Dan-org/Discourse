@@ -9,9 +9,11 @@ class DiscourseSocket(BaseNamespace):
         self.redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
 
     def follow_loop(self, path):
+        print "Client Following:", path
         o = self.redis.pubsub()
         o.subscribe([path])
         for item in o.listen():
+            print "Redis item", item
             if item['type'] == 'message':
                 item = json.loads(item['data'])
                 if item['type'] == 'vote':

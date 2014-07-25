@@ -329,12 +329,13 @@ class StreamTag(ttag.Tag):
 
         try:
             stream = Stream.objects.get(path=path)
-            events = stream.render_events(request, size=size)
+            events = stream.events.all().order_by('-id')[:size]
             count = stream.events.count()
         except Stream.DoesNotExist:
             stream = Stream(path=path)
             events = ()
             count = 0
+
         return render_to_string('discourse/stream.html', {'stream': stream, 
                                                           'events': events,
                                                           'count': count,
