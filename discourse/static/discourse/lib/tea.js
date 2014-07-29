@@ -686,7 +686,7 @@ Tea.Field = Tea.Container.extend({
     label: null,
     id: null,
     name: null,
-    input: 't-text',
+    input: 't-input',
     validators: [],
     render : function() {
         var source = this.__super__();
@@ -1369,6 +1369,7 @@ Tea.Select = Tea.Input.extend({
         return result;
     },
     setValue : function(v) {
+        if (v === undefined || v === null) v = "";
         v = v.toString();
         var source = this.source;
         source.find('option').each(function(i, item) {

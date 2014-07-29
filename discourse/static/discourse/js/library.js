@@ -458,7 +458,8 @@ function libraryManipulate(options) {
                 icon.removeClass('hidden');
             }
 
-            success(response);
+            if (success)
+                success(response);
         }
     });
 }
