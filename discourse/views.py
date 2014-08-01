@@ -56,6 +56,7 @@ def thread(request, path):
     if request.method == 'POST':
         next = request.POST.get('next', None)
         pk = request.POST.get('pk')
+        print "PK:", pk
         if pk:
             comment = get_object_or_404(Comment, pk=pk, path=path)
             comment.edit_by_request(request, body=request.POST['body'])

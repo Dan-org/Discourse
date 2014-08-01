@@ -84,7 +84,8 @@ $(document).on('submit', '.discourse .thread form', function(e) {
     var comment = form.closest('.comment');
     var data = {
         body: $(this).find('[name=body]').val(),
-        parent: $(this).find('[name=parent]').val()
+        parent: $(this).find('[name=parent]').val(),
+        pk: $(this).find('[name=pk]').val()
     }
 
     if (comment.length > 0)
