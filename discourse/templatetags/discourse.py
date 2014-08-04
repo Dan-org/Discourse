@@ -254,7 +254,10 @@ class DocumentTag(ttag.Tag):
                     structure="- content: Content",
                 )
         try:
-            return DocumentTemplate.objects.all()[0]
+            if hasattr(settings, 'DISCOURSE_DEFAULT_TEMPLATE'):
+                DocumentTemplate.objects.get(slug=settings.DISCOURSE_DEFAULT_TEMPLATE)
+            else:
+                return DocumentTemplate.objects.all()[0]
         except IndexError:
             return DocumentTemplate.objects.create(
                 slug="simple",
