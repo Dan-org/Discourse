@@ -137,7 +137,7 @@ function realizeComment(comment) {
         source.addClass('created');
     } else {
         if ( source.hasClass('created') ) {
-            return;
+            return source;
         }
     }
 
@@ -252,6 +252,8 @@ function editComment(comment) {
     var prototype = comment.closest('.thread').find('form').first();
     var id = comment.attr('id').substring('comment-'.length);
     var text = comment.find('.text').html();
+
+    comment.removeClass('created');
 
     form = prototype.clone().addClass('temporary');
     comment.hide().before(form);

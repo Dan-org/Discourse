@@ -30,8 +30,9 @@ except ImportError:
 
 
 ### Helpers ###
-def publish(path, **args):
+def publish(path, type, **args):
     path = model_sig(path)
+    args['type'] = type
     if redis:
         print "PUBLISH", path, args
         redis.publish(path, json.dumps(args))
@@ -68,7 +69,6 @@ def thread(request, path):
 
         if request.is_ajax():
             data['editable'] = True
-            print "DATA", data
             return JsonResponse(data)
         else:
             return HttpResponseRedirect("%s#discourse-comment-%s" % (next, comment.id))

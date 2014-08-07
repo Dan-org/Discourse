@@ -318,10 +318,14 @@ class StreamTag(ttag.Tag):
 
     Allow comments
     {% stream object comments=True %}
+
+    Set the context
+    {% stream object context="home-page" %}
     """
     path = ttag.Arg(required=False)
     size = ttag.Arg(required=False, keyword=True)
     comments = ttag.Arg(required=False, keyword=True)
+    context_ = ttag.Arg(required=False, keyword=True)
 
     def render(self, context):
         data = self.resolve(context)
@@ -329,6 +333,7 @@ class StreamTag(ttag.Tag):
         request = context['request']
         size = data.get('size', 10)
         comments = data.get('comments', False)
+        context_ = data.get('context', None)
 
         try:
             stream = Stream.objects.get(path=path)
@@ -343,6 +348,7 @@ class StreamTag(ttag.Tag):
                                                           'events': events,
                                                           'count': count,
                                                           'size': size,
+                                                          'context': context_,
                                                           'path': path, 
                                                           'auth_login': settings.LOGIN_REDIRECT_URL}, context)
 

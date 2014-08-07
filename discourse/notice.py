@@ -132,17 +132,19 @@ def send_event(actor, type, path, **context):
     )
 
     streams = set([actor])
-    
+
     # Trigger event signal
     # Receivers are expected to alter notify or context.
     for reciever, response in event.send(sender=e, notify=users, streams=streams, **context):
         if isinstance(response, dict):
             context.update(response)
-
+    
     e.save()
 
     for stream in streams:
         e.add_to_stream(stream)
+
+    context['event'] = e
     
     # Notify all the ya'lls
     messages = []

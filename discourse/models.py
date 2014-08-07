@@ -248,6 +248,41 @@ class CommentVote(models.Model):
         app_label = 'discourse'
 
 
+class Vote(models.Model):
+    path = models.CharField(max_length=255)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="votes")
+    value = models.IntegerField()
+
+    def __unicode__(self):
+        if self.value > 0:
+            return "Upvote by %s" % self.user
+        elif self.value < 0:
+            return "Downvote by %s" % self.user
+        else:
+            return "Sidevote by %s" % self.user
+
+    class Meta:
+        app_label = 'discourse'
+
+    @classmethod
+    def value_for(cls, path, user=None):
+        path = model_sig(path)
+        if user:
+            try:
+                return cls.objects.get(path=path, user=user).value
+            except cls.DoesNotExist:
+                return 0
+        return ( cls.objects.filter(path=path).aggregate(models.Sum('value'))['value__sum'] or 0 )
+
+    @classmethod
+    def cast(cls, user, path, value):
+        vote, created = cls.objects.get_or_create(user=user, path=path, defaults={'value': value})
+        if not created:
+            vote.value = value
+            vote.save()
+        return vote
+
+
 class Subscription(models.Model):
     path = models.CharField(max_length=255)
     user = models.ForeignKey(settings.AUTH_USER_MODEL)
