@@ -108,6 +108,10 @@ Document = Tea.Element.extend({
                             jQuery.contains(this.source[0], e.target) );
         var in_overlay  = ( e.target == Overlay.source[0] ||
                             jQuery.contains(Overlay.source[0], e.target) );
+
+        if ($(e.target).closest('.discourse-edit-handle').length > 0)
+            in_document = true;
+
         if (in_document && !this.editing) {
             this.startEditing();
             if (e.target.nodeName == 'A') {

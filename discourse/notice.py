@@ -95,6 +95,7 @@ def get_subscriptions(path):
     return Subscription.objects.filter(path=path, toggle=True)
 
 
+
 def send_event(actor, type, path, **context):
     """
     Log an event performed by actor, of the type, on the path, and any other context arguments needed
@@ -154,10 +155,10 @@ def send_event(actor, type, path, **context):
         notice = Notice.objects.create(user=user)
         notice.events = [e]
         try:
-            msg = render_mail(user.email, type, context)
+            msg = render_mail(user.email, e.type, context)
             messages.append(msg)
         except Exception, x:
-            print "Error sending email (%s):" % type, x
+            print "Error sending email (%s):" % e.type, x
 
     # Use default email connection to send the messages.
     if messages:
