@@ -255,7 +255,7 @@ class DocumentTag(ttag.Tag):
                 )
         try:
             if hasattr(settings, 'DISCOURSE_DEFAULT_TEMPLATE'):
-                DocumentTemplate.objects.get(slug=settings.DISCOURSE_DEFAULT_TEMPLATE)
+                return DocumentTemplate.objects.get(slug=settings.DISCOURSE_DEFAULT_TEMPLATE)
             else:
                 return DocumentTemplate.objects.all()[0]
         except IndexError:
