@@ -80,6 +80,7 @@ discourse.on('delete', function(id) {
 // When a form is submited on the threads, we should use ajax to submit it.
 $(document).on('submit', '.discourse .thread form', function(e) {
     e.preventDefault();
+
     var form = $(this);
     var comment = form.closest('.comment');
     var data = {
@@ -87,6 +88,8 @@ $(document).on('submit', '.discourse .thread form', function(e) {
         parent: $(this).find('[name=parent]').val(),
         pk: $(this).find('[name=pk]').val()
     }
+
+    form.find('[name=body]').blur();
 
     if (comment.length > 0)
         data.in_reply = comment.attr('id').substring('comment-'.length);
@@ -98,6 +101,7 @@ $(document).on('submit', '.discourse .thread form', function(e) {
         success: postCommentSuccess,
         error: function(response) {
             formError(form, response);
+            form.find('[name=body]').focus();
         }
     });
 });
