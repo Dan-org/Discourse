@@ -23,8 +23,6 @@ from django.utils.html import normalize_newlines, urlize
 from django.core.files.base import ContentFile
 from django.contrib.humanize.templatetags.humanize import naturaltime
 
-from sorl.thumbnail import get_thumbnail
-
 
 ### Helpers ###
 re_sig = re.compile(r"^(\w+)/(\w+)/([^/]+)$")

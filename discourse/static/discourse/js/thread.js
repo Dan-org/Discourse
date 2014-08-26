@@ -89,6 +89,7 @@ $(document).on('submit', '.discourse .thread form', function(e) {
         pk: $(this).find('[name=pk]').val()
     }
 
+    form.find('[type=submit]').attr('disabled','disabled');
     form.find('[name=body]').blur();
 
     if (comment.length > 0)
@@ -98,9 +99,13 @@ $(document).on('submit', '.discourse .thread form', function(e) {
         url: form.attr('action'),
         data: data,
         type: 'post',
-        success: postCommentSuccess,
+        success: function() {
+            form.find('[type=submit]').attr('disabled', null);
+            postCommentSuccess.apply(this, arguments);
+        },
         error: function(response) {
             formError(form, response);
+            form.find('[type=submit]').attr('disabled', null);
             form.find('[name=body]').focus();
         }
     });

@@ -71,8 +71,6 @@ Document = Tea.Element.extend({
             this.source.removeClass('discourse-empty');
         }
 
-        console.log(this.getValue().src);
-
         this.source.attr('contenteditable', false)
                    .removeClass('discourse-editing');
         this.storage.setValue(this.getValue().src);
@@ -108,9 +106,6 @@ Document = Tea.Element.extend({
                             jQuery.contains(this.source[0], e.target) );
         var in_overlay  = ( e.target == Overlay.source[0] ||
                             jQuery.contains(Overlay.source[0], e.target) );
-
-        if ($(e.target).closest('.discourse-edit-handle').length > 0)
-            in_document = true;
 
         if (in_document && !this.editing) {
             this.startEditing();
