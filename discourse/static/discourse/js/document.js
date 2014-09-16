@@ -4,6 +4,42 @@ $(function() {
     });
 });
 
+$(document).on('click', '.discourse .document .html', function(e) {
+    if (e.target.tagName == 'A') {
+        return;
+    }
+
+    var doc = $(e.target).closest('.document').data('document');
+    if (window.editing && window.editing != doc)
+        window.editing.stopEditing();
+
+    doc.startEditing();
+    e.preventDefault();
+});
+
+$(document).on('click', '.discourse .document .discourse-edit-handle', function(e) {
+    var doc = $(e.target).closest('.document').data('document');
+    if (window.editing && window.editing != doc)
+        window.editing.stopEditing();
+
+    doc.startEditing();
+    e.preventDefault();
+});
+
+$(document).on('click', '.discourse .document .src a', function(e) {
+    //Overlay.editLink($(e.target));
+});
+
+$(document).on('click', function(e) {
+    var doc = $(e.target).closest('.document');
+
+    if (doc.length == 0) {
+        if (window.editing) {
+            window.editing.stopEditing();
+        }
+    }
+});
+
 Document = Tea.Element.extend({
     type: 'discourse-document',
     storage: null,
@@ -14,6 +50,8 @@ Document = Tea.Element.extend({
 
         this._src = this.source.children('.src');
         this._html = this.source.children('.html');
+
+        this.source.data('document', this);
 
         if (!this.storage)
             this.storage = Storage({ document: this,
@@ -26,7 +64,14 @@ Document = Tea.Element.extend({
                 this.setValue(value);
         })
 
+        /*this.hook(this.source.find('.discourse-edit-handle'), 'click', function(e) {
+            this.startEditing();
+            e.preventDefault();
+        })
+
         this.hook($(document), 'click', this.onDocClick);
+        */
+
         this.hook($(document), 'unload', this.stopEditing);
         this.hook(this.source, 'mouseup', this.onMouseup);
         this.hook(this.source, 'keydown', this.onKeyDown);
@@ -41,23 +86,24 @@ Document = Tea.Element.extend({
         }
     },
     startEditing : function() {
+        window.editing = this;
+        this._src.children()[0].focus();
+
         Overlay.startEdit(this);
-        this.source.attr('contenteditable', true)
-                   .addClass('discourse-editing')
+        this.source.addClass('discourse-editing')
                    .removeClass('discourse-empty')
                    .focus();
 
-        this._src.show();
+        this._src.show().attr('contenteditable', true);
         this._html.hide();
 
-        if (this.is_empty()) {
-            this.cursorSanityCheck();
-        }
+        this.cursorSanityCheck();
         this.editing = true;
 
         this.trigger('block', [this.getBlockAroundSelection()]);
     },
     stopEditing : function() {
+        window.editing = null;
         Overlay.stopEdit(this);
         
         this._src.hide();
@@ -66,13 +112,15 @@ Document = Tea.Element.extend({
         this.sanitize();
 
         if (this.is_empty()) {
-            this.source.addClass('discourse-empty').empty();
+            this.source.addClass('discourse-empty');
+            this._src.empty();
+            this._html.empty();
         } else {
             this.source.removeClass('discourse-empty');
         }
 
-        this.source.attr('contenteditable', false)
-                   .removeClass('discourse-editing');
+        this._src.attr('contenteditable', false);
+        this.source.removeClass('discourse-editing');
         this.storage.setValue(this.getValue().src);
         this.storage.save();
 
@@ -102,8 +150,8 @@ Document = Tea.Element.extend({
         });
     },
     onDocClick : function(e) {
-        var in_document = ( e.target == this.source[0] || 
-                            jQuery.contains(this.source[0], e.target) );
+        var in_document = ( e.target == this._src[0] || 
+                            jQuery.contains(this._src[0], e.target) );
         var in_overlay  = ( e.target == Overlay.source[0] ||
                             jQuery.contains(Overlay.source[0], e.target) );
 
@@ -249,7 +297,7 @@ Document = Tea.Element.extend({
 
         // Check if our selection outside of a block, if so put it in the first child.
         var sel = window.getSelection();
-        if ( sel.anchorNode == src[0] ) {
+        if ( sel.anchorNode == src[0] || $(sel.anchorNode).closest('.src') != src )  {
             var range = document.createRange();
             range.selectNodeContents(src.children()[0]);
             range.collapse(false);
