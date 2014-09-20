@@ -87,7 +87,6 @@ Document = Tea.Element.extend({
     },
     startEditing : function() {
         window.editing = this;
-        this._src.children()[0].focus();
 
         Overlay.startEdit(this);
         this.source.addClass('discourse-editing')
@@ -193,6 +192,7 @@ Document = Tea.Element.extend({
         }
     },
     setValue : function(v) {
+        if (v == null) return;
         this._src.html(v.src);
         this._html.html(v.html);
     },
@@ -297,7 +297,8 @@ Document = Tea.Element.extend({
 
         // Check if our selection outside of a block, if so put it in the first child.
         var sel = window.getSelection();
-        if ( sel.anchorNode == src[0] || $(sel.anchorNode).closest('.src') != src )  {
+        if ( sel.anchorNode == src[0] )  {
+            console.log("FIX!");
             var range = document.createRange();
             range.selectNodeContents(src.children()[0]);
             range.collapse(false);

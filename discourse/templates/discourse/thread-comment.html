@@ -5,7 +5,7 @@
     <div class="author">{{ comment.author }}</div>
   {% endblock %}
   <p class="body">
-    {{ comment.body|linebreaksbr|urlize }}
+    {{ comment.body|linebreaksbr|urlize|hashtags }}
   </p>
   <div class="actions">
     <div class="time" title="{{comment.created}}">{{ comment.created|naturaltime }}</div>
