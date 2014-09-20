@@ -53,9 +53,35 @@ $(document).on('click', '.discourse .thread .voting a', function(e) {
 });
 
 
+// Return all tags in the given text
+function findAllTags(text) {
+    var regex = /#(\w+)/g;
+    var matches = [];
+    while((match = regex.exec(text)) !== null){
+        matches.push(match[1]);
+    }
+    return matches;
+}
+
+// Update the counts of tags on the page
+function updateCounts(tag, prompt_id) {
+    var total = $('.tag-count-' + tag);
+    var value = (parseInt(total.text().substring(1)) || 0) + 1;
+    total.text('(' + value + ')');
+
+    var prompt = $('.tag-count-' + tag + '-' + prompt_id);
+    var value = (parseInt(prompt.text().substring(1)) || 0) + 1;
+    prompt.text('(' + value + ')');
+}   
+
 // When discourse tells us that there is a new comment
 discourse.on('comment', function (comment) {
     realizeComment(comment);
+    var tags = comment.tags = findAllTags(comment.text);
+    var prompt_id = comment.path.match(/\d+$/g);
+    for(var i = 0; i < tags.length; i++) {
+        updateCounts(tags[i], prompt_id);
+    }
 });
 
 // When discourse tells us there's a new vote.
