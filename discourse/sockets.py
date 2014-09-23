@@ -20,6 +20,8 @@ class DiscourseSocket(BaseNamespace):
                     self.emit('comment', item['comment'])
                 elif item['type'] == 'delete':
                     self.emit('delete', item['id'])
+                else:
+                    self.emit(item['type'], item)
 
     def on_follow(self, path):
         self.spawn(self.follow_loop, path)

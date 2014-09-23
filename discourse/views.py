@@ -15,7 +15,7 @@ from django.template.loader import render_to_string
 from django.template import RequestContext
 from django.conf import settings
 
-from ajax import JsonResponse
+from ajax import JsonResponse, to_json
 from models import Attachment, AttachmentZip, Document, Comment, CommentVote, Event
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig, model_sig
@@ -35,7 +35,7 @@ def publish(path, type, **args):
     args['type'] = type
     if redis:
         print "PUBLISH", path, args
-        redis.publish(path, json.dumps(args))
+        redis.publish(path, to_json(args))
     else:
         print "No redis available."
 
