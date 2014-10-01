@@ -34,7 +34,6 @@ def publish(path, type, **args):
     path = model_sig(path)
     args['type'] = type
     if redis:
-        print "PUBLISH", path, args
         redis.publish(path, to_json(args))
     else:
         print "No redis available."
@@ -214,10 +213,10 @@ def attachments(request, path):
         for reciever, response in attachment_view.send(sender=attachment, request=request):
             if isinstance(response, HttpResponse):
                 return response
-        if not attachment.file.storage.exists(attachment.file.path):
+        if not attachment.file.storage.exists(attachment.file.name):
             raise Http404
         response = HttpResponse(FileWrapper(attachment.file), content_type=attachment.mimetype)
-        response['Content-Length'] = attachment.file.storage.size(attachment.file.path)
+        response['Content-Length'] = attachment.file.storage.size(attachment.file.name)
         response['Content-Disposition'] = "filename=%s" % attachment.file.name
         return response
 
