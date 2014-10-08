@@ -20,19 +20,6 @@ def check_author(sender, request, action, **kwargs):
             raise PermissionDenied()
 
 
-@receiver(comment_manipulate)
-def subscribe_on_comment(sender, request, action, **kwargs):
-    """
-    When a user posts a comment, subscribe them to the path, and
-    send an event.
-    """
-    comment = sender
-    if action == 'create':
-        sub_path, _, _  = comment.path.partition(':')
-        subscribe(comment.author, sub_path)
-        send_event(comment.author, "comment", comment.path, comment=comment)
-
-
 @receiver(attachment_view)
 def send_to_aws_for_attachment(sender, request, **kwargs):
     """
