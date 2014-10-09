@@ -14,13 +14,14 @@ from django.contrib import messages
 from django.template.loader import render_to_string
 from django.template import RequestContext
 from django.conf import settings
+from django.db import models
 
 from ajax import JsonResponse, to_json
 from models import Attachment, AttachmentZip, Document, Comment, CommentVote, Event
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig, model_sig
 
-from notice import subscribe, unsubscribe
+from notice import subscribe, unsubscribe, send_event
 
 try:
     import redis
@@ -30,9 +31,18 @@ except ImportError:
 
 
 ### Helpers ###
-def publish(path, type, **args):
+def publish(path, actor, type, **args):
     path = model_sig(path)
+    send_event(actor, type, path, **args)
     args['type'] = type
+    for k, v in args.items():
+        if isinstance(v, models.Model):
+            if hasattr(v, 'simple'):
+                args[k] = v.simple()
+            elif hasattr(v, 'info'):
+                args[k] = v.info()
+            else:
+                del args[k]
     if redis:
         redis.publish(path, to_json(args))
     else:
@@ -64,7 +74,7 @@ def thread(request, path):
             comment = Comment.create_by_request(request, path=path, body=request.POST['body'])
 
         data = comment.info()
-        publish(comment.path, type='comment', comment=data)
+        publish(comment.path, request.user, 'comment', comment=comment)
 
         if request.is_ajax():
             data['editable'] = True
@@ -79,7 +89,7 @@ def thread(request, path):
 
         comment.delete_by_request(request)
 
-        publish(comment.path, type='delete', id=id)
+        publish(comment.path, request.user, 'delete', id=id)
 
         if request.is_ajax():
             return JsonResponse(True)
@@ -108,7 +118,7 @@ def thread(request, path):
             vote.save()
 
         comment.save()
-        publish(comment.path, type='vote', id=comment.id, value=comment.value)
+        publish(comment.path, request.user, 'vote', id=comment.id, value=comment.value)
         return JsonResponse(comment.value)
     else:
         return HttpResponseBadRequest()

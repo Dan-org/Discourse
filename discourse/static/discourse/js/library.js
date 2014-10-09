@@ -480,7 +480,7 @@ function setupFileDrop(library) {
             'X-CSRFToken': $.cookie('csrftoken')
         },
         maxfiles: 32,
-        maxfilesize: 2000,
+        maxfilesize: 10000,
         dragOver: function() {
             // user dragging files over #dropzone
         },
