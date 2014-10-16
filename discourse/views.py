@@ -17,7 +17,7 @@ from django.conf import settings
 from django.db import models
 
 from ajax import JsonResponse, to_json
-from models import Attachment, AttachmentZip, Document, Comment, CommentVote, Event
+from models import Attachment, AttachmentZip, Document, Comment, CommentVote, Event, Stream
 from models import attachment_manipulate, comment_manipulate, document_manipulate, attachment_view, comment_vote
 from models import get_instance_from_sig, model_sig
 
@@ -121,7 +121,18 @@ def thread(request, path):
         publish(comment.path, request.user, 'vote', id=comment.id, value=comment.value)
         return JsonResponse(comment.value)
     else:
-        return HttpResponseBadRequest()
+        scored = False
+        depth = 1
+        comments = Comment.get_thread(path, request.user)
+        template = request.GET.get('template') or 'discourse/thread.html'
+
+        html = render_to_string(template, {'comments': comments,
+                                           'path': path,
+                                           'depth': depth,
+                                           'scored': scored,
+                                           'auth_login': settings.LOGIN_REDIRECT_URL})
+        
+        return HttpResponse(json.dumps({'html': html}), content_type="application/json")
 
 
 def attachments(request, path):
@@ -280,6 +291,37 @@ def document(request, path):
     except Exception, e:
         print e
         raise
+
+
+def stream(request, path):
+    """
+
+    """
+    stream = get_object_or_404(Stream, path=path.rstrip('/'))
+    last = request.GET.get('last', None)
+    if last:
+        events = stream.events.filter(id__lt=last)
+    else:
+        events = stream.events.all()
+
+    results = []
+    last_event_id = None
+    for e in events[:21]:
+        last_event_id = e.id
+        results.append( e.render(request) )
+
+    if events.count() >= 21:
+        next = '%s?%s' % (request.path, last_event_id)
+    else:
+        next = None
+
+    return HttpResponse(json.dumps( {
+        'count': events.count(),
+        'size': len(results),
+        'results': results,
+        'next': next,
+    } ), content_type="application/json")
+
 
 
 def redirect(request, path):

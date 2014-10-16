@@ -1,0 +1,18 @@
+TRANSITION
+
+Event -> Record
+    path -> anchor_uri
+
+Subscription.path -> Subscription.target_uri
+
+Comment.path -> Comment.anchor_uri
+
+CommentVote -> Vote
+
+Stream.path -> Stream.anchor_uri
+
+Attachment.path -> Attachment.anchor_uri
+
+ATTACHMENT_ZIPS -> None
+
+Document.path -> Document.anchor_uri

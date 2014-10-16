@@ -3,5 +3,11 @@
         {% for event in events %}
             {{ event|safe }}
         {% endfor %}
+
+        {% if count > size %}
+            <p>
+                <a class="button more" href="{% url 'discourse:stream' path %}?last={{last_event_id}}">View More</a>
+            </p>
+        {% endif %}
     </div>
 </div>

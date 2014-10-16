@@ -169,3 +169,18 @@ def send_event(actor, type, path, **context):
 
 
 
+
+class Notice(models.Model):
+    """
+    A notice, shown given to the user when events happen like friending or someone
+    responding to a comment on a subscribed path.
+    """
+    events = models.ManyToManyField(Event)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="notices")
+    read = models.DateTimeField(blank=True, null=True)
+
+    def __unicode__(self):
+        return "Notice(%s)" % self.id
+
+    class Meta:
+        app_label = 'discourse'

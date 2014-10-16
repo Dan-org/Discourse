@@ -313,7 +313,7 @@ class StreamTag(ttag.Tag):
     Show a stream for a string
     {% stream 'pandas' %}
 
-    Set the initial size of shown events to 5 instead of the default of 10:
+    Set the initial size of shown events to 5 instead of the default of 21:
     {% stream object size=5 %}
 
     Allow comments
@@ -331,7 +331,7 @@ class StreamTag(ttag.Tag):
         data = self.resolve(context)
         path = get_path(context, data.get('path'))
         request = context['request']
-        size = data.get('size', 10)
+        size = data.get('size', 21)
         comments = data.get('comments', False)
         context_ = data.get('context', None)
 
@@ -344,12 +344,19 @@ class StreamTag(ttag.Tag):
             events = ()
             count = 0
 
+        events = list(events)
+        if events:
+            last_event_id = events[-1].id
+        else:
+            last_event_id = None
+        
         return render_to_string('discourse/stream.html', {'stream': stream, 
                                                           'events': events,
                                                           'count': count,
                                                           'size': size,
                                                           'context': context_,
                                                           'path': path, 
+                                                          'last_event_id': last_event_id,
                                                           'auth_login': settings.LOGIN_REDIRECT_URL}, context)
 
     class Meta:
