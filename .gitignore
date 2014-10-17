@@ -2,6 +2,7 @@
 /build
 /dist
 /django_discourse.egg-info
+/example/media
 .DS_Store
 *.pyc
 sqlite.db
