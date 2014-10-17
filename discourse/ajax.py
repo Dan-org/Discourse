@@ -39,5 +39,6 @@ class JsonResponse(HttpResponse):
     the EnhancedJSONEncoder above to deal with date/time and decimal types.
     """
     def __init__(self, simple_object, status=None, content_type="application/json"):
+        self.data = simple_object
         super(JsonResponse, self).__init__(to_json(simple_object), status=status, content_type=content_type)
 

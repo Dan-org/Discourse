@@ -1,6 +1,10 @@
 from django.db import models
 from django.conf import settings
+from django.core.urlresolvers import reverse
+from django.http import HttpResponseBadRequest, HttpResponseRedirect
+from django.contrib.auth.decorators import login_required
 from uri import *
+from ajax import JsonResponse
 
 
 class Subscription(models.Model):
@@ -58,4 +62,48 @@ def get_followers(*targets):
 
 def get_follower_count(*targets):
     return get_subscriptions(*targets).count()
+
+
+### Template Tags ###
+import ttag
+from django.template.loader import render_to_string
+
+
+class FollowTag(ttag.Tag):
+    """
+    Creates a follow button for the given path
+    """
+    anchor = ttag.Arg(required=True)
+
+    class Meta:
+        name = "follow"
+
+    def render(self, context):
+        request = context['request']
+        data = self.resolve(context)
+        anchor = uri( data['anchor'] )
+        
+        url = reverse("discourse:follow")
+        if request.user.is_authenticated():
+            subscribed = is_following(request.user, anchor)
+        else:
+            subscribed = False
+        return render_to_string('discourse/follow.html', locals())
+
+
+### Views ###
+@login_required
+def manipulate(request):
+    if not request.POST:
+        return HttpResponseBadRequest()
+
+    target_uri = uri(request.POST['uri'])
+
+    if request.POST.get('unfollow', '').lower() in ('yes', 'true'):
+        unfollow(request.user, target_uri)
+    else:
+        follow(request.user, target_uri)
+
+    return JsonResponse(get_follower_count(target_uri))
+
 

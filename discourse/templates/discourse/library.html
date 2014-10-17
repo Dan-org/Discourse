@@ -1,4 +1,4 @@
-<div class="library cf" rel="{% url 'discourse:attachments' path %}" editable="{{ editable }}">
+<div class="library cf" rel="{% url 'discourse:library' anchor %}" editable="{{ editable }}">
     <div class="contents">
     {% for file in attachments %}
         <a href="{{file.url}}" class="file {% if file.hidden %}hidden{% endif %}">

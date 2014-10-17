@@ -1,5 +1,11 @@
 from django.db import models
 from django.conf import settings
+from django.http import HttpResponseBadRequest
+from django.core.exceptions import PermissionDenied
+from django.contrib.auth.decorators import login_required
+
+from ajax import JsonResponse
+from event import publish
 from uri import uri
 
 
@@ -37,3 +43,22 @@ class Vote(models.Model):
             vote.save()
         return vote
 
+
+### Views ###
+@login_required
+def vote(request):
+    if not request.POST:
+        return HttpResponseBadRequest()
+
+    uri = request.POST.get('uri')
+    direction = request.POST.get('direction', '').lower()
+
+    if direction not in ('up', 'down', 'reset'):
+        return HttpResponseBadRequest("'value' most be an integer")
+
+    event = publish(uri, request.user, 'vote', data={'value': value})
+    if not event:
+        raise PermissionDenied()
+
+    Vote.cast(request.user, uri, event.data['value'])
+    return JsonResponse(Vote.value_for(uri))

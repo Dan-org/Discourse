@@ -1,8 +1,19 @@
+from datetime import datetime
+
 from django.db import models
 from django.conf import settings
+from django.http import HttpResponseBadRequest, HttpResponseRedirect
+from django.template.loader import render_to_string
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.humanize.templatetags.humanize import naturaltime
+from django.core.urlresolvers import reverse
 
+from event import publish
+from ajax import JsonResponse
 from vote import Vote
-from uri import uri
+from uri import *
 
 
 ### Models ###
@@ -30,7 +41,7 @@ class Comment(models.Model):
         return {
             'id': self.id,
             'anchor': self.anchor_uri,
-            'html': self.render_body(),
+            #'html': self.render_body(),
             'text': self.body,
             'created': tuple(self.created.timetuple()) if self.created else None,
             'naturaltime': naturaltime(self.created) if self.created else None,
@@ -40,8 +51,8 @@ class Comment(models.Model):
             'value': self.value,
             'up': getattr(self, 'up', None),
             'down': getattr(self, 'down', None),
-            'author': self.author.simple() if self.author else {
-                'name': deleted,
+            'author': simple(self.author) if self.author else {
+                'name': 'deleted',
                 'url': '#'
             }
         }
@@ -54,22 +65,6 @@ class Comment(models.Model):
 
     def render_body(self):
         return urlize(normalize_newlines(self.body).replace('\n', '<br>'))
-
-    def edit_by_request(self, request, body):
-        self.body = body
-        self.edited = datetime.now()
-        comment_manipulate.send(sender=self, request=request, action='edit')
-        self.save()
-        return self
-
-    def delete_by_request(self, request):
-        comment_manipulate.send(sender=self, request=request, action='delete')
-        if self.children.count() > 0 and not self.all_children_are_deleted():
-            self.deleted = datetime.now()
-            self.save()
-        else:
-            self.delete()
-        return self
 
     def all_children_are_deleted(self):
         for child in self.children.all():
@@ -92,20 +87,6 @@ class Comment(models.Model):
             comment.fix_value()
             comment.save()
 
-    @classmethod
-    def create_by_request(cls, request, anchor_uri, body):
-        anchor_uri = anchor_uri.rstrip('/')
-        parent_pk = request.POST.get('parent')
-        comment = cls(anchor_uri=anchor_uri, body=body, author=request.user)
-        if parent_pk:
-            comment.parent = Comment.objects.get(pk=parent_pk)
-        comment.value = 1
-        comment.up = True
-        comment.save()
-        comment.votes.create(user=request.user, value=1)
-        comment_manipulate.send(sender=comment, request=request, action='create')
-        return comment
-
     @property
     def url(self):
         return reverse("discourse:thread", args=[self.anchor_uri])
@@ -116,15 +97,10 @@ class Comment(models.Model):
         Returns a tree of comments.
         """
         comments = cls._default_manager.filter(anchor_uri=anchor_uri)
-        if (user.is_authenticated()):
-            votes = Vote.value_for(self, uer=user)
-            votes = dict(votes)
-        else:
-            votes = {}
 
         map = {"root": []}
         for comment in comments:
-            value = votes.get(comment.id, 0)
+            value = Vote.value_for(comment, user=user)      # TODO: Cache this
             if (value > 0):
                 comment.up = True
             if (value < 0):
@@ -134,9 +110,167 @@ class Comment(models.Model):
         return map["root"]
 
 
+### Hooks ###
 def on_comment_save(sender, instance, **kwargs):
     if instance.id is not None:
         instance.fix_value()
 models.signals.pre_save.connect(on_comment_save, sender=Comment)
 
+
+
+### Template Tags ###
+import ttag
+
+class ThreadTag(ttag.Tag):
+    """
+    Creates a thread of comments.  
+
+    Usage:
+    Create a list of comments anchored on the string "pandas":
+        
+        {% thread "pandas" %}
+
+    Create a list of comments for a model instance which maps to the string 
+    <instance.__class__.__name__.lower()>-<instance private key>, e.g. "post-2".
+
+        {% thread instance %}
+
+    Also, add up and down voting.
+        {% thread instance scored=True %}
+
+    See ``discourse/models.py`` on options to change how comments are rendered.
+    """
+    anchor = ttag.Arg(required=False)                                   # Object or string to anchor to.
+    sub = ttag.Arg(default=None, keyword=True, required=False)          # The sub-anchor
+    depth = ttag.Arg(default=2, keyword=True)                           # Depth of the comments.
+    scored = ttag.Arg(default=False, keyword=True)                      # Whether or not to score the comments.
+    template = ttag.Arg(default=None, keyword=True, required=False)     # The template to use for rendering the comments.
+
+    def render(self, context):
+        data = self.resolve(context)
+        anchor = uri(data.get('anchor'), data.get('sub', None))
+        scored = (data.get('scored') == True)
+        comments = Comment.get_thread(anchor, context.get('request').user)
+        template = data.get('template') or 'discourse/thread.html'
+
+        return render_to_string(template, {'comments': comments, 
+                                           'anchor': anchor,
+                                           'depth': data.get('depth'),
+                                           'scored': scored,
+                                           'auth_login': settings.LOGIN_REDIRECT_URL}, context)
+    class Meta:
+        name = "thread"
+
+
+class ThreadCountTag(ttag.Tag):
+    """
+    Returns the count of comments.
+    """
+    anchor = ttag.Arg(required=False)                                   # Object or string to anchor to.
+    sub = ttag.Arg(default=None, keyword=True, required=False)          # The sub-thread
+    parent = ttag.Arg(default=None, keyword=True, required=False)       # Only count comments below this one
+
+    def render(self, context):
+        data = self.resolve(context)
+        anchor = uri(data.get('anchor'), data.get('sub', None))
+        parent = data.get('parent')
+        scored = bool( data.get('scored') )
+        if parent:
+            count = Comment.objects.filter(anchor_uri=anchor, deleted__isnull=True, parent=parent).count()
+        else:
+            count = Comment.objects.filter(anchor_uri=anchor, deleted__isnull=True).count()
+        if count == 0:
+            return ""
+        elif count == 1:
+            return "1 Comment"
+        else:
+            return "%d Comments" % count
+
+    class Meta:
+        name = "threadcount"
+
+
+### Helpers ###
+def create_comment(request, uri):
+    body = request.POST['body']
+    parent_pk = request.POST.get('parent')
+    parent = Comment.objects.get(pk=parent_pk) if parent_pk else None
+
+    if not publish(uri, request.user, 'comment', data={'body': body, 'parent': parent}, record=True):
+        raise PermissionDenied()
+
+    comment = Comment.objects.create(
+                anchor_uri=uri, 
+                body=body, 
+                author=request.user,
+                parent=parent_pk
+    )
+    comment.vote(request.user, 1)           # The user starts with themselves upvoting their comment.
+    return comment
+
+
+def edit_comment(request, comment):
+    body = request.POST['body']
+    if not publish(comment, request.user, 'edit', data={'body': body}, record=True):
+        raise PermissionDenied()
+    comment.body = body
+    comment.edited = datetime.now()
+    comment.save()
+    return comment
+
+
+def delete_comment(request, comment):
+    if not publish(comment, request.user, 'delete', record=True):
+        raise PermissionDenied()
+    
+    comment.deleted = datetime.now()
+
+    if comment.children.count() > 0 and not comment.all_children_are_deleted():
+        comment.save()
+    else:
+        comment.delete()
+
+
+### Views ###
+@login_required
+def manipulate(request, uri):
+    """
+    Brantley Harris: Comment manipulation #yodawg
+    two days ago - [delete] [edit] [like]
+    """
+    if not request.POST:
+        return HttpResponseBadRequest()
+
+    pk = request.POST.get('id')
+    delete = request.POST.get('delete', '').lower()
+
+    if pk:
+        comment = get_object_or_404(Comment, pk=pk, anchor_uri=uri)
+        if delete in ('yes', 'true'):
+            delete_comment(request, comment)
+        else:
+            edit_comment(request, comment)
+    else:
+        comment = create_comment(request, uri)
+
+    if request.is_ajax():
+        data = comment.info()
+        data['editable'] = True
+        return JsonResponse(data)
+    else:
+        next = request.POST.get('next', None)
+        return HttpResponseRedirect("%s#discourse-comment-%s" % (next, comment.id))
+
+    scored = False
+    depth = 1
+    comments = Comment.get_thread(path, request.user)
+    template = request.GET.get('template') or 'discourse/thread.html'
+
+    html = render_to_string(template, {'comments': comments,
+                                       'path': path,
+                                       'depth': depth,
+                                       'scored': scored,
+                                       'auth_login': settings.LOGIN_REDIRECT_URL})
+    
+    return HttpResponse(json.dumps({'html': html}), content_type="application/json")
 

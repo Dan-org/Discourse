@@ -1,20 +1,11 @@
-from django.test import TestCase
+from base import *
+
+from discourse.uri import *
 from discourse import event, follow
-from django.contrib.auth import get_user_model
-
-from discourse.uri import uri
-
 from discourse.models import Comment, Vote
 
 
-
 class TestEvent(TestCase):
-    def setUp(self):
-        self.actor = get_user_model()(username="deadwisdom", email="deadwisdom@", first_name='Dead', last_name="Wisdom")
-        self.anchor = get_user_model()(username="place", email="place@", first_name='DA', last_name="PLACE")
-        self.actor.save()
-        self.anchor.save()
-
     def test_create_comment(self):
         comment = Comment.objects.create(anchor_uri=uri(self.anchor), body="HELLO", author=self.actor)
 
@@ -31,3 +22,42 @@ class TestEvent(TestCase):
 
         self.assertEqual(comment.value, -1)
 
+    def test_tag(self):
+        self.request = MockRequest(self.actor)
+        result = Template("""{% load discourse %}
+            {% thread anchor %}
+        """).render(Context(self.__dict__))
+
+        self.request = MockRequest(self.actor)
+        result = Template("""{% load discourse %}
+            {% thread anchor scored=True %}
+        """).render(Context(self.__dict__))
+
+    def test_create_comment(self):
+        response = self.ajax_post(url_for('thread', self.anchor), {'body': 'POSTED'})
+        self.assertEqual(response.status_code, 200)
+        pk = response.data['id']
+
+        comment = Comment.objects.get(pk=pk)
+        self.assertEqual(comment.body, 'POSTED')
+        self.assertEqual(comment.parent, None)
+
+    def test_edit_comment(self):
+        comment = Comment.objects.create(anchor_uri=uri(self.anchor), body="HELLO", author=self.actor)
+
+        response = self.ajax_post(url_for('thread', self.anchor), {'body': 'POSTED', 'id': comment.id})
+        self.assertEqual(response.data['id'], comment.id)
+        
+        comment = Comment.objects.get(pk=comment.id)
+        self.assertEqual(comment.body, 'POSTED')
+        self.assertEqual(comment.parent, None)
+
+    def test_delete_comment(self):
+        comment = Comment.objects.create(anchor_uri=uri(self.anchor), body="HELLO", author=self.actor)
+
+        response = self.ajax_post(url_for('thread', self.anchor), {'id': comment.id, 'delete': 'yes'})
+        self.assertEqual(response.data['id'], None)
+        
+        self.assertRaises(Comment.DoesNotExist, Comment.objects.get, pk=comment.id)
+
+    

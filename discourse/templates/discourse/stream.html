@@ -6,7 +6,7 @@
 
         {% if count > size %}
             <p>
-                <a class="button more" href="{% url 'discourse:stream' path %}?last={{last_event_id}}">View More</a>
+                <a class="button more" href="{% url 'discourse:stream' anchor %}?last={{last_event_id}}">View More</a>
             </p>
         {% endif %}
     </div>

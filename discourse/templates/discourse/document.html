@@ -1,16 +1,9 @@
-{% for section in content %}
-    {% if section.body|striptags or editable %}
+{% for part in content %}
+    {% if not part.is_empty or editable %}
     <div class="content-block">
-        <div class="content-body discourse-document" url="/discourse/document/{{document}}" attribute="{{section.attribute}}">
-            {{section.body|safe|default:"-"}}
+        <div class="content-body discourse-document" url="/discourse/document/{{anchor}}" attribute="{{part.attribute}}">
+            {{part.html|safe|default:"-"}}
         </div>
     </div>
     {% endif %}
 {% endfor %}
-
-{% if request.user.is_superuser %}
-<div class="discourse-admin-handle">
-    [<a href="{% url 'admin:discourse_document_change' document.id %}">edit document</a>]
-</div>
-{% endif %}
-

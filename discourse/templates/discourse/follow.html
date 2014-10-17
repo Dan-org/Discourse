@@ -1,0 +1,7 @@
+{% if request.user.is_authenticated %}
+    {% if subscribed %}
+        <a class="btn subscriber following" rel="{{ anchor }}" href="{{ url }}">following</a>
+    {% else %}
+        <a class="btn subscriber follow" rel="{{ anchor }}" href="{{ url }}">follow</a>
+    {% endif %}
+{% endif %}

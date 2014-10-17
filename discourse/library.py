@@ -1,13 +1,22 @@
+import json, mimetypes
+
 from django.db import models
 from django.conf import settings
+from django.template.loader import render_to_string
+from django.core.exceptions import PermissionDenied
+from django.core.urlresolvers import reverse
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponseBadRequest, HttpResponseRedirect
 
-from uri import uri
+from uri import *
+from event import publish
+from ajax import JsonResponse
 
 
 class Attachment(models.Model):
     anchor_uri = models.CharField(max_length=255)
     filename = models.CharField(max_length=255)
-    mimetype = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=255)
     author = models.ForeignKey(settings.AUTH_USER_MODEL)
     caption = models.TextField(blank=True)
     featured = models.BooleanField(default=False)
@@ -28,13 +37,11 @@ class Attachment(models.Model):
         return "Attachment(%r)" % (self.anchor_uri)
 
     def is_an_image(self):
-        return "image/" in self.mimetype
+        return "image/" in self.content_type
 
     @property
     def url(self):
-        if self.link:
-            return self.link
-        return "/discourse/attachments/%s" % (self.anchor_uri)
+        return reverse("discourse:library", args=(self.anchor_uri,)) + "/" + self.filename
 
     @property
     def icon(self):
@@ -43,13 +50,13 @@ class Attachment(models.Model):
         """
         if self.link:
             return 'link'
-        if "application/pdf" in self.mimetype:
+        if "application/pdf" in self.content_type:
             return "pdf"
-        elif "image/" in self.mimetype:
+        elif "image/" in self.content_type:
             return "image"
-        elif "application/msword" in self.mimetype:
+        elif "application/msword" in self.content_type:
             return "doc"
-        elif "officedocument" in self.mimetype:
+        elif "officedocument" in self.content_type:
             return "doc"
         elif self.anchor_uri.endswith(".pages"):
             return "doc"
@@ -59,7 +66,7 @@ class Attachment(models.Model):
         return {
             'id': self.id,
             'anchor_uri': self.anchor_uri,
-            'content_type': self.mimetype,
+            'content_type': self.content_type,
             'caption': self.caption,
             'order': self.order,
             'filename': self.filename,
@@ -81,3 +88,288 @@ class Attachment(models.Model):
     class Meta:
         app_label = 'discourse'
 
+
+### Template Tags ###
+import ttag
+
+class LibraryTag(ttag.Tag):
+    """
+    Creates a media library for the given object or current page.
+    """
+    anchor = ttag.Arg(required=False)                                   # Object or string to anchor to.
+    sub = ttag.Arg(default=None, keyword=True, required=False)          # The sub-anchor
+
+    class Meta:
+        name = "library"
+
+    def render(self, context):
+        data = self.resolve(context)
+        request = context['request']
+        anchor = uri(data.get('anchor'), data.get('sub'))
+        attachments = Attachment.objects.filter(anchor_uri=anchor)
+        context['library'] = anchor
+
+        context_vars = {'attachments': attachments,
+                        'anchor': anchor,
+                        'is_empty': False,
+                        'request': request,
+                        'editable': request.user.is_superuser}
+
+        try:
+            if not publish(anchor, request.user, 'view-library', data=context_vars):
+                return ""
+        except PermissionDenied:
+            return ""
+
+        context_vars['json'] = json.dumps([a.info() for a in attachments])
+
+        return render_to_string('discourse/library.html', context_vars, context)
+
+
+### Views ###
+def get_attachment_changes(request):
+    changes = {}
+
+    if 'hidden' in request.POST:
+        hidden = request.POST['hidden'].lower()
+        if hidden in ('yes', 'true'):
+            changes['hidden'] = True
+        else:
+            changes['hidden'] = False
+
+    if 'filename' in request.POST:
+        changes['filename'] = request.POST['filename']
+
+    if 'featured' in request.POST:
+        changes['featured'] = request.POST['featured']
+
+    if 'caption' in request.POST:
+        changes['caption'] = request.POST['caption']
+
+    if 'content_type' in request.POST:
+        changes['content_type'] = request.POST['content_type']
+
+    if 'order' in request.POST:
+        try:
+            changes['order'] = int( request.POST['order'] )
+        except ValueError:
+            return HttpResponseBadRequest()
+
+    return changes
+
+def upload(request, anchor, filename):
+    anchor = uri(anchor)
+
+    try:
+        attachment = Attachment.objects.get(anchor_uri=anchor, filename=filename)
+    except:
+        attachment = Attachment(anchor_uri=anchor, filename=filename)
+
+    if 'link' in request.POST:
+        url = request.POST['link']
+        if '://' not in url:
+            url = 'http://' + url
+        filename = url
+        if '?' in filename:
+            filename = filename.split('?', 1)[0]
+        if '/' in filename:
+            filename = url.rsplit('/', 1)[1]
+        if '.' not in filename:
+            filename = slugify(filename)
+        attachment.link = request.POST['link']
+        content_type = 'text/url'
+    else:
+        attachment.file = request.FILES['attachment']
+        content_type = request.POST.get('content_type', getattr(attachment.file, 'content_type', mimetypes.guess_type(filename or attachment.file.name)[0]))
+
+    properties = {'filename': filename, 'content_type': content_type}
+    properties.update( get_attachment_changes(request) )
+
+    if not publish(anchor, request.user, 'upload', data=properties, record=True):
+        raise PermissionDenied()
+
+    for k, v in properties.items():
+        setattr(attachment, k, v)
+
+    attachment.author = request.user
+    attachment.save()
+    return JsonResponse(attachment.info())
+
+
+def edit_attachment(request, anchor, filename):
+    anchor = uri(anchor)
+
+    attachment = get_object_or_404(Attachment, anchor_uri=anchor, filename=filename)
+
+    properties = get_attachment_changes(request)
+
+    if not properties:
+        return HttpResponseBadRequest()
+
+    if not publish(attachment, request.user, 'edit', data=properties, record=True):
+        raise PermissionDenied()
+
+    for k, v in properties.items():
+        setattr(attachment, k, v)
+
+    attachment.save()
+    return JsonResponse(attachment.info())
+
+
+def delete_attachment(request, anchor, filename):
+    anchor = uri(anchor)
+    attachment = get_object_or_404(Attachment, anchor_uri=anchor, filename=filename)
+
+    if not publish(attachment, request.user, 'delete', record=True):
+        raise PermissionDenied()
+
+    attachment.delete()
+    return JsonResponse(True)
+
+
+def download_attachment(request, anchor, filename):
+    anchor = uri(anchor)
+    attachment = get_object_or_404(Attachment, anchor_uri=anchor, filename=filename)
+
+    if not publish(attachment, request.user, 'download', record=True):
+        raise PermissionDenied()
+
+    if attachment.content_type == 'text/url':
+        return HttpResponseRedirect(attachment.link)
+
+    return HttpResponseRedirect(attachment.file.url)
+
+
+def manipulate(request, uri):
+    """
+    Manipulate the attachments.
+    """
+    anchor, filename = resolve_model_uri(uri)
+
+    if request.method == 'DELETE' or request.POST.get('delete', '').lower() in ('yes', 'true'):
+        return delete_attachment(request, anchor, filename)
+    elif 'attachment' in request.FILES or 'link' in request.POST:
+        return upload(request, anchor, filename)
+    elif request.POST:
+        return edit_attachment(request, anchor, filename)
+    else:
+        return download_attachment(request, anchor, filename)
+
+
+#    """
+#    On delete: delete the file at the path.
+#    On post: post a new file at the path, unless the 
+#    On delete with path, delete the file.
+#    On post with path, replace the file.
+#    On post without path, create a new file.
+#    On get with path, download the file.
+#    On get without path, return a list of files in the thread.
+#    TODO: On head with path, return info about the file.
+#    """
+#    anchor, filename = resolve_model_uri(uri)
+#
+#    if request.method == 'DELETE' or request.POST.get('delete', '').lower() in ('yes', 'true'):
+#        return delete_attachment(request, anchor, filename)
+#    elif 'file' in request.FILES:
+#        return upload(request, anchor, filename)
+#    elif request.POST:
+#        return edit_attachment(request, anchor, filename)
+#    else:
+#        return download_attachment(request, anchor, filename)
+#
+#
+#    if request.method == 'DELETE' or request.POST.get('method') == 'delete':
+#        for attachment in get_files(request):
+#            for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='delete'):
+#                if isinstance(response, HttpResponse):
+#                    return response
+#            attachment.delete()
+#        return HttpResponse(json.dumps(True), content_type="application/json")
+#    elif request.POST.get('method') == 'hide':
+#        for attachment in get_files(request):
+#            for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='hide'):
+#                if isinstance(response, HttpResponse):
+#                    return response
+#            attachment.hidden = True
+#            attachment.save()
+#        return HttpResponse(json.dumps(True), content_type="application/json")
+#    elif request.POST.get('method') == 'show':
+#        for attachment in get_files(request):
+#            for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='show'):
+#                if isinstance(response, HttpResponse):
+#                    return response
+#            attachment.hidden = False
+#            attachment.save()
+#        return HttpResponse(json.dumps(True), content_type="application/json")
+#    elif request.POST.get('method') == 'zip':
+#        attachments = []
+#        for attachment in get_files(request):
+#            for reciever, response in attachment_view.send(sender=attachment, request=request):
+#                if isinstance(response, HttpResponse):
+#                    return response
+#            attachments.append(attachment)
+#        zip = AttachmentZip.create(attachments)
+#        response = HttpResponse(json.dumps(zip.info()), content_type="application/json", status=202)
+#        response['Location'] = zip.url
+#        return response
+#    elif request.POST.get('method') == 'rename':
+#        attachment = get_files(request)[0]
+#        for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='rename'):
+#            if isinstance(response, HttpResponse):
+#                return response
+#        attachment.filename = request.POST['filename']
+#        attachment.save()
+#        return HttpResponse(json.dumps(attachment.info()), content_type="application/json")
+#    elif request.method == 'POST' and request.POST.get('link'):
+#        url = request.POST['link']
+#        if '://' not in url:
+#            url = 'http://' + url
+#        filename = url
+#        if '?' in filename:
+#            filename = filename.split('?', 1)[0]
+#        if '/' in filename:
+#            filename = url.rsplit('/', 1)[1]
+#        if '.' not in filename:
+#            filename = slugify(filename)
+#        path = posixpath.join(path, filename)
+#        try:
+#            attachment = Attachment.objects.get(path=path)
+#        except:
+#            attachment = Attachment(path=path, link=url)
+#        attachment.file = None
+#        attachment.mimetype, encoding = mimetypes.guess_type(filename)
+#        if attachment.mimetype is None:
+#            attachment.mimetype = '?'
+#        attachment.author = request.user
+#        for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='create'):
+#            if isinstance(response, HttpResponse):
+#                return response
+#        attachment.save()
+#        return HttpResponse(json.dumps(attachment.info()), content_type="application/json")
+#    elif request.method == 'POST':
+#        file = request.FILES['file']
+#        path = posixpath.join(path, file._name)
+#        try:
+#            attachment = Attachment.objects.get(path=path)
+#        except:
+#            attachment = Attachment(path=path)
+#        attachment.file = file
+#        attachment.mimetype = file.content_type
+#        attachment.author = request.user
+#        for reciever, response in attachment_manipulate.send(sender=attachment, request=request, action='create'):
+#            if isinstance(response, HttpResponse):
+#                return response
+#        attachment.save()
+#        return HttpResponse(json.dumps(attachment.info()), content_type="application/json")
+#    elif path:
+#        attachment = get_object_or_404(Attachment, path=path)
+#        for reciever, response in attachment_view.send(sender=attachment, request=request):
+#            if isinstance(response, HttpResponse):
+#                return response
+#        if not attachment.file.storage.exists(attachment.file.name):
+#            raise Http404
+#        response = HttpResponse(FileWrapper(attachment.file), content_type=attachment.mimetype)
+#        response['Content-Length'] = attachment.file.storage.size(attachment.file.name)
+#        response['Content-Disposition'] = "filename=%s" % attachment.file.name
+#        return response
+#

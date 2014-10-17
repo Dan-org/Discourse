@@ -1,9 +1,11 @@
-import uuid
+import uuid, logging
 from datetime import datetime
 from django.db import models
 from django.dispatch import Signal
 from django.conf import settings
+
 from uuidfield import UUIDField
+from yamlfield import YAMLField
 
 try:
     import redis
@@ -14,17 +16,23 @@ except ImportError:
 from uri import *
 from follow import get_followers
 
+logger = logging.getLogger("discourse")
+
+
+### Signals ###
 notification = Signal(['event', 'users'])
 event_signal = Signal(['event'])
 
 
+### Models ###
 class Record(models.Model):
     id = UUIDField(primary_key=True)
     anchor_uri = models.CharField(max_length=255)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="events_generated")
     predicate = models.SlugField()
-    target_uri = models.CharField(max_length=255, blank=True)
+    target_uri = models.CharField(max_length=255, blank=True, null=True)
     when = models.DateTimeField(auto_now_add=True)
+    data = YAMLField()
 
     def __unicode__(self):
         return "Record(%r, %r, %r)" % (self.actor, self.predicate, self.anchor_uri)
@@ -37,7 +45,8 @@ class Record(models.Model):
             'predicate': self.predicate,
             'target': simple(self.target),
             'record': True,
-            'when': simple(self.when)
+            'when': simple(self.when),
+            'data': simple(data)
         }
 
     @property
@@ -58,51 +67,51 @@ class Record(models.Model):
 
 
 class Stream(models.Model):
-    path = models.CharField(max_length=255)
+    anchor_uri = models.CharField(max_length=255)
     records = models.ManyToManyField("discourse.Record", related_name="streams")
     
     class Meta:
         app_label = 'discourse'
 
     def __unicode__(self):
-        return "Stream(%s)" % self.path
+        return "Stream(%s)" % self.anchor_uri
 
     def render_events(self, request, size=10, after=None):
         """
         TODO: Cache this.
         """
-        q = self.events.all().order_by('-id')[:size]
+        q = self.records.all().order_by('-id')[:size]
         if after:
-            q = events.filter(id__gt=after)
+            q = q.filter(id__gt=after)
 
-        events = []
-        for event in q:
+        records = []
+        for record in q:
             try:
-                a = event.object
-                events.append(event)
+                a = record.object
+                records.append(record)
             except models.ObjectDoesNotExist:
-                event.delete()
+                record.delete()
 
         context = RequestContext(request, {'stream': self})
 
-        for e in events:
-            yield e.render(request)
+        for record in records:
+            yield record.render(request)
 
     def get_absolute_url(self):
-        obj = get_instance_from_sig(self.path)
+        obj = resolve_model_uri(self.anchor_uri)
         if obj:
             return obj.get_absolute_url()
 
 
-
+### Support ###
 class Event(object):
-    def __init__(self, anchor, actor, predicate, target=None, context=None, record=False, when=None):
+    def __init__(self, anchor, actor, predicate, target=None, data=None, record=False, when=None):
         self.id = uuid.uuid4().hex
         self.anchor = anchor
         self.actor = actor
         self.predicate = predicate
         self.target = target
-        self.context = context
+        self.data = data or {}
         self.record = record
         self.when = when or datetime.now()
         self.canceled = False
@@ -120,7 +129,7 @@ class Event(object):
             'actor': simple(self.actor),
             'predicate': self.predicate,
             'target': simple(self.target),
-            'context': simple(self.context),
+            'data': simple(self.data),
             'record': bool(self.record),
             'when': simple(self.when)
         }
@@ -139,6 +148,7 @@ class Event(object):
                 actor = self.actor,
                 predicate = self.predicate,
                 target_uri = uri(self.target),
+                data = simple(self.data),
                 when = self.when,
             )
             self.record.save()
@@ -170,10 +180,13 @@ def publish_event(e):
 
     for reciever, result in event_signal.send(sender=None, event=e):
         if e.canceled or result is False:
+            logger.info("EVENT CANCELED:\n%r", e)
             e.canceled = True
             return False
 
     e.resolve()
+
+    logger.info("EVENT CREATED:\n%r", e)
 
     if redis:
         redis.publish(e.anchor_uri, to_json( e.simple() ))
@@ -190,7 +203,7 @@ def on(predicate):
 
 def hook(predicate, fn):
     def subscription(sender, event, **kwargs):
-        if event.predicate == predicate:
+        if predicate == '*' or event.predicate == predicate:
             return fn(event)
     event_signal.connect(subscription, weak=False)
 
@@ -199,3 +212,112 @@ def on_notify(fn):
     def subscription(sender, event, users, **kwargs):
         return fn(event, users)
     notification.connect(subscription, weak=False)
+
+
+### Template Tagds ###
+import ttag
+from django.template.loader import render_to_string
+
+
+class StreamTag(ttag.Tag):
+    """
+    Show a stream for an object
+    {% stream object %}
+
+    Show a stream for a string
+    {% stream 'pandas' %}
+
+    Set the initial size of shown events to 5 instead of the default of 21:
+    {% stream object size=5 %}
+
+    Allow comments
+    {% stream object comments=True %}
+
+    Set the context
+    {% stream object context="home-page" %}
+    """
+    anchor = ttag.Arg(required=True)
+    size = ttag.Arg(required=False, keyword=True)
+    comments = ttag.Arg(required=False, keyword=True)
+    context_ = ttag.Arg(required=False, keyword=True)
+
+    def render(self, context):
+        data = self.resolve(context)
+        anchor = uri(data.get('anchor'), data.get('sub'))
+        request = context['request']
+        size = data.get('size', 21)
+        comments = data.get('comments', False)
+        context_ = data.get('context', None)
+
+        try:
+            stream = Stream.objects.get(anchor_uri=anchor)
+            events = stream.records.all().order_by('-id')[:size]
+            count = stream.events.count()
+        except Stream.DoesNotExist:
+            stream = Stream(anchor_uri=anchor)
+            events = ()
+            count = 0
+
+        events = list(events)
+        if events:
+            last_event_id = events[-1].id
+        else:
+            last_event_id = None
+        
+        return render_to_string('discourse/stream.html', {'stream': stream, 
+                                                          'events': events,
+                                                          'count': count,
+                                                          'size': size,
+                                                          'context': context_,
+                                                          'anchor': anchor, 
+                                                          'last_event_id': last_event_id,
+                                                          'auth_login': settings.LOGIN_REDIRECT_URL}, context)
+
+    class Meta:
+        name = "stream"
+
+
+### Views ###
+from django.http import HttpResponseForbidden
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def monitor(request):
+    """
+    Monitor all events happening on the system.
+    """
+    if not request.user.is_superuser:
+        return HttpResponseForbidden()
+    events = Record.objects.all()[:50]
+    return render(request, 'discourse/monitor.html', locals())
+
+
+def stream(request, path):
+    """
+
+    """
+    stream = get_object_or_404(Stream, path=path.rstrip('/'))
+    last = request.GET.get('last', None)
+    if last:
+        events = stream.events.filter(id__lt=last)
+    else:
+        events = stream.events.all()
+
+    results = []
+    last_event_id = None
+    for e in events[:21]:
+        last_event_id = e.id
+        results.append( e.render(request) )
+
+    if events.count() >= 21:
+        next = '%s?%s' % (request.path, last_event_id)
+    else:
+        next = None
+
+    return HttpResponse(json.dumps( {
+        'count': events.count(),
+        'size': len(results),
+        'results': results,
+        'next': next,
+    } ), content_type="application/json")

@@ -10,7 +10,7 @@ admin.autodiscover()
 ### Urls
 urlpatterns = patterns('',
     url(r'^admin/', include(admin.site.urls)),
-    url(r'^discourse/', include('discourse.urls')),
+    url(r'^discourse/', include('discourse.urls', namespace='discourse')),
     
     url(r'^document/$', document, name="home"),
 )

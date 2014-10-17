@@ -1,26 +1,22 @@
-import re, urllib, time, posixpath
+import re, urllib, time, posixpath, decimal
+from datetime import datetime
 from django.db import models
 
 __all__ = ['uri', 'resolve_model_uri', 'simple']
 
 
-re_model_uri = re.compile(r"model\://([^/]+)/([^/]+)/([^/]+)(/.*)?")         # i.e. model://<app>/<model>/<pk> [/<rest>]
+re_model_uri = re.compile(r"([^/]+)/([^/]+)/([^/]+)(/.*)?")         # i.e. /<app>/<model>/<pk> [/<rest>]
 
 
 def uri(obj, rest=None):
-    if isinstance(obj, basestring):
-        uri = obj
-    elif hasattr(obj, 'uri'):
-        if iscallable(obj.uri):
-            uri = obj.uri()
-        else:
-            uri = obj.uri
-    elif isinstance(obj, models.Model):
+    uri = obj
+    if isinstance(obj, models.Model):
         cls = obj.__class__
         app = cls._meta.app_label      # auth
         model = cls._meta.model_name   # User
         pk = str( obj._get_pk_val() )    # 7
-        uri = "model://%s/%s/%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
+        uri = "%s/%s/%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
+    
     if rest is not None:
         return posixpath.join(uri, urllib.quote(rest))
     else:
@@ -32,7 +28,7 @@ def resolve_model_uri(uri):
     if m is None:
         return None, uri
     app, model, pk, rest = m.groups()
-    cls = get_model( urllib.unquote(app), urllib.unquote(model) )
+    cls = models.get_model( urllib.unquote(app), urllib.unquote(model) )
     obj = cls.objects.get(pk=urllib.unquote(pk))
     if rest is None:
         return obj, None
@@ -51,5 +47,12 @@ def simple(object):
         return dict((k, simple(v)) for k, v in object.items())
     elif isinstance(object, datetime):
         return time.mktime(object.timetuple())
-    return object
+    elif isinstance(object, basestring):
+        return object
+    elif isinstance(object, float):
+        return object
+    elif isinstance(object, int):
+        return object
+    else:
+        return unicode( object )
 
