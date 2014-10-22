@@ -8,4 +8,5 @@ urlpatterns = patterns('discourse',
     url(r'^follow/$', 'follow.manipulate', name="follow"),
     url(r'^monitor/$', 'event.monitor',  name="monitor"),
     url(r'^stream/(?P<uri>.+)$', 'event.stream',  name="stream"),
+    url(r'^vote/(?P<uri>.+)$', 'vote.cast',  name="vote"),
 )

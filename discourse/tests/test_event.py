@@ -1,12 +1,12 @@
 from base import *
-from discourse import event, follow
+from discourse import publish, follow, Event, on
 from django.contrib.auth import get_user_model
 from django.template import Context, Template
 
 
 class TestEvent(TestCase):
     def test_real_anchor(self):
-        e = event.publish(self.anchor, self.actor, 'join')
+        e = publish(self.anchor, self.actor, 'join')
         self.assertEqual(self.last_event, e)
         self.assertEqual(e.anchor, self.anchor)
         self.assertEqual(e.actor, self.actor)

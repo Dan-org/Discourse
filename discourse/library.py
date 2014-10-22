@@ -1,4 +1,4 @@
-import json, mimetypes
+import json, mimetypes, urllib, urllib2, re
 
 from django.db import models
 from django.conf import settings
@@ -41,7 +41,7 @@ class Attachment(models.Model):
 
     @property
     def url(self):
-        return reverse("discourse:library", args=(self.anchor_uri,)) + "/" + self.filename
+        return reverse("discourse:library", args=(self.anchor_uri,)) + "/" + urllib.quote( self.filename )
 
     @property
     def icon(self):
@@ -112,16 +112,17 @@ class LibraryTag(ttag.Tag):
         context_vars = {'attachments': attachments,
                         'anchor': anchor,
                         'is_empty': False,
-                        'request': request,
-                        'editable': request.user.is_superuser}
+                        'request': request}
 
         try:
-            if not publish(anchor, request.user, 'view-library', data=context_vars):
+            e = publish(anchor, request.user, 'view-library', data={'editable': request.user.is_superuser}, internal=True)
+            if not e:
                 return ""
         except PermissionDenied:
             return ""
 
         context_vars['json'] = json.dumps([a.info() for a in attachments])
+        context_vars['editable'] = e.data['editable']
 
         return render_to_string('discourse/library.html', context_vars, context)
 
@@ -160,32 +161,28 @@ def get_attachment_changes(request):
 def upload(request, anchor, filename):
     anchor = uri(anchor)
 
-    try:
-        attachment = Attachment.objects.get(anchor_uri=anchor, filename=filename)
-    except:
-        attachment = Attachment(anchor_uri=anchor, filename=filename)
-
     if 'link' in request.POST:
-        url = request.POST['link']
-        if '://' not in url:
-            url = 'http://' + url
-        filename = url
-        if '?' in filename:
-            filename = filename.split('?', 1)[0]
-        if '/' in filename:
-            filename = url.rsplit('/', 1)[1]
-        if '.' not in filename:
-            filename = slugify(filename)
-        attachment.link = request.POST['link']
+        link = request.POST['link']
+        if '://' not in link:
+            link = 'http://' + link
+        filename = find_filename_for_url( link )
+        attachment = Attachment(anchor_uri=anchor, filename=filename, link=link)
         content_type = 'text/url'
     else:
+        filename = filename or request.FILES['attachment'].name
+
+        try:
+            attachment = Attachment.objects.get(anchor_uri=anchor, filename=filename)
+        except:
+            attachment = Attachment(anchor_uri=anchor, filename=filename)
+
         attachment.file = request.FILES['attachment']
         content_type = request.POST.get('content_type', getattr(attachment.file, 'content_type', mimetypes.guess_type(filename or attachment.file.name)[0]))
 
     properties = {'filename': filename, 'content_type': content_type}
     properties.update( get_attachment_changes(request) )
 
-    if not publish(anchor, request.user, 'upload', data=properties, record=True):
+    if not publish(anchor, request.user, 'attach', data=properties, record=True):
         raise PermissionDenied()
 
     for k, v in properties.items():
@@ -194,6 +191,27 @@ def upload(request, anchor, filename):
     attachment.author = request.user
     attachment.save()
     return JsonResponse(attachment.info())
+
+
+def find_filename_for_url(url):
+    try:
+        text = urllib2.urlopen(url, timeout=10).read()
+    except:
+        pass
+    else:
+        match = re.search(r"\<\s*title\s*\>(.*?)\<\s*\/title\s*>", text, re.I | re.M)
+        if match:
+            return match.groups()[0].strip()
+
+    filename = url
+    if '?' in filename:
+        filename = filename.split('?', 1)[0]
+    if '/' in filename:
+        filename = url.rsplit('/', 1)[1]
+    if '.' not in filename:
+        filename = slugify(filename)
+
+    return filename
 
 
 def edit_attachment(request, anchor, filename):
@@ -223,13 +241,15 @@ def delete_attachment(request, anchor, filename):
     if not publish(attachment, request.user, 'delete', record=True):
         raise PermissionDenied()
 
+    data = attachment.info()
     attachment.delete()
-    return JsonResponse(True)
+    data['deleted'] = True
+    return JsonResponse(data)
 
 
 def download_attachment(request, anchor, filename):
     anchor = uri(anchor)
-    attachment = get_object_or_404(Attachment, anchor_uri=anchor, filename=filename)
+    attachment = get_object_or_404(Attachment, anchor_uri=anchor, filename__iexact=filename)
 
     if not publish(attachment, request.user, 'download', record=True):
         raise PermissionDenied()
@@ -245,6 +265,13 @@ def manipulate(request, uri):
     Manipulate the attachments.
     """
     anchor, filename = resolve_model_uri(uri)
+
+    if filename:
+        filename = urllib.unquote(filename)
+    elif 'filename' in request.POST:
+        filename = request.POST['filename']
+    elif 'filename' in request.GET:
+        filename = request.GET['filename']
 
     if request.method == 'DELETE' or request.POST.get('delete', '').lower() in ('yes', 'true'):
         return delete_attachment(request, anchor, filename)

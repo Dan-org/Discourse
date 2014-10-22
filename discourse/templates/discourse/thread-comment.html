@@ -5,13 +5,13 @@
     <div class="author">{{ comment.author }}</div>
   {% endblock %}
   <p class="body">
-    {{ comment.body|linebreaksbr|urlize|hashtags }}
+    {{ comment.html }}
   </p>
   <div class="actions">
     <div class="time" title="{{comment.created}}">{{ comment.created|naturaltime }}</div>
     {% if comment.author == request.user %}
-        <a class="edit" href="{% url 'discourse:thread' comment.path %}?edit={{comment.id}}">Edit</a>
-        <a class="delete" href="{% url 'discourse:thread' comment.path %}?delete={{comment.id}}">Delete</a>
+        <a class="edit" href="{% url 'discourse:thread' comment.anchor_uri %}?edit={{comment.id}}">Edit</a>
+        <a class="delete" href="{% url 'discourse:thread' comment.anchor_uri %}?delete={{comment.id}}">Delete</a>
     {% endif %}
   </div>
 </div>

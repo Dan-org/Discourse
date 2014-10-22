@@ -21,6 +21,10 @@ class TestDocument(TestCase):
             {% document anchor %}
         """).render(Context(self.__dict__))
 
+        result = Template("""{% load discourse %}
+            {% document anchor template="simple"%}
+        """).render(Context(self.__dict__))
+
     def test_update(self):
         d = Document.objects.create(anchor_uri=uri(self.anchor))
         d.set_content("content", "DOCUMENT CONTENT")

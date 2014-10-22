@@ -163,7 +163,11 @@ class DocumentTag(ttag.Tag):
         try:
             doc = Document.objects.get(anchor_uri=anchor)
         except Document.DoesNotExist:
-            doc = Document.objects.create(anchor_uri=anchor, template=template or None)
+            if template:
+                template = DocumentTemplate.objects.get(slug=template)
+            else:
+                template = None
+            doc = Document.objects.create(anchor_uri=anchor, template=template)
 
         content = doc.get_content(context)
 
@@ -171,14 +175,16 @@ class DocumentTag(ttag.Tag):
                         'content': content,
                         'anchor': anchor,
                         'is_empty': all([p['is_empty'] for p in content]),
-                        'request': request,
-                        'editable': request.user.is_superuser}
+                        'request': request}
 
         try:
-            if not publish(anchor, request.user, 'view-library', data=context_vars):
+            e = publish(anchor, request.user, 'view-document', doc, data={'editable': request.user.is_superuser}, internal=True)
+            if not e:
                 return ""
         except PermissionDenied:
             return ""
+
+        context_vars['editable'] = e.data['editable']
 
         if doc.template:
             return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)
@@ -229,7 +235,7 @@ def manipulate(request, uri):
 #    subject_uri = models.CharField(max_length=255)
 #    value = YAMLField()
 #    type = models.ForeignKey(DocumentType, blank=True, null=True)
-#    authors = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, null=True)
+#    authors = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True)
 #    modified = models.DateTimeField(auto_now=True)
 #    created = models.DateTimeField(auto_now_add=True)
 #    version = models.ForeignKey(Event, blank=True, null=True)

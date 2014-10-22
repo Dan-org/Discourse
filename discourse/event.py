@@ -4,6 +4,7 @@ from django.db import models
 from django.dispatch import Signal
 from django.conf import settings
 
+from ajax import to_json
 from uuidfield import UUIDField
 from yamlfield import YAMLField
 
@@ -17,6 +18,7 @@ from uri import *
 from follow import get_followers
 
 logger = logging.getLogger("discourse")
+
 
 
 ### Signals ###
@@ -105,27 +107,37 @@ class Stream(models.Model):
 
 ### Support ###
 class Event(object):
-    def __init__(self, anchor, actor, predicate, target=None, data=None, record=False, when=None):
+    def __init__(self, anchor, actor, predicate, target=None, data=None, record=False, when=None, internal=False):
         self.id = uuid.uuid4().hex
-        self.anchor = anchor
+        if isinstance(anchor, basestring):
+            self.anchor, self.sub = resolve_model_uri(anchor)
+            if self.anchor is None:
+                self.anchor = anchor
+        else:
+            self.anchor = anchor
+            self.sub = None
         self.actor = actor
         self.predicate = predicate
         self.target = target
         self.data = data or {}
         self.record = record
         self.when = when or datetime.now()
+        self.internal = internal    # Don't publish to redis.
         self.canceled = False
 
         self.notify = set()         # Users to notify
         self.streams = set()        # Streams to add this event to
 
     def __unicode__(self):
+        return "%s %s at %s" % (self.actor, self.predicate, self.anchor)
+
+    def __repr__(self):
         return "Event(%r, %r, %r)" % (self.actor, self.predicate, uri(self.anchor))
 
     def simple(self):
         return {
             'id': self.id,
-            'anchor': uri(self.anchor),
+            'anchor': uri(self.anchor, self.sub),
             'actor': simple(self.actor),
             'predicate': self.predicate,
             'target': simple(self.target),
@@ -144,7 +156,7 @@ class Event(object):
         if self.record is True:
             self.record = Record(
                 id = self.id,
-                anchor_uri = uri(self.anchor),
+                anchor_uri = uri(self.anchor, self.sub),
                 actor = self.actor,
                 predicate = self.predicate,
                 target_uri = uri(self.target),
@@ -155,8 +167,8 @@ class Event(object):
 
         self.send_notifications()
 
-        for stream in tuple(self.streams):
-            self.record.add_to_stream(stream)
+        #for stream in tuple(self.streams):
+        #    self.record.add_to_stream(stream)
 
     def send_notifications(self):
         if not self.notify:
@@ -170,40 +182,40 @@ class Event(object):
     def cancel(self):
         self.canceled = True
 
+    def publish(self):
+        self.notify.update( get_followers(self.actor, self.anchor, self.target) )
+
+        for reciever, result in event_signal.send(sender=None, event=self):
+            if self.canceled or result is False:
+                logger.info("EVENT CANCELED:\n%r", self)
+                self.canceled = True
+                return False
+
+        self.resolve()
+
+        logger.debug("%s\n%s" % (self, self.simple()))
+
+        if redis and not self.internal:
+            redis.publish(uri(self.anchor), to_json( self.simple() ))
+
+        return self
+
+
 
 def publish(*args, **kwargs):
-    return publish_event( Event(*args, **kwargs) )
+    return Event(*args, **kwargs).publish()
 
 
-def publish_event(e):
-    e.notify.update( get_followers(e.actor, e.anchor, e.target) )
-
-    for reciever, result in event_signal.send(sender=None, event=e):
-        if e.canceled or result is False:
-            logger.info("EVENT CANCELED:\n%r", e)
-            e.canceled = True
-            return False
-
-    e.resolve()
-
-    logger.info("EVENT CREATED:\n%r", e)
-
-    if redis:
-        redis.publish(e.anchor_uri, to_json( e.simple() ))
-
-    return e
-
-
-def on(predicate):
+def on(*predicates):
     def decorator(fn):
-        hook(predicate, fn)
+        hook(fn, *predicates)
         return fn
     return decorator
 
 
-def hook(predicate, fn):
+def hook(fn, *predicates):
     def subscription(sender, event, **kwargs):
-        if predicate == '*' or event.predicate == predicate:
+        if '*' in predicates or event.predicate in predicates:
             return fn(event)
     event_signal.connect(subscription, weak=False)
 
@@ -242,6 +254,7 @@ class StreamTag(ttag.Tag):
     context_ = ttag.Arg(required=False, keyword=True)
 
     def render(self, context):
+        return "~~~ STREAM ~~~"
         data = self.resolve(context)
         anchor = uri(data.get('anchor'), data.get('sub'))
         request = context['request']

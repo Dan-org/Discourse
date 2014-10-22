@@ -43,11 +43,11 @@ $(document).on('click', '.discourse .thread .voting a', function(e) {
     var target = $(e.target).closest('a');
 
     if ((target.hasClass('upvote') && target.hasClass('selected')) || (target.hasClass('downvote') && target.hasClass('selected'))) {
-        voteComment(comment, 0);
+        voteComment(comment, 'reset');
     } else if (target.hasClass('upvote')) {
-        voteComment(comment, 1);
+        voteComment(comment, 'up');
     } else if (target.hasClass('downvote')) {
-        voteComment(comment, -1);
+        voteComment(comment, 'down');
     }
     e.preventDefault();
 });
@@ -68,7 +68,7 @@ function updateCounts(tag, prompt_id) {
     var total = $('.tag-count-' + tag);
     var value = (parseInt(total.text().substring(1)) || 0) + 1;
     total.text('(' + value + ')');
-
+    
     var prompt = $('.tag-count-' + tag + '-' + prompt_id);
     var value = (parseInt(prompt.text().substring(1)) || 0) + 1;
     prompt.text('(' + value + ')');
@@ -77,17 +77,17 @@ function updateCounts(tag, prompt_id) {
 // When discourse tells us that there is a new comment
 discourse.on('comment', function (comment) {
     realizeComment(comment);
-    var tags = comment.tags = findAllTags(comment.text);
-    var prompt_id = comment.path.match(/\d+$/g);
+    var tags = comment.tags = findAllTags(comment.body);
+    var prompt_id = comment.anchor.match(/\d+$/g);
     for(var i = 0; i < tags.length; i++) {
         updateCounts(tags[i], prompt_id);
     }
 });
 
 // When discourse tells us there's a new vote.
-discourse.on('vote', function (data) {
+discourse.on('comment-vote', function (data) {
     var comment = $('#comment-' + data.id);
-    var value = data.value;
+    var value = data.data.value;
 
     comment.find('.meta .score').empty().append(value).fadeOut().fadeIn();
 });
@@ -112,7 +112,7 @@ $(document).on('submit', '.discourse .thread form', function(e) {
     var data = {
         body: $(this).find('[name=body]').val(),
         parent: $(this).find('[name=parent]').val(),
-        pk: $(this).find('[name=pk]').val()
+        id: $(this).find('[name=id]').val()
     }
 
     form.find('[type=submit]').attr('disabled','disabled');
@@ -141,9 +141,9 @@ function formError(form, response) {
     console.log("ERROR", form, response);
 }
 
-function findThread(path) {
+function findThread(anchor) {
     return $('.discourse .thread').filter(function() {
-        return $(this).attr('rel') == path;
+        return $(this).attr('rel') == anchor;
     });
 }
 
@@ -151,8 +151,10 @@ function realizeComment(comment) {
     var source = $('#comment-' + comment.id);
     var parent = $('#comment-' + comment.parent);
 
+    console.log(comment);
+
     if (source.length == 0) {
-        var thread = findThread(comment.path);
+        var thread = findThread(comment.anchor);
         var prototype = thread.find('.comment.prototype').first();
         var source = prototype.clone().removeClass('prototype');
 
@@ -202,9 +204,9 @@ function realizeComment(comment) {
                                 .empty()
                                 .append(comment.author.name);
     source.find('.info .body .html').empty()
-                                    .append(comment.html);
+                                    .append(comment.html || comment.body);
     source.find('.info .body .text').empty()
-                                   .append(comment.text);
+                                   .append(comment.body);
 
     // Date
     source.find('.date')
@@ -233,9 +235,10 @@ function postCommentSuccess(result) {
     clearReplyForms();
     $('.discourse .thread form textarea').val('');
     var source = realizeComment(result);
-    source.scrollTo(500, 'swing', function() {
-        source.fadeTo(250, 0).fadeTo(500, 1);    
-    });
+    if (source.length > 0)
+        source.scrollTo(500, 'swing', function() {
+            source.fadeTo(250, 0).fadeTo(500, 1);    
+        });
 }
 
 function deleteComment(comment) {
@@ -292,7 +295,7 @@ function editComment(comment) {
 
     form = prototype.clone().addClass('temporary');
     comment.hide().before(form);
-    form.find('[name=pk]').val(id);
+    form.find('[name=id]').val(id);
     form.find('[type=submit]').val("Save Changes");
     form.find('textarea').val(text).focus();
 }
@@ -302,21 +305,23 @@ function clearReplyForms() {
     $('.discourse .thread .comment').not('.prototype').show();
 }
 
-function voteComment(source, vote) {
-    var url = source.closest('.thread').find('form').first().attr('action');
-    var id = source.attr('id').substring('comment-'.length);
+function voteComment(source, direction) {
+    var url = source.find('.voting').attr('rel');
+    if (!url) return;
+
     var score = source.find('.meta .score');
 
     source.find('.meta .voting a').removeClass('selected');
 
-    if (vote == 1)
+    if (direction == 'up')
         source.find('.meta .voting a.upvote').addClass('selected');
-    else if (vote == -1)
+    else if (direction == 'down')
         source.find('.meta .voting a.downvote').addClass('selected');
 
     $.ajax({
         url: url,
-        data: {'vote': vote, 'pk': id},
+        type: 'post',
+        data: {'direction': direction},
         success: function(result) {
             score.empty().append(result);
         }

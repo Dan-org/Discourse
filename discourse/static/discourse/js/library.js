@@ -252,7 +252,7 @@ Library = Tea.Container.extend({
     onDownload : function() {
         if (this.selected.length == 0) return;
     },
-    manipulator : function(method, fn) {
+    manipulator : function(data, fn) {
         return jQuery.proxy(function(e) {
             e.preventDefault();
 
@@ -272,7 +272,7 @@ Library = Tea.Container.extend({
             jQuery.ajax({
                 url: this.url,
                 type: 'POST',
-                data: {method: method, urls: urls},
+                data: data,
                 context: this,
                 error: function() {
                     Overlay.status.error("File Management", "Server error.");
@@ -389,7 +389,7 @@ LibraryIcon = Tea.Element.extend({
 function setupFileInput(options) {
     options = $.extend({
         url: options.url,
-        paramname: 'file',
+        paramname: 'attachment',
         withCredentials: true,
         maxfiles: 32,
         maxfilesize: 2000,
@@ -419,19 +419,10 @@ function setupFileInput(options) {
 
 
 function libraryManipulate(options) {
-    var icon = $();
     var url = options.url;
-    var ids = options.ids;
-    var method = options.method;
     var success = options.success || jQuery.noop();
     var error = options.error;
     var data = options.data;
-
-    for (var i = 0; i < ids.length; i++) {
-        icon = icon.add('#file-' + ids[i]);
-    }
-
-    data = $.extend({method: method, ids: ids}, data);
 
     jQuery.ajax({
         url: url,
@@ -446,16 +437,14 @@ function libraryManipulate(options) {
             }
         },
         success: function(response) {
-            if (method == 'delete') {
-                icon.fadeOut(400, function() {
-                    icon.remove();
+            var links = $('#file-' + response.id);
+
+            links.toggleClass('hidden', response.hidden);
+
+            if (response.deleted) {
+                links.fadeOut(400, function() {
+                    links.remove();
                 });
-            } else if (method == 'hide') {
-                icon.addClass('hidden');
-            } else if (method == 'rename') {
-                //
-            } else if (method == 'show') {
-                icon.removeClass('hidden');
             }
 
             if (success)

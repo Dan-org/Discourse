@@ -1,6 +1,7 @@
 import re, urllib, time, posixpath, decimal
 from datetime import datetime
 from django.db import models
+from django.apps import apps
 
 __all__ = ['uri', 'resolve_model_uri', 'simple']
 
@@ -16,9 +17,9 @@ def uri(obj, rest=None):
         model = cls._meta.model_name   # User
         pk = str( obj._get_pk_val() )    # 7
         uri = "%s/%s/%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
-    
+
     if rest is not None:
-        return posixpath.join(uri, urllib.quote(rest))
+        return posixpath.join(uri, urllib.quote( str(rest) ))
     else:
         return uri
 
@@ -28,7 +29,7 @@ def resolve_model_uri(uri):
     if m is None:
         return None, uri
     app, model, pk, rest = m.groups()
-    cls = models.get_model( urllib.unquote(app), urllib.unquote(model) )
+    cls = apps.get_model( urllib.unquote(app), urllib.unquote(model) )
     obj = cls.objects.get(pk=urllib.unquote(pk))
     if rest is None:
         return obj, None
@@ -40,9 +41,9 @@ def simple(object):
     if hasattr(object, 'simple'):
         return object.simple()
     elif isinstance(object, list):
-        return [simple(x) for x in list]
+        return [simple(x) for x in object]
     elif isinstance(object, tuple):
-        return tuple(simple(x) for x in list)
+        return tuple(simple(x) for x in object)
     elif isinstance(object, dict):
         return dict((k, simple(v)) for k, v in object.items())
     elif isinstance(object, datetime):

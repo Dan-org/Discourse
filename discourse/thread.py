@@ -8,9 +8,10 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.humanize.templatetags.humanize import naturaltime
+from django.utils.html import normalize_newlines, urlize
 from django.core.urlresolvers import reverse
 
-from event import publish
+from event import publish, on
 from ajax import JsonResponse
 from vote import Vote
 from uri import *
@@ -40,9 +41,10 @@ class Comment(models.Model):
     def info(self):
         return {
             'id': self.id,
+            'uri': self.uri,
             'anchor': self.anchor_uri,
-            #'html': self.render_body(),
-            'text': self.body,
+            'body': self.body,
+            'html': self.html,
             'created': tuple(self.created.timetuple()) if self.created else None,
             'naturaltime': naturaltime(self.created) if self.created else None,
             'deleted': tuple(self.deleted.timetuple()) if self.deleted else None,
@@ -58,13 +60,18 @@ class Comment(models.Model):
         }
 
     @property
+    def uri(self):
+        return uri(self)
+
+    @property
     def anchor(self):
         if not hasattr(self, '_anchor'):
             self._anchor, self._anchor_extra = resolve_model_uri(self.anchor_uri)
         return self._anchor
 
-    def render_body(self):
-        return urlize(normalize_newlines(self.body).replace('\n', '<br>'))
+    @property
+    def html(self):
+        return render_to_string("discourse/thread-comment-body.html", {'comment': self})
 
     def all_children_are_deleted(self):
         for child in self.children.all():
@@ -116,6 +123,14 @@ def on_comment_save(sender, instance, **kwargs):
         instance.fix_value()
 models.signals.pre_save.connect(on_comment_save, sender=Comment)
 
+
+@on("vote")
+def on_vote(event):
+    if event.anchor.startswith('discourse/comment'):
+        comment = resolve_model_uri(event.anchor)[0]
+        comment.fix_value()
+        comment.save()
+        publish(comment.uri, event.actor, 'comment-vote', data={'value': comment.value})
 
 
 ### Template Tags ###
@@ -203,7 +218,7 @@ def create_comment(request, uri):
                 anchor_uri=uri, 
                 body=body, 
                 author=request.user,
-                parent=parent_pk
+                parent_id=parent_pk
     )
     comment.vote(request.user, 1)           # The user starts with themselves upvoting their comment.
     return comment
