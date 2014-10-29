@@ -155,7 +155,7 @@ class DocumentTag(ttag.Tag):
         data = self.resolve(context)
         anchor = uri(data.get('anchor'), data.get('sub'))
         template = data.get('template')
-        request = context['request']
+        request = context.get('request')
 
         if data.get('plain'):
             return "\n".join( [o.body for o in DocumentContent.objects.filter(document__anchor_uri=anchor)] )
@@ -177,14 +177,15 @@ class DocumentTag(ttag.Tag):
                         'is_empty': all([p['is_empty'] for p in content]),
                         'request': request}
 
-        try:
-            e = publish(anchor, request.user, 'view-document', doc, data={'editable': request.user.is_superuser}, internal=True)
-            if not e:
+        if request:
+            try:
+                e = publish(anchor, request.user, 'view-document', doc, data={'editable': request.user.is_superuser}, internal=True)
+                if not e:
+                    return ""
+            except PermissionDenied:
                 return ""
-        except PermissionDenied:
-            return ""
 
-        context_vars['editable'] = e.data['editable']
+            context_vars['editable'] = e.data['editable']
 
         if doc.template:
             return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)

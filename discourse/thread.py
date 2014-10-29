@@ -130,7 +130,7 @@ def on_vote(event):
         comment = resolve_model_uri(event.anchor)[0]
         comment.fix_value()
         comment.save()
-        publish(comment.uri, event.actor, 'comment-vote', data={'value': comment.value})
+        publish(comment, event.actor, 'comment-vote', data={'value': comment.value})
 
 
 ### Template Tags ###
@@ -221,6 +221,9 @@ def create_comment(request, uri):
                 parent_id=parent_pk
     )
     comment.vote(request.user, 1)           # The user starts with themselves upvoting their comment.
+
+    publish(uri, request.user, 'create', comment)
+    
     return comment
 
 
