@@ -12,7 +12,7 @@ $(function() {
             contents: $(this).find('.contents'),
             editable: $(this).attr('editable')
         })
-    })
+    });
 
     $('.discourse-library').each(function(i, e) {
         library = Library({source: $(e)});

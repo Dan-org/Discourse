@@ -1,4 +1,5 @@
 import uuid, logging
+from taggit.managers import TaggableManager
 from datetime import datetime
 from django.db import models
 from django.dispatch import Signal
@@ -36,6 +37,8 @@ class Record(models.Model):
     when = models.DateTimeField(auto_now_add=True)
     data = YAMLField()
 
+    tags = TaggableManager()
+
     def __unicode__(self):
         return "Record(%r, %r, %r)" % (self.actor, self.predicate, self.anchor_uri)
 
@@ -48,7 +51,8 @@ class Record(models.Model):
             'target': simple(self.target),
             'record': True,
             'when': simple(self.when),
-            'data': simple(data)
+            'data': simple(data),
+            'tags': self.tags
         }
 
     @property
@@ -62,6 +66,10 @@ class Record(models.Model):
         if not hasattr(self, '_target'):
             self._target, self._target_extra = resolve_model_uri(self.target_uri)
         return self._target
+
+    @property
+    def template(self):
+        return "discourse/stream/%s.html" % self.predicate
 
     class Meta:
         app_label = 'discourse'
@@ -107,7 +115,7 @@ class Stream(models.Model):
 
 ### Support ###
 class Event(object):
-    def __init__(self, anchor, actor, predicate, target=None, data=None, record=False, when=None, internal=False):
+    def __init__(self, anchor, actor, predicate, target=None, data=None, record=False, when=None, internal=False, tags=None):
         self.id = uuid.uuid4().hex
         if isinstance(anchor, basestring):
             self.anchor, self.sub = resolve_model_uri(anchor)
@@ -124,6 +132,7 @@ class Event(object):
         self.when = when or datetime.now()
         self.internal = internal    # Don't publish to redis.
         self.canceled = False
+        self.tags = set(tags or ())
 
         self.notify = set()         # Users to notify
         self.streams = set()        # Streams to add this event to
@@ -143,7 +152,8 @@ class Event(object):
             'target': simple(self.target),
             'data': simple(self.data),
             'record': bool(self.record),
-            'when': simple(self.when)
+            'when': simple(self.when),
+            'tags': simple(self.tags)
         }
 
     def resolve(self):
@@ -164,6 +174,7 @@ class Event(object):
                 when = self.when,
             )
             self.record.save()
+            self.record.tags.add(*self.tags)
 
         self.send_notifications()
 
@@ -252,38 +263,39 @@ class StreamTag(ttag.Tag):
     size = ttag.Arg(required=False, keyword=True)
     comments = ttag.Arg(required=False, keyword=True)
     context_ = ttag.Arg(required=False, keyword=True)
+    tags = ttag.Arg(required=False, keyword=True)
 
     def render(self, context):
-        return "~~~ STREAM ~~~"
         data = self.resolve(context)
         anchor = uri(data.get('anchor'), data.get('sub'))
         request = context['request']
         size = data.get('size', 21)
         comments = data.get('comments', False)
         context_ = data.get('context', None)
+        tags = set(data.get('tags', '').lower().split())
 
         try:
-            stream = Stream.objects.get(anchor_uri=anchor)
-            events = stream.records.all().order_by('-id')[:size]
-            count = stream.events.count()
+            records = Record.objects.filter(anchor_uri=anchor)
+            if tags:
+                records = records.filter(tags__name__in=tags)
+            count = records.count()
+            records = records.order_by('-id')[:size]
         except Stream.DoesNotExist:
-            stream = Stream(anchor_uri=anchor)
-            events = ()
+            records = ()
             count = 0
 
-        events = list(events)
-        if events:
-            last_event_id = events[-1].id
+        records = list(records)
+        if records:
+            last_id = records[-1].id
         else:
-            last_event_id = None
+            last_id = None
         
-        return render_to_string('discourse/stream.html', {'stream': stream, 
-                                                          'events': events,
+        return render_to_string('discourse/stream.html', {'records': records,
                                                           'count': count,
                                                           'size': size,
                                                           'context': context_,
-                                                          'anchor': anchor, 
-                                                          'last_event_id': last_event_id,
+                                                          'anchor_uri': anchor,
+                                                          'last_id': last_id,
                                                           'auth_login': settings.LOGIN_REDIRECT_URL}, context)
 
     class Meta:

@@ -44,6 +44,8 @@ def simple(object):
         return [simple(x) for x in object]
     elif isinstance(object, tuple):
         return tuple(simple(x) for x in object)
+    elif isinstance(object, set):
+        return tuple(simple(x) for x in object)
     elif isinstance(object, dict):
         return dict((k, simple(v)) for k, v in object.items())
     elif isinstance(object, datetime):
