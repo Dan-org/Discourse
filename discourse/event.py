@@ -264,6 +264,7 @@ class StreamTag(ttag.Tag):
     comments = ttag.Arg(required=False, keyword=True)
     context_ = ttag.Arg(required=False, keyword=True)
     tags = ttag.Arg(required=False, keyword=True)
+    predicates = ttag.Arg(required=False, keyword=True)
 
     def render(self, context):
         data = self.resolve(context)
@@ -273,13 +274,16 @@ class StreamTag(ttag.Tag):
         comments = data.get('comments', False)
         context_ = data.get('context', None)
         tags = set(data.get('tags', '').lower().split())
+        predicates = set(data.get('predicates', '').lower().split())
 
         try:
             records = Record.objects.filter(anchor_uri=anchor)
             if tags:
                 records = records.filter(tags__name__in=tags)
+            if predicates:
+                records = records.filter(predicate__in=predicates)
             count = records.count()
-            records = records.order_by('-id')[:size]
+            records = records.order_by('-when')[:size]
         except Stream.DoesNotExist:
             records = ()
             count = 0

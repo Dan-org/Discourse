@@ -170,6 +170,7 @@ class ThreadTag(ttag.Tag):
 
         return render_to_string(template, {'comments': comments, 
                                            'anchor': anchor,
+                                           'something': 2,
                                            'depth': data.get('depth'),
                                            'scored': scored,
                                            'auth_login': settings.LOGIN_REDIRECT_URL}, context)
@@ -218,7 +219,7 @@ def create_comment(request, uri):
                 anchor_uri=uri, 
                 body=body, 
                 author=request.user,
-                parent_id=parent_pk
+                parent_id=parent_pk or None
     )
     comment.vote(request.user, 1)           # The user starts with themselves upvoting their comment.
 

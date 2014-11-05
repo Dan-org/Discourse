@@ -151,13 +151,11 @@ function realizeComment(comment) {
     var source = $('#comment-' + comment.id);
     var parent = $('#comment-' + comment.parent);
 
-    console.log(comment);
-
     if (source.length == 0) {
         var thread = findThread(comment.anchor);
         var prototype = thread.find('.comment.prototype').first();
         var source = prototype.clone().removeClass('prototype');
-
+        
         if (parent.length == 0) {
             if (thread.find('.insert-comments-here').length > 0)
                 thread.find('.insert-comments-here').before( source.show() );
@@ -248,7 +246,8 @@ function deleteComment(comment) {
 
     $.ajax({
         url: url,
-        data: {'delete': id},
+        data: {'id': id, 'delete': true},
+        type: 'post',
         success: function() {
             comment_and_subthread.fadeOut('normal', function() {
                 comment_and_subthread.remove();
