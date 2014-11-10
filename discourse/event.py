@@ -7,7 +7,7 @@ from django.conf import settings
 
 from ajax import to_json
 from uuidfield import UUIDField
-from yamlfield import YAMLField
+from yamlfield.field import YAMLField
 
 try:
     import redis
