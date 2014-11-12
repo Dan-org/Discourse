@@ -126,8 +126,8 @@ models.signals.pre_save.connect(on_comment_save, sender=Comment)
 
 @on("vote")
 def on_vote(event):
-    if event.anchor.startswith('discourse/comment'):
-        comment = resolve_model_uri(event.anchor)[0]
+    if isinstance(event.anchor, Comment):
+        comment = event.anchor
         comment.fix_value()
         comment.save()
         publish(comment, event.actor, 'comment-vote', data={'value': comment.value})
@@ -222,6 +222,7 @@ def create_comment(request, uri):
                 parent_id=parent_pk or None
     )
     comment.vote(request.user, 1)           # The user starts with themselves upvoting their comment.
+    comment.up = True
 
     publish(uri, request.user, 'create', comment)
     
