@@ -102,7 +102,7 @@ def manipulate(request):
     if request.POST.get('unfollow', '').lower() in ('yes', 'true'):
         unfollow(request.user, target_uri)
     else:
-        follow(request.user, target_uri)
+        follow(request.user, target_uri, True)
 
     return JsonResponse(get_follower_count(target_uri))
 
