@@ -10,8 +10,12 @@ $(function() {
 $(document).on('focus', '.discourse .thread textarea', function(e) {
     $(this).closest('form').addClass('focused');
 });
+
 $(document).on('blur', '.discourse .thread textarea', function(e) {
-    $(this).closest('form').removeClass('focused');
+    var form = $(this).closest('form');
+    setTimeout(function() { 
+        form.removeClass('focused');
+    }, 100);
 });
 
 // When 'delete' is pressed on a comment, it is deleted.

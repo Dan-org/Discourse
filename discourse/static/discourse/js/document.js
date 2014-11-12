@@ -186,9 +186,17 @@ Document = Tea.Element.extend({
         }
     },
     getValue : function() {
+        src = '';
+        html = '';
+
+        if (this._src && this._src.html)
+            src = this._src.html().trim();
+        if (this._html && this._html.html)
+            html = this._html.html().trim();
+
         return {
-            'src': this._src.html().trim(),
-            'html': this._html.html().trim()
+            'src': src,
+            'html': html
         }
     },
     setValue : function(v) {
