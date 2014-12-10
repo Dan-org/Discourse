@@ -48,7 +48,11 @@ def to_json(value):
 re_hash = re.compile(r'\#\w[-_\w]+\w')
 def hash_link(m):
     tag = m.group(0)
-    return '<a href="/search/?q=%s">%s</a>' % (urllib.quote(tag), tag)
+    name = tag.lstrip('#')
+    return '<a name="{name}" class="hashtag" href="/search/?q={safe_name}">#{name}</a>'.format(
+        safe_name = urllib.quote(tag),
+        name = name,
+    )
 
 @register.filter(is_safe=True)
 def hashtags(value):
