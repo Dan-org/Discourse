@@ -9,12 +9,15 @@ $(function() {
 // change the color of the submit button to blue.
 $(document).on('focus', '.discourse .thread textarea', function(e) {
     $(this).closest('form').addClass('focused');
+    $(this).closest('form').addClass('editing');
 });
 
 $(document).on('blur', '.discourse .thread textarea', function(e) {
     var form = $(this).closest('form');
-    setTimeout(function() { 
+    setTimeout(function() {
         form.removeClass('focused');
+        if (form.find('textarea').val() == '')
+            form.removeClass('editing');
     }, 100);
 });
 
