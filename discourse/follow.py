@@ -13,7 +13,7 @@ class Subscription(models.Model):
     toggle = models.BooleanField(default=True)
 
     def __unicode__(self):
-        return "Subscription(%r, %r, toggle=%r)" % (self.user, self.uri, self.toggle)
+        return "Subscription(%r, %r, toggle=%r)" % (self.user, self.target_uri, self.toggle)
 
     class Meta:
         app_label = 'discourse'
