@@ -38,10 +38,11 @@ class Comment(models.Model):
     def __unicode__(self):
         return repr(self)
 
-    def info(self):
+    def simple(self):
         return {
             'id': self.id,
             'uri': self.uri,
+            'url': reverse('discourse:vote', args=[self.uri]),
             'anchor': self.anchor_uri,
             'body': self.body,
             'html': self.html,
@@ -130,7 +131,7 @@ def on_vote(event):
         comment = event.anchor
         comment.fix_value()
         comment.save()
-        publish(comment, event.actor, 'comment-vote', data={'value': comment.value})
+        publish(comment.anchor_uri, event.actor, 'comment-vote', data={'value': comment.value, 'comment_id': comment.id})
 
 
 ### Template Tags ###
@@ -212,7 +213,7 @@ def create_comment(request, uri):
     parent_pk = request.POST.get('parent')
     parent = Comment.objects.get(pk=parent_pk) if parent_pk else None
 
-    if not publish(uri, request.user, 'comment', data={'body': body, 'parent': parent}, record=True):
+    if not publish(uri, request.user, 'comment', data={'body': body, 'parent': parent}):
         raise PermissionDenied()
 
     comment = Comment.objects.create(
@@ -274,7 +275,7 @@ def manipulate(request, uri):
         comment = create_comment(request, uri)
 
     if request.is_ajax():
-        data = comment.info()
+        data = comment.simple()
         data['editable'] = True
         return JsonResponse(data)
     else:

@@ -12,16 +12,10 @@ class DiscourseSocket(BaseNamespace):
         o = self.redis.pubsub()
         o.subscribe([path])
         for item in o.listen():
-            if item['type'] == 'message':
-                item = json.loads(item['data'])
-                if item['type'] == 'vote':
-                    self.emit('vote', item)
-                elif item['type'] == 'comment':
-                    self.emit('comment', item['comment'])
-                elif item['type'] == 'delete':
-                    self.emit('delete', item['id'])
-                else:
-                    self.emit(item['type'], item)
+            if item.get('type') == 'message':
+                data = json.loads(item['data'])
+                if data.get('predicate'):
+                    self.emit(data['predicate'], data)
 
     def on_follow(self, path):
         self.spawn(self.follow_loop, path)

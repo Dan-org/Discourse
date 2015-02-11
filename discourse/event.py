@@ -207,7 +207,7 @@ class Event(object):
         logger.debug("%s\n%s" % (self, self.simple()))
 
         if redis and not self.internal:
-            redis.publish(uri(self.anchor), to_json( self.simple() ))
+            redis.publish(uri(self.anchor, self.sub), to_json( self.simple() ))
 
         return self
 

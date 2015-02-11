@@ -56,6 +56,8 @@ def simple(object):
         return object
     elif isinstance(object, int):
         return object
+    elif isinstance(object, models.Model):
+        return dict((k, simple(v)) for k, v in vars(object).items() if not k.startswith('_'))
     else:
         return unicode( object )
 
