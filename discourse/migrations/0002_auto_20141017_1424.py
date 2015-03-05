@@ -13,7 +13,7 @@ def move_events_to_records(apps, schema_editor):
     Record = apps.get_model("discourse", "Record")
     events = [vars(e) for e in Event.objects.all()]
     for event in Event.objects.all():
-        Record.objects.create(
+        r = Record.objects.create(
             id = uuid.uuid4().hex,
             anchor_uri = event.path,
             predicate = event.type,
@@ -21,6 +21,9 @@ def move_events_to_records(apps, schema_editor):
             actor =  event.actor,
             data = {},
         )
+        r.when = event.created
+        r.save()
+
 
 def move_comment_votes_to_votes(apps, schema_editor):
     CommentVote = apps.get_model("discourse", "CommentVote")

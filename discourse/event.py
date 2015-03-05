@@ -31,7 +31,7 @@ event_signal = Signal(['event'])
 class Record(models.Model):
     id = UUIDField(primary_key=True)
     anchor_uri = models.CharField(max_length=255)
-    actor = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="events_generated")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="events_generated", blank=True, null=True)
     predicate = models.SlugField()
     target_uri = models.CharField(max_length=255, blank=True, null=True)
     when = models.DateTimeField(auto_now_add=True)
@@ -167,7 +167,7 @@ class Event(object):
             self.record = Record(
                 id = self.id,
                 anchor_uri = uri(self.anchor, self.sub),
-                actor = self.actor,
+                actor = self.actor if self.actor.is_authenticated() else None,
                 predicate = self.predicate,
                 target_uri = uri(self.target),
                 data = simple(self.data),

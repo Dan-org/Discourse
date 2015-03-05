@@ -251,7 +251,7 @@ def download_attachment(request, anchor, filename):
     anchor = uri(anchor)
     attachment = get_object_or_404(Attachment, anchor_uri=anchor, filename__iexact=filename)
 
-    if not publish(attachment, request.user, 'download'):
+    if not publish(attachment, request.user, 'download', record=False):
         raise PermissionDenied()
 
     if attachment.content_type == 'text/url':
