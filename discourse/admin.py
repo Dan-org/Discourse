@@ -4,7 +4,8 @@ from models import (
     Attachment, 
     Comment, 
     Record, 
-    Subscription
+    Subscription,
+    Favorite
 )
 
 
@@ -23,3 +24,4 @@ admin.site.register(Attachment)
 admin.site.register(Comment)
 admin.site.register(Record)
 admin.site.register(Subscription)
+admin.site.register(Favorite)

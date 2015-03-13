@@ -1,0 +1,7 @@
+{% if request.user.is_authenticated %}
+    {% if subscribed %}
+        <a class="btn favoriter favorite on" rel="{{ anchor }}" href="{{ url }}">favorited</a>
+    {% else %}
+        <a class="btn favoriter favorite" rel="{{ anchor }}" href="{{ url }}">favorite</a>
+    {% endif %}
+{% endif %}

@@ -17,6 +17,11 @@ def uri(obj, rest=None):
         model = cls._meta.model_name   # User
         pk = str( obj._get_pk_val() )    # 7
         uri = "%s/%s/%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
+    elif isinstance(obj, type) and issubclass(obj, models.Model):
+        cls = obj
+        app = cls._meta.app_label      # auth
+        model = cls._meta.model_name   # User
+        uri = "%s/%s" % ( urllib.quote(app), urllib.quote(model))
 
     if rest is not None:
         return posixpath.join(uri, urllib.quote( str(rest) ))

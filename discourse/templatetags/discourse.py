@@ -28,6 +28,7 @@ from ..library import LibraryTag
 from ..document import DocumentTag
 from ..event import StreamTag
 from ..follow import FollowTag
+from ..favorite import FavoriteTag
 
 register = template.Library()
 register.tag(ThreadTag)
@@ -37,6 +38,7 @@ register.tag(DocumentTag)
 register.tag(StreamTag)
 register.tag(Uri)
 register.tag(FollowTag)
+register.tag(FavoriteTag)
 
 
 ### Filters ###
