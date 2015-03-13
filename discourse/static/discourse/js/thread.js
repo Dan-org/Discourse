@@ -82,7 +82,8 @@ function updateCounts(tag, prompt_id) {
 }   
 
 // When discourse tells us that there is a new comment
-discourse.on('comment', function (comment) {
+discourse.on('create', function (data) {
+    var comment = data.target;
     realizeComment(comment);
     var tags = comment.tags = findAllTags(comment.body);
     var prompt_id = comment.anchor.match(/\d+$/g);
@@ -93,15 +94,15 @@ discourse.on('comment', function (comment) {
 
 // When discourse tells us there's a new vote.
 discourse.on('comment-vote', function (data) {
-    var comment = $('#comment-' + data.id);
+    var comment = $('#comment-' + data.data.comment_id);
     var value = data.data.value;
 
     comment.find('.meta .score').empty().append(value).fadeOut().fadeIn();
 });
 
  // When discourse tells us a comment was deleted.
-discourse.on('delete', function(id) {
-    var comment = $('#comment-' + id);
+discourse.on('delete', function(data) {
+    var comment = $('#comment-' + data.id);
     var comment_and_subthread = comment.add(comment.next('.subthread'));
 
     comment_and_subthread.fadeOut('normal', function() {
@@ -197,6 +198,9 @@ function realizeComment(comment) {
         source.find('.meta .voting a.upvote').addClass('selected');
     if (comment.down)
         source.find('.meta .voting a.downvote').addClass('selected');
+
+    if (comment.url)
+        source.find('.meta .voting').attr('rel', comment.url)
 
     // Icon
     source.find('.user-icon').attr('href', comment.author.url || '#');
