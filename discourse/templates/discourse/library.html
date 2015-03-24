@@ -1,16 +1,15 @@
-<div class="library cf" rel="{% url 'discourse:library' anchor %}" editable="{{ editable }}">
+<div class="library cf" rel="{{ channel.url }}/library/" editable="{{ editable }}">
     <div class="contents">
-    {% for file in attachments %}
-        <a href="{{file.url}}" class="file {% if file.hidden %}hidden{% endif %}">
-            <img src="{{STATIC_URL}}img/file-icon.png" title="{{ file.filename }}" />
-            <div name="name">{{file.filename}}</div>
-        </a>
-    {% empty %}
         <a href="" class="file prototype">
             <img src="{{STATIC_URL}}img/file-icon.png" title="" />
             <div name="name"></div>
         </a>
-    {% endfor %}
+        {% for file in attachments %}
+            <a href="{{file.url}}" class="file {% if file.hidden %}hidden{% endif %}">
+                <img src="{{STATIC_URL}}img/file-icon.png" title="{{ file.filename }}" />
+                <div name="name">{{file.filename}}</div>
+            </a>
+        {% endfor %}  
     </div>
     
     <div class="actions">

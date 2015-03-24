@@ -111,36 +111,41 @@ discourse.on('delete', function(data) {
 });
 
 
+function formWaiting(form) {
+    form.find('input').attr('disabled', true);
+    form.find('textarea').attr('disabled', true);
+    form.find('select').attr('disabled', true);
+}
+
+function formReady(form) {
+    form.find('input').attr('disabled', false);
+    form.find('textarea').attr('disabled', false);
+    form.find('select').attr('disabled', false);
+}
+
 // When a form is submited on the threads, we should use ajax to submit it.
-$(document).on('submit', '.discourse .thread form', function(e) {
+$(document).on('submit', '.discourse form.act-comment', function(e) {
     e.preventDefault();
 
     var form = $(this);
-    var comment = form.closest('.comment');
-    var data = {
-        body: $(this).find('[name=body]').val(),
-        parent: $(this).find('[name=parent]').val(),
-        id: $(this).find('[name=id]').val()
-    }
+    var data = form.serialize();
 
-    form.find('[type=submit]').attr('disabled','disabled');
-    form.find('[name=body]').blur();
-
-    if (comment.length > 0)
-        data.in_reply = comment.attr('id').substring('comment-'.length);
+    formWaiting(form);
     
     $.ajax({
         url: form.attr('action'),
         data: data,
         type: 'post',
-        success: function() {
-            form.find('[type=submit]').attr('disabled', null);
-            postCommentSuccess.apply(this, arguments);
+        success: function(response) {
+            console.log("SUCCESS!", response);
+
+            formReady(form);
+            
+            postCommentSuccess(form, response);
         },
         error: function(response) {
+            formReady(form);
             formError(form, response);
-            form.find('[type=submit]').attr('disabled', null);
-            form.find('[name=body]').focus();
         }
     });
 });
@@ -149,14 +154,25 @@ function formError(form, response) {
     console.log("ERROR", form, response);
 }
 
-function findThread(anchor) {
-    return $('.discourse .thread').filter(function() {
-        return $(this).attr('rel') == anchor;
+function findStream(channel) {
+    return $('.discourse.stream').filter(function() {
+        return $(this).attr('data-channel') == channel;
     });
 }
 
-function realizeComment(comment) {
-    var source = $('#comment-' + comment.id);
+function realizeComment(message, stream) {
+    var source = $('#message-' + message.uuid);
+    if (source.length != 0) {
+        source.html(message.html);
+        return source;
+    }
+
+    var source = $('<div id="message-' + message.uuid + '">');
+    source.prependTo(stream.find('.content'));
+    source.html(message['html']);
+
+    return source;
+
     var parent = $('#comment-' + comment.parent);
 
     if (source.length == 0) {
@@ -240,10 +256,10 @@ function realizeComment(comment) {
     return source;
 }
 
-function postCommentSuccess(result) {
+function postCommentSuccess(form, result) {
     clearReplyForms();
-    $('.discourse .thread form textarea').val('');
-    var source = realizeComment(result);
+    form.find('textarea').val('');
+    var source = realizeComment(result, form.closest('.stream'));
     if (source.length > 0)
         source.scrollTo(500, 'swing', function() {
             source.fadeTo(250, 0).fadeTo(500, 1);    

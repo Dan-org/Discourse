@@ -1,3 +1,31 @@
+/*(function() {}
+    function getLibrary(source) {
+        return source.closest('.discourse-library').data('library');
+    }
+
+    $(document).on('.discourse-library .file .delete', function(e) {
+        var target = $(e.target);
+        var lib = getLibrary(target);
+
+        lib.del(  );
+    });
+)//();
+
+*/
+Channel = function(id) {
+    this.id = id;
+}
+
+Channel.prototype.show_attachment_modal = function() {
+    FileUploadDialog({url: this.id}).show();
+}
+
+$(document).on('click', '.discourse .act-upload', function(e) {
+    var channel = new Channel( $(e.target).closest('.discourse').attr('data-channel') );
+    channel.show_attachment_modal();
+
+    e.preventDefault();
+});
 
 
 $(function() {
@@ -77,10 +105,10 @@ LibraryControls = Tea.Element.extend({
 
         var source = this.source;
 
-        this.upload = source.find('[name=upload]');
-        this.hide = source.find('[name=hide]');
-        this.show = source.find('[name=show]');
-        this.del = source.find('[name=delete]');
+        this.upload = source.find('.act-upload]');
+        this.hide = source.find('.act-hide');
+        this.show = source.find('.act-show');
+        this.del = source.find('.act-delete');
 
         this.hook(this.hide, 'click', this.library.manipulator('hide', function(icon) { icon.setFileHidden(true); }));
         this.hook(this.show, 'click', this.library.manipulator('show', function(icon) { icon.setFileHidden(false); }));
@@ -437,11 +465,13 @@ function libraryManipulate(options) {
             }
         },
         success: function(response) {
-            var links = $('#file-' + response.id);
+            var links = $('#file-' + response.content.filename_hash);
 
-            links.toggleClass('hidden', response.hidden);
+            meta = response.content.meta;
 
-            if (response.deleted) {
+            links.toggleClass('hidden', meta.hidden);
+            
+            if (meta.deleted) {
                 links.fadeOut(400, function() {
                     links.remove();
                 });
@@ -535,3 +565,5 @@ function setupFileDrop(library) {
         }
     });
 }
+
+/* */

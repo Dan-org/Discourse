@@ -1,8 +1,8 @@
-from event import Record, Stream
-from follow import Subscription
-from thread import Comment
-from library import Attachment
-from document import Document, DocumentTemplate, DocumentContent
-from vote import Vote
+from message import Channel, Message, Attachment
 
-from uri import *
+#from follow import Subscription
+#from thread import Comment
+#from document import Document, DocumentTemplate, DocumentContent
+#from vote import Vote
+
+#from uri import *

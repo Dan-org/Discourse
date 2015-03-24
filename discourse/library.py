@@ -12,69 +12,71 @@ from uri import *
 from event import publish
 from ajax import JsonResponse
 
+from message import Message, Attachment, channel_for
 
-class Attachment(models.Model):
-    anchor_uri = models.CharField(max_length=255)
-    filename = models.CharField(max_length=255)
-    content_type = models.CharField(max_length=255)
-    author = models.ForeignKey(settings.AUTH_USER_MODEL)
-    caption = models.TextField(blank=True)
-    featured = models.BooleanField(default=False)
-    hidden = models.BooleanField(default=False)
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True, blank=True, null=True)
-    order = models.IntegerField(default=0)
-    file = models.FileField(upload_to="attachments", blank=True, null=True)
-    link = models.CharField(max_length=255, blank=True, null=True)
-    
-    class Meta:
-        ordering = ('anchor_uri', 'filename')
 
-    def __unicode__(self):
-        return self.anchor_uri
-
-    def __repr__(self):
-        return "Attachment(%r)" % (self.anchor_uri)
-
-    def is_an_image(self):
-        return "image/" in self.content_type
-
-    @property
-    def url(self):
-        return reverse("discourse:library", args=(self.anchor_uri,)) + "/" + urllib.quote( self.filename )
-
-    @property
-    def icon(self):
-        """
-        Returns the icon type for the file.
-        """
-        if self.link:
-            return 'link'
-        if "application/pdf" in self.content_type:
-            return "pdf"
-        elif "image/" in self.content_type:
-            return "image"
-        elif "application/msword" in self.content_type:
-            return "doc"
-        elif "officedocument" in self.content_type:
-            return "doc"
-        elif self.anchor_uri.endswith(".pages"):
-            return "doc"
-        return "blank"
-
-    def info(self):
-        return {
-            'id': self.id,
-            'anchor_uri': self.anchor_uri,
-            'content_type': self.content_type,
-            'caption': self.caption,
-            'order': self.order,
-            'filename': self.filename,
-            'url': self.url,
-            'icon': self.icon,
-            'hidden': self.hidden,
-            'link': self.link
-        }
+#class Attachment(models.Model):
+#    anchor_uri = models.CharField(max_length=255)
+#    filename = models.CharField(max_length=255)
+#    content_type = models.CharField(max_length=255)
+#    author = models.ForeignKey(settings.AUTH_USER_MODEL)
+#    caption = models.TextField(blank=True)
+#    featured = models.BooleanField(default=False)
+#    hidden = models.BooleanField(default=False)
+#    created = models.DateTimeField(auto_now_add=True)
+#    modified = models.DateTimeField(auto_now=True, blank=True, null=True)
+#    order = models.IntegerField(default=0)
+#    file = models.FileField(upload_to="attachments", blank=True, null=True)
+#    link = models.CharField(max_length=255, blank=True, null=True)
+#    
+#    class Meta:
+#        ordering = ('anchor_uri', 'filename')
+#
+#    def __unicode__(self):
+#        return self.anchor_uri
+#
+#    def __repr__(self):
+#        return "Attachment(%r)" % (self.anchor_uri)
+#
+#    def is_an_image(self):
+#        return "image/" in self.content_type
+#
+#    @property
+#    def url(self):
+#        return reverse("discourse:library", args=(self.anchor_uri,)) + "/" + urllib.quote( self.filename )
+#
+#    @property
+#    def icon(self):
+#        """
+#        Returns the icon type for the file.
+#        """
+#        if self.link:
+#            return 'link'
+#        if "application/pdf" in self.content_type:
+#            return "pdf"
+#        elif "image/" in self.content_type:
+#            return "image"
+#        elif "application/msword" in self.content_type:
+#            return "doc"
+#        elif "officedocument" in self.content_type:
+#            return "doc"
+#        elif self.anchor_uri.endswith(".pages"):
+#            return "doc"
+#        return "blank"
+#
+#    def info(self):
+#        return {
+#            'id': self.id,
+#            'anchor_uri': self.anchor_uri,
+#            'content_type': self.content_type,
+#            'caption': self.caption,
+#            'order': self.order,
+#            'filename': self.filename,
+#            'url': self.url,
+#            'icon': self.icon,
+#            'hidden': self.hidden,
+#            'link': self.link
+#        }
 
     #@classmethod
     #def get_folder(cls, path):
@@ -85,8 +87,8 @@ class Attachment(models.Model):
     #        path = path + '/'
     #    return cls._default_manager.filter(filename__startswith=path)
 
-    class Meta:
-        app_label = 'discourse'
+#    class Meta:
+#        app_label = 'discourse'
 
 
 ### Template Tags ###
@@ -96,8 +98,7 @@ class LibraryTag(ttag.Tag):
     """
     Creates a media library for the given object or current page.
     """
-    anchor = ttag.Arg(required=False)                                   # Object or string to anchor to.
-    sub = ttag.Arg(default=None, keyword=True, required=False)          # The sub-anchor
+    channel = ttag.Arg(required=False)
 
     class Meta:
         name = "library"
@@ -105,26 +106,20 @@ class LibraryTag(ttag.Tag):
     def render(self, context):
         data = self.resolve(context)
         request = context['request']
-        anchor = uri(data.get('anchor'), data.get('sub'))
-        attachments = Attachment.objects.filter(anchor_uri=anchor)
-        context['library'] = anchor
 
-        context_vars = {'attachments': attachments,
-                        'anchor': anchor,
-                        'is_empty': False,
-                        'request': request}
-
+        channel = channel_for(data.get('channel'))
+        attachments = channel.get_attachments()
+        
         try:
-            e = publish(anchor, request.user, 'view-library', data={'editable': request.user.is_superuser}, internal=True)
+            e = channel.publish('view', request.user, content={'editable': request.user.is_superuser})
             if not e:
                 return ""
         except PermissionDenied:
             return ""
 
-        context_vars['json'] = json.dumps([a.info() for a in attachments])
-        context_vars['editable'] = e.data['editable']
+        editable = e.content['editable']
 
-        return render_to_string('discourse/library.html', context_vars, context)
+        return render_to_string('discourse/library.html', locals())
 
 
 ### Views ###
@@ -260,11 +255,11 @@ def download_attachment(request, anchor, filename):
     return HttpResponseRedirect(attachment.file.url)
 
 
-def manipulate(request, uri):
+def manipulate(request, channel):
     """
     Manipulate the attachments.
     """
-    anchor, filename = resolve_model_uri(uri)
+    channel = channel_for(channel)
 
     if filename:
         filename = urllib.unquote(filename)

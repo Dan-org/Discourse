@@ -23,20 +23,34 @@ class Uri(ttag.Tag):
         return uri(context)
 
 
-from ..thread import ThreadTag, ThreadCountTag
+#from ..thread import ThreadTag, ThreadCountTag
+#from ..library import LibraryTag
+#from ..document import DocumentTag
+#from ..event import StreamTag
+#
+#
+#register = template.Library()
+#register.tag(ThreadTag)
+#register.tag(ThreadCountTag)
+#
+#register.tag(DocumentTag)
+#register.tag(StreamTag)
+#register.tag(Uri)
+
+
 from ..library import LibraryTag
-from ..document import DocumentTag
-from ..event import StreamTag
 from ..follow import FollowTag
+from ..stream import StreamTag
 
 register = template.Library()
-register.tag(ThreadTag)
-register.tag(ThreadCountTag)
 register.tag(LibraryTag)
-register.tag(DocumentTag)
-register.tag(StreamTag)
-register.tag(Uri)
 register.tag(FollowTag)
+register.tag(StreamTag)
+
+
+@register.simple_tag
+def thread(context):
+    return "THREAD"
 
 
 ### Filters ###

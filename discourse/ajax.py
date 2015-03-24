@@ -1,5 +1,6 @@
-import json, datetime, decimal
+import json, datetime, decimal, uuid
 from django.http import HttpResponse
+from django.db import models
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
@@ -15,6 +16,12 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             return tuple(o.timetuple())
         elif isinstance(o, decimal.Decimal):
             return str(o)
+        elif isinstance(o, uuid.UUID):
+            return str(o)
+        elif hasattr(o, 'simple'):
+            return o.simple()
+        elif isinstance(o, models.Model):
+            return o._get_primary_key()
         else:
             return super(EnhancedJSONEncoder, self).default(o)
 
