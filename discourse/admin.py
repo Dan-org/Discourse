@@ -1,10 +1,12 @@
 from django.contrib import admin
+<<<<<<< HEAD
 #from models import (
 #    DocumentTemplate, Document, DocumentContent, 
 #    Attachment, 
 #    Comment, 
 #    Record, 
-#    Subscription
+#    Subscription,
+#    Favorite
 #)
 #
 #
@@ -23,3 +25,4 @@ from django.contrib import admin
 #admin.site.register(Comment)
 #admin.site.register(Record)
 #admin.site.register(Subscription)
+#admin.site.register(Favorite)

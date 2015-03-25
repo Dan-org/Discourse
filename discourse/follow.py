@@ -13,55 +13,72 @@ class Subscription(models.Model):
     toggle = models.BooleanField(default=True)
 
     def __unicode__(self):
-        return "Subscription(%r, %r, toggle=%r)" % (self.user, self.target_uri, self.toggle)
+        return "%s(%r, %r, toggle=%r)" % (self.__class__.__name__, self.user, self.target_uri, self.toggle)
 
     class Meta:
         app_label = 'discourse'
 
+    @property
+    def target(self):
+        obj, _uri = resolve_model_uri(self.target_uri)
+        return obj
 
+    @classmethod
+    def follow(cls, user, target, force=False):
+        """
+        Subscribe a user to a target, thereon whenever an update occurs on there, the user will be
+        notified of the event.
+        """
+        sub, _ = cls.objects.get_or_create(user=user, target_uri=uri(target))
+        if force:
+            sub.toggle = True
+            sub.save()
 
-def follow(user, target, force=False):
-    """
-    Subscribe a user to a target, thereon whenever an update occurs on there, the user will be
-    notified of the event.
-    """
-    sub, _ = Subscription.objects.get_or_create(user=user, target_uri=uri(target))
-    if force:
-        sub.toggle = True
-        sub.save()
+    @classmethod
+    def unfollow(cls, user, target):
+        """
+        Unsubscribe a user from a target, blocking notices of updates on it.  This is not as simple as
+        deleting the subscription object, rather it marks them unsubscribed so that futher subscriptions
+        are ignored.
+        """
+        target_uri = uri(target)
+        hits = cls.objects.filter(user=user, target_uri=target_uri).update(toggle=False)
+        if hits == 0:
+            cls.objects.create(user=user, target_uri=target_uri, toggle=False)
+        return True
 
+    @classmethod
+    def is_following(cls, user, target):
+        """
+        Checks to see if a user is subscribed to the given target.
+        """
+        return cls.objects.filter(user=user, target_uri=uri(target), toggle=True).count() > 0
 
-def unfollow(user, target):
-    """
-    Unsubscribe a user from a target, blocking notices of updates on it.  This is not as simple as
-    deleting the subscription object, rather it marks them unsubscribed so that futher subscriptions
-    are ignored.
-    """
-    target_uri = uri(target)
-    hits = Subscription.objects.filter(user=user, target_uri=target_uri).update(toggle=False)
-    if hits == 0:
-        Subscription.objects.create(user=user, target_uri=target_uri, toggle=False)
-    return True
+    @classmethod
+    def get_subscriptions(cls, *targets):
+        targets = [uri(t) for t in targets if t]
+        return cls.objects.filter(target_uri__in=targets, toggle=True)
 
+    @classmethod
+    def get_subscribed(cls, user, target_cls):
+        target_uri = uri(target_cls)
+        return cls.objects.filter(target_uri__startswith=target_uri, user=user, toggle=True)
 
-def is_following(user, target):
-    """
-    Checks to see if a user is subscribed to the given target.
-    """
-    return Subscription.objects.filter(user=user, target_uri=uri(target), toggle=True).count() > 0
+    @classmethod
+    def get_followers(cls, *targets):
+        return set([s.user for s in cls.get_subscriptions(*targets)])
 
+    @classmethod
+    def get_follower_count(cls, *targets):
+        return cls.get_subscriptions(*targets).count()
 
-def get_subscriptions(*targets):
-    targets = [uri(t) for t in targets if t]
-    return Subscription.objects.filter(target_uri__in=targets, toggle=True)
-
-
-def get_followers(*targets):
-    return set([s.user for s in get_subscriptions(*targets)])
-
-
-def get_follower_count(*targets):
-    return get_subscriptions(*targets).count()
+follow = Subscription.follow
+unfollow = Subscription.unfollow
+is_following = Subscription.is_following
+get_subscriptions = Subscription.get_subscriptions
+get_subscribed = Subscription.get_subscribed
+get_followers = Subscription.get_followers
+get_follower_count = Subscription.get_follower_count
 
 
 ### Template Tags ###

@@ -41,11 +41,13 @@ class Uri(ttag.Tag):
 from ..library import LibraryTag
 from ..follow import FollowTag
 from ..stream import StreamTag
+from ..favorite import FavoriteTag
 
 register = template.Library()
 register.tag(LibraryTag)
 register.tag(FollowTag)
 register.tag(StreamTag)
+register.tag(FavoriteTag)
 
 
 @register.simple_tag

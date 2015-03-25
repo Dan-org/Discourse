@@ -7,6 +7,7 @@ urlpatterns = patterns('discourse',
 
     url(r'^document/(?P<uri>.+)$', 'document.manipulate',  name="document"),
     url(r'^follow/$', 'follow.manipulate', name="follow"),
+    url(r'^favorite/$', 'favorite.manipulate', name="favorite"),
     url(r'^monitor/$', 'event.monitor',  name="monitor"),
     url(r'^stream/(?P<uri>.+)$', 'event.stream',  name="stream"),
     url(r'^vote/(?P<uri>.+)$', 'vote.cast',  name="vote"),

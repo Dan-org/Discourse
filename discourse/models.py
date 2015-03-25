@@ -6,3 +6,5 @@ from message import Channel, Message, Attachment
 #from vote import Vote
 
 #from uri import *
+
+from favorite import Favorite
