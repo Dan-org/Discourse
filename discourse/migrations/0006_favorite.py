@@ -2,12 +2,14 @@
 from __future__ import unicode_literals
 
 from django.db import models, migrations
+from django.conf import settings
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('discourse', '0003_record_tags'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('discourse', '0005_auto_20150322_2124'),
     ]
 
     operations = [
