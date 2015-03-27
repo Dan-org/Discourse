@@ -6,12 +6,11 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
 
 from ajax import JsonResponse
-from event import publish
-from uri import uri, resolve_model_uri
+
 
 
 class Vote(models.Model):
-    target_uri = models.CharField(max_length=255)
+    target = models.CharField(max_length=255)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="votes")
     value = models.IntegerField()
 
@@ -26,13 +25,8 @@ class Vote(models.Model):
         else:
             return "Sidevote by %s" % self.user
 
-    @property
-    def target(self):
-        return resolve_model_uri(self.target_uri)[0]
-
     @classmethod
     def value_for(cls, target, user=None):
-        target = uri(target)
         if user and user.is_authenticated():
             try:
                 return cls.objects.get(target_uri=target, user=user).value

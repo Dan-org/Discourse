@@ -33,8 +33,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Message',
             fields=[
-                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('uuid', uuidfield.fields.UUIDField(auto=True)),
+                ('uuid', uuidfield.fields.UUIDField(primary_key=True, auto=True, serialize=False)),
                 ('type', models.SlugField(max_length=255)),
                 ('channel', models.ForeignKey(related_name=b'messages', to='discourse.Channel')),
                 ('order', models.IntegerField(default=0)),
@@ -49,6 +48,7 @@ class Migration(migrations.Migration):
                 ('parent', models.ForeignKey(related_name=b'children', blank=True, to='discourse.Message', null=True)),
             ],
             options={
+                'ordering': ['parent_id', 'order', '-created']
             },
             bases=(models.Model,),
         ),
@@ -63,7 +63,7 @@ class Migration(migrations.Migration):
                 ('mimetype', models.CharField(max_length=255)),
                 ('filename', models.CharField(max_length=255)),
                 ('source', models.FileField(upload_to=b'attachments')),
-                ('message', models.ForeignKey(to='discourse.Message')),
+                ('message', models.ForeignKey(related_name=b'attachments', to='discourse.Message')),
             ],
             options={
             },

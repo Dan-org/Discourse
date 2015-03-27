@@ -39,21 +39,43 @@ class Uri(ttag.Tag):
 
 from ..library import LibraryTag
 from ..follow import FollowTag
-from ..stream import StreamTag
 from ..favorite import FavoriteTag
 from ..document import DocumentTag
+from ..message import channel_for
 
 register = template.Library()
 register.tag(LibraryTag)
 register.tag(FollowTag)
-register.tag(StreamTag)
 register.tag(FavoriteTag)
 register.tag(DocumentTag)
 
+from ..stream import stream_tag
+register.simple_tag(takes_context=True, name="stream")(stream_tag)
+
 
 @register.simple_tag
-def thread(context):
-    return "THREAD"
+def channel(obj):
+    return channel_for(obj).url
+
+
+#@register.simple_tag(takes_context=True)
+#def likes(message):
+#    users = set()
+#    for m in message.children.filter(type__in=['like', 'unlike']).select_related('author'):
+#        if m.type == 'like':
+#            users.add(m.author)
+#        if m.type == 'unlike':
+#            users.discard(m.author)
+#
+#    if not users:
+#        return ''
+#
+#    users = list(users)
+#
+#    return ['<a href="%s">%s</a>' % (u.get_absolute_url(), u.get_full_name()) for u in users[:3]]
+#
+#    return users
+
 
 
 ### Filters ###

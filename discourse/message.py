@@ -6,8 +6,10 @@ from django.apps import apps
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404
-from django.http import Http404, HttpResponseRedirect, HttpResponseForbidden, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseRedirect, HttpResponseForbidden, HttpResponseBadRequest
+from django.template import Context, RequestContext
 from django.template.loader import render_to_string, TemplateDoesNotExist
+from django.utils.safestring import mark_safe
 
 from uuidfield import UUIDField
 from yamlfield.fields import YAMLField
@@ -101,6 +103,25 @@ class Channel(models.Model):
     #    m = self.publish("attachment", author, content={'action': 'rename', 'filename': attachment.filename, 'new_name': new_name, 'filename_hash': hash(attachment.filename)}, save=True)
     #    return m
 
+    def render_to_string(self, context, template='discourse/stream.html', type=None, tags=None):
+        messages = self.search(type=type, tags=tags)
+
+        if not isinstance(context, Context):
+            context = Context(context)
+
+        parts = []
+        for m in messages:
+            parts.append( m.render_to_string(context) )
+
+        content = mark_safe("\n".join(parts))
+        channel = self
+
+        tags = tags or []
+        type = type or []
+
+        with context.push(locals()):
+            return render_to_string(template, context)
+
     @property
     def url(self):
         return reverse('discourse:channel', args=[self.id])
@@ -108,7 +129,7 @@ class Channel(models.Model):
 
 
 class Message(models.Model):
-    uuid = UUIDField(auto=True)
+    uuid = UUIDField(auto=True, primary_key=True)
     type = models.SlugField(max_length=255)
     channel = models.ForeignKey(Channel, related_name="messages")
     order = models.IntegerField(default=0)
@@ -132,7 +153,7 @@ class Message(models.Model):
         return {
             'uuid': self.uuid,
             'type': self.type,
-            'channel': self.channel_id,
+            'channel': {'id': self.channel.id, 'url': self.channel.url},
             'order': self.order,
             'value': self.value,
             'parent': self.parent_id if self.parent else None,
@@ -160,10 +181,22 @@ class Message(models.Model):
     def render_to_string(self, context=None):
         context = context or {}
         context['message'] = self
+        context['replies'] = self.children.filter(type='reply').order_by('created')
         try:
             return render_to_string("discourse/message/%s.html" % self.type, context)
         except TemplateDoesNotExist:
             return ""
+    
+    def likes(self):
+        if not hasattr(self, '_likes'):
+            users = set()
+            for m in self.children.filter(type__in=['like', 'unlike']).select_related('author'):
+                if m.type == 'like':
+                    users.add(m.author)
+                if m.type == 'unlike':
+                    users.discard(m.author)
+            self._likes = list(users)
+        return self._likes
 
     @property
     def data(self):
@@ -276,6 +309,7 @@ def object_of_channel(name):
 
 from django.shortcuts import render
 
+
 def channel_view(request, id):
     print "METHOD", request.method
     print "GET", request.GET
@@ -308,8 +342,14 @@ def channel_view(request, id):
             parent = None
         message = channel.publish(type, request.user, tags=tags, content=content, parent=parent, save=True)
         simple = message.simple()
-        simple['html'] = message.render_to_string()
+        simple['html'] = message.render_to_string(RequestContext(request, locals()))
         return JsonResponse( simple )
+
+    type = [x.strip() for x in request.GET.get('type', '').split(',') if x.strip()] or None
+    tags = [x.strip() for x in request.GET.get('tags', '').split(',') if x.strip()] or None
+    template = request.GET.get('template', None)
+
+    return HttpResponse( channel.render_to_string(RequestContext(request, locals()), type=type, tags=tags, template=template) )
 
 
 def attachment(request, channel, attachment):

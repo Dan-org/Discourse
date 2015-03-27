@@ -1,6 +1,7 @@
 from models import *
 from follow import follow, unfollow, get_followers, get_follower_count
 from event import publish, on, on_notify, Event
+from message import channel_for
 
 
 ### Helpers ###

@@ -111,7 +111,17 @@ discourse.on('delete', function(data) {
 });
 
 
+function clearForm(form) {
+    form.find('textarea').val('');
+    form.find('input[type=text]').val('');
+    form.find('input[type=checkbox]').val('');
+    form.find('input[type=radio]').val('');
+    form.find('select').val('');
+}
+
+
 function formWaiting(form) {
+    clearForm(form);
     form.find('input').attr('disabled', true);
     form.find('textarea').attr('disabled', true);
     form.find('select').attr('disabled', true);
@@ -123,9 +133,10 @@ function formReady(form) {
     form.find('select').attr('disabled', false);
 }
 
-// When a form is submited on the threads, we should use ajax to submit it.
-$(document).on('submit', '.discourse form.act-comment', function(e) {
+function onMessageForm(e) {
+    console.log(e);
     e.preventDefault();
+    return;
 
     var form = $(this);
     var data = form.serialize();
@@ -137,10 +148,8 @@ $(document).on('submit', '.discourse form.act-comment', function(e) {
         data: data,
         type: 'post',
         success: function(response) {
-            console.log("SUCCESS!", response);
-
             formReady(form);
-            
+
             postCommentSuccess(form, response);
         },
         error: function(response) {
@@ -148,7 +157,11 @@ $(document).on('submit', '.discourse form.act-comment', function(e) {
             formError(form, response);
         }
     });
-});
+}
+
+// When a message form is submitted, we should use ajax it.
+$(document).on('submit', 'form.act-message', onMessageForm);
+
 
 function formError(form, response) {
     console.log("ERROR", form, response);
@@ -156,11 +169,11 @@ function formError(form, response) {
 
 function findStream(channel) {
     return $('.discourse.stream').filter(function() {
-        return $(this).attr('data-channel') == channel;
+        return $(this).attr('data-channel') == channel.url;
     });
 }
 
-function realizeComment(message, stream) {
+function realizeComment(message) {
     var source = $('#message-' + message.uuid);
     if (source.length != 0) {
         source.html(message.html);
@@ -168,7 +181,13 @@ function realizeComment(message, stream) {
     }
 
     var source = $('<div id="message-' + message.uuid + '">');
-    source.prependTo(stream.find('.content'));
+    if (message.parent) {
+        parent = $('.replies[for=message-' + message.parent + ']');
+        parent.append(source);
+    } else {
+        var stream = findStream(message.channel);
+        source.prependTo(stream.find('.content'));
+    }
     source.html(message['html']);
 
     return source;
@@ -257,9 +276,10 @@ function realizeComment(message, stream) {
 }
 
 function postCommentSuccess(form, result) {
-    clearReplyForms();
-    form.find('textarea').val('');
-    var source = realizeComment(result, form.closest('.stream'));
+    form.find('textarea').val(null);
+    form.find('input[type=text]').val(null);
+    form.find('select').val(null);
+    var source = realizeComment(result);
     if (source.length > 0)
         source.scrollTo(500, 'swing', function() {
             source.fadeTo(250, 0).fadeTo(500, 1);    
@@ -299,7 +319,6 @@ function replyTo(comment) {
 
     var form = subthread.find('form');
     if (form.length == 0) {
-        clearReplyForms();
         form = prototype.clone().addClass('temporary');
         form.find('[name=parent]').val(reply_to);
         form.find('[type=submit]').val("Add Reply");
@@ -352,4 +371,56 @@ function voteComment(source, direction) {
             score.empty().append(result);
         }
     });
+}
+
+function Stream(source) {
+    var source = $(source);
+    var existing = source.data('stream');
+    if (existing) return existing;
+
+    source.data('stream', this);
+    this.source = source;
+}
+
+Discourse.stream = function(source) {
+    return new Stream(source);
+}
+
+Stream.prototype.get_url = function() {
+    return this.source.attr('data-channel');
+}
+
+Stream.prototype.reload = function(data) {
+    if (this._loading) {
+        this._loading.abort();
+    }
+
+    data = $.extend({
+        'type': this.source.attr('data-type'),
+        'tags': this.source.attr('data-tags'),
+        'template': this.source.attr('data-template'),
+    }, data);
+
+    this.source.fadeTo('fast', .5);
+
+    this._loading = $.ajax({
+        url: this.get_url(),
+        data: data,
+        success: $.proxy(this.success, this),
+        error: $.proxy(this.error, this),
+        complete: $.proxy(this.complete, this)
+    });
+}
+
+Stream.prototype.success = function(data, textStatus, xhr) {
+    this.source.html(data);
+}
+
+Stream.prototype.error = function(jqXHR, textStatus, errorThrown) {
+
+}
+
+Stream.prototype.complete = function(xhr, textStatus) {
+    this._loading = null;
+    this.source.fadeTo('fast', 1);
 }
