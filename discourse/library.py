@@ -50,16 +50,17 @@ class Attachment(models.Model):
         """
         if self.link:
             return 'link'
-        if "application/pdf" in self.content_type:
-            return "pdf"
-        elif "image/" in self.content_type:
-            return "image"
-        elif "application/msword" in self.content_type:
-            return "doc"
-        elif "officedocument" in self.content_type:
-            return "doc"
-        elif self.anchor_uri.endswith(".pages"):
-            return "doc"
+        if self.content_type:
+            if "application/pdf" in self.content_type:
+                return "pdf"
+            elif "image/" in self.content_type:
+                return "image"
+            elif "application/msword" in self.content_type:
+                return "doc"
+            elif "officedocument" in self.content_type:
+                return "doc"
+            elif self.anchor_uri.endswith(".pages"):
+                return "doc"
         return "blank"
 
     def info(self):
