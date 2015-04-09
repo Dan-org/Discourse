@@ -84,6 +84,8 @@ class Document(models.Model):
         ]
         """
         parts = []
+        if not structure:
+            return parts
         for part in structure:
             left, right = part.items()[0]
             if isinstance(right, list):
