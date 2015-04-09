@@ -50,8 +50,7 @@ class Channel(models.Model):
             else:
                 q = q.filter(type__in=type)
         if tags:
-            for tag in tags:
-                q = q.filter(tags__icontains=tag)
+            q = q.filter(tag_set__slug__in=tags)
         if author:
             q = q.filter(author=author)
         if parent:
@@ -68,14 +67,15 @@ class Channel(models.Model):
 
         m = Message(channel=self, type=type, author=author, content=content, parent=parent)
         if tags:
-            m.tags = [Tag(slug=s.strip().lower()) for s in tags]
+            m._tags = tags
 
         if redis:
             redis.publish("channel:%s" % self.id, to_json( m.simple() ))
 
         if save:
-            print "M", m, "TAGS", m.tags
             m.save()
+            m.set_tags(m._tags)
+            print "TAGS", m.tags, tags
 
         if attachments:
             for file in attachments:
@@ -163,7 +163,7 @@ class Message(models.Model):
             'created': self.created,
             'modified': self.modified,
             'deleted': self.deleted,
-            'tags': [x.slug for x in self.tags.all()],
+            'tags': self.tags,
             'keys': [x.strip() for x in self.keys.split(':') if x.strip()] if self.keys else [],
             'content': self.content,
             'attachments': [x.simple() for x in self.attachments.all()],
@@ -208,6 +208,17 @@ class Message(models.Model):
     def url(self):
         return "%s%s/" % (self.channel.url, self.uuid)
 
+    @property
+    def tags(self):
+        if not hasattr(self, '_tags'):
+            self._tags = [x.slug for x in self.tag_set.all()]
+        return self._tags
+
+    def set_tags(self, tags, type="tag"):
+        if self.uuid:
+            self.tag_set = [self.tag_set.get_or_create(slug=t.strip().lower(), type=type)[0] for t in tags]
+        self._tags = tags
+
     class Meta:
         ordering = ['parent_id', 'order', '-created']
 
@@ -243,11 +254,11 @@ class Attachment(models.Model):
 
 
 class MessageTag(models.Model):
-    message = models.ForeignKey(Message, related_name="tags")
+    message = models.ForeignKey(Message, related_name="tag_set")
     slug = models.SlugField()
     type = models.SlugField(default="tag", max_length=24)
 
-    def __init__(self):
+    def __unicode__(self):
         return self.slug
 
 
@@ -334,7 +345,7 @@ def channel_view(request, id):
 
     if request.method == 'POST':
         type = request.POST['type']
-        tags = [x.strip() for x in request.GET.getlist('tags', []) if x.strip()] or None
+        tags = [x.strip() for x in request.POST.getlist('tags', []) if x.strip()] or None
         content = request.POST.get('content', None)
         if content:
             content = from_json( content )
@@ -355,9 +366,11 @@ def channel_view(request, id):
         simple['html'] = message.render_to_string(RequestContext(request, locals()))
         return JsonResponse( simple )
 
-    type = [x.strip() for x in request.GET.getlist('type', '') if x.strip()] or None
-    tags = [x.strip() for x in request.GET.getlist('tags', []) if x.strip()] or None
+    type = [x.strip() for x in request.GET.getlist('type[]', '') if x.strip()] or None
+    tags = [x.strip() for x in request.GET.getlist('tags[]', []) if x.strip()] or None
     template = request.GET.get('template', None)
+
+    print tags
 
     return HttpResponse( channel.render_to_string(RequestContext(request, locals()), type=type, tags=tags, template=template) )
 

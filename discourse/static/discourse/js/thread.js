@@ -114,8 +114,8 @@ discourse.on('delete', function(data) {
 function clearForm(form) {
     form.find('textarea').val('');
     form.find('input[type=text]').val('');
-    form.find('input[type=checkbox]').val('');
-    form.find('input[type=radio]').val('');
+    form.find('input[type=checkbox]').prop('checked', false);
+    form.find('input[type=radio]').prop('checked', false);
     form.find('select').val('');
 }
 
@@ -379,6 +379,11 @@ function Stream(source) {
 
     source.data('stream', this);
     this.source = source;
+    this._filter = {
+        type: this.source.attr('data-type').split(),
+        tags: this.source.attr('data-tags').split(),
+        template: this.source.attr('data-template'),
+    }
 }
 
 Discourse.stream = function(source) {
@@ -395,9 +400,9 @@ Stream.prototype.reload = function(data) {
     }
 
     data = $.extend({
-        'type': this.source.attr('data-type'),
-        'tags': this.source.attr('data-tags'),
-        'template': this.source.attr('data-template'),
+        'type': this._filter.type,
+        'tags': this._filter.tags,
+        'template': this._filter.template,
     }, data);
 
     this.source.fadeTo('fast', .5);
@@ -423,3 +428,78 @@ Stream.prototype.complete = function(xhr, textStatus) {
     this._loading = null;
     this.source.fadeTo('fast', 1);
 }
+
+Stream.prototype.filter = function(filter) {
+    $.extend(this._filter, filter);
+    this.reload();
+}
+
+$(document).on('change', 'form.discourse-stream-filter', function(e) {
+    var tags = [];
+    $(this).find('input[type=checkbox]').each(function(i, item) {
+        if ($(item).prop('checked')) {
+            tags.push($(item).attr('value'));
+        }
+    });
+
+    Discourse.stream( $('#thread-container div').eq(0) ).filter({'tags': tags});
+});
+
+
+// Likes and Unlikes
+Discourse.like = function(channel, uuid) {
+    $.ajax({
+        url: channel,
+        data: {'type': 'like', 'parent': uuid},
+        type: 'post',
+        success: function() {
+            console.log("ok");
+        },
+        error: function(response) {
+            console.error(response);
+        }
+    });
+}
+
+$(document).on('click', '.act-like', function(e) {
+    e.preventDefault();
+    var a = $(this);
+    var channel = a.closest('*[data-channel]').attr('data-channel');
+    var uuid = a.attr('for');
+    Discourse.like(channel, uuid);
+    a
+        .removeClass('act-like')
+        .addClass('act-unlike')
+        .hide()
+        .fadeIn()
+        .html('Unlike');
+});
+
+Discourse.unlike = function(channel, uuid) {
+    $.ajax({
+        url: channel,
+        data: {'type': 'unlike', 'parent': uuid},
+        type: 'post',
+        success: function() {
+            console.log("ok");
+        },
+        error: function(response) {
+            console.error(response);
+        }
+    });
+}
+
+$(document).on('click', '.act-unlike', function(e) {
+    e.preventDefault();
+    var a = $(this);
+    var channel = a.closest('*[data-channel]').attr('data-channel');
+    var uuid = a.attr('for');
+    Discourse.unlike(channel, uuid);
+    a
+        .removeClass('act-unlike')
+        .addClass('act-like')
+        .hide()
+        .fadeIn()
+        .html('Like');
+        
+});

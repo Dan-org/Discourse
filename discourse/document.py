@@ -164,7 +164,7 @@ class DocumentTag(ttag.Tag):
             doc = Document.objects.get(anchor_uri=anchor)
         except Document.DoesNotExist:
             if template:
-                template = DocumentTemplate.objects.get(slug=template)
+                template = DocumentTemplate.objects.get_or_create(slug=template)[0]
             else:
                 template = None
             doc = Document.objects.create(anchor_uri=anchor, template=template)
