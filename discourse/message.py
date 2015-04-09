@@ -66,12 +66,15 @@ class Channel(models.Model):
         if not author.is_authenticated():
             author = None
 
-        m = Message(channel=self, type=type, author=author, content=content, tags=None, parent=parent)
+        m = Message(channel=self, type=type, author=author, content=content, parent=parent)
+        if tags:
+            m.tags = [Tag(slug=s.strip().lower()) for s in tags]
 
         if redis:
             redis.publish("channel:%s" % self.id, to_json( m.simple() ))
 
         if save:
+            print "M", m, "TAGS", m.tags
             m.save()
 
         if attachments:
@@ -141,7 +144,6 @@ class Message(models.Model):
     modified = models.DateTimeField(auto_now=True)
     deleted = models.DateTimeField(blank=True, null=True)
 
-    tags = models.CharField(max_length=255, blank=True, null=True)
     keys = models.CharField(max_length=255, blank=True, null=True)
     content = YAMLField(blank=True, null=True)
     value = models.IntegerField(default=0)
@@ -161,7 +163,7 @@ class Message(models.Model):
             'created': self.created,
             'modified': self.modified,
             'deleted': self.deleted,
-            'tags': [x.strip() for x in self.tags.split(':') if x.strip()] if self.tags else [],
+            'tags': [x.slug for x in self.tags.all()],
             'keys': [x.strip() for x in self.keys.split(':') if x.strip()] if self.keys else [],
             'content': self.content,
             'attachments': [x.simple() for x in self.attachments.all()],
@@ -239,6 +241,14 @@ class Attachment(models.Model):
     def url(self):
         return reverse('discourse:attachment', args=[self.message.channel.id, self.uuid]) + self.filename
 
+
+class MessageTag(models.Model):
+    message = models.ForeignKey(Message, related_name="tags")
+    slug = models.SlugField()
+    type = models.SlugField(default="tag", max_length=24)
+
+    def __init__(self):
+        return self.slug
 
 
 def library(messages):
@@ -324,7 +334,7 @@ def channel_view(request, id):
 
     if request.method == 'POST':
         type = request.POST['type']
-        tags = [x.strip() for x in request.POST.get('tags', '').split() if x.strip()] or None
+        tags = [x.strip() for x in request.GET.getlist('tags', []) if x.strip()] or None
         content = request.POST.get('content', None)
         if content:
             content = from_json( content )
@@ -345,8 +355,8 @@ def channel_view(request, id):
         simple['html'] = message.render_to_string(RequestContext(request, locals()))
         return JsonResponse( simple )
 
-    type = [x.strip() for x in request.GET.get('type', '').split(',') if x.strip()] or None
-    tags = [x.strip() for x in request.GET.get('tags', '').split(',') if x.strip()] or None
+    type = [x.strip() for x in request.GET.getlist('type', '') if x.strip()] or None
+    tags = [x.strip() for x in request.GET.getlist('tags', []) if x.strip()] or None
     template = request.GET.get('template', None)
 
     return HttpResponse( channel.render_to_string(RequestContext(request, locals()), type=type, tags=tags, template=template) )

@@ -136,7 +136,6 @@ function formReady(form) {
 function onMessageForm(e) {
     console.log(e);
     e.preventDefault();
-    return;
 
     var form = $(this);
     var data = form.serialize();
