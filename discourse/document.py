@@ -193,7 +193,7 @@ class DocumentTag(ttag.Tag):
             return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)
         else:
             return render_to_string('discourse/document.html', context_vars, context)
-    
+
 
 
 ### Views ###

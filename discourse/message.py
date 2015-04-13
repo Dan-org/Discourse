@@ -10,10 +10,14 @@ from django.http import Http404, HttpResponse, HttpResponseRedirect, HttpRespons
 from django.template import Context, RequestContext
 from django.template.loader import render_to_string, TemplateDoesNotExist
 from django.utils.safestring import mark_safe
+from django.dispatch import Signal
 
 from uuidfield import UUIDField
 from yamlfield.fields import YAMLField
 from ajax import to_json, from_json, JsonResponse
+
+
+event_signal = Signal(['event'])
 
 
 try:
@@ -68,6 +72,11 @@ class Channel(models.Model):
         m = Message(channel=self, type=type, author=author, content=content, parent=parent)
         if tags:
             m._tags = tags
+
+        for reciever, result in event_signal.send(sender=None, channel=self, message=m):
+            if result is False:
+                logger.info("EVENT CANCELED:\n%r", self)
+                return None
 
         if redis:
             redis.publish("channel:%s" % self.id, to_json( m.simple() ))
@@ -181,6 +190,8 @@ class Message(models.Model):
         )
 
     def render_to_string(self, context=None):
+        if hasattr(self, '_html'):
+            return self._html
         context = context or {}
         context['message'] = self
         context['replies'] = self.children.filter(type='reply').order_by('created')
@@ -292,6 +303,20 @@ def library(messages):
     return attachments
 
 
+def on(*types):
+    def decorator(fn):
+        hook(fn, *types)
+        return fn
+    return decorator
+
+
+def hook(fn, *types):
+    def subscription(sender, message, **kwargs):
+        if '*' in types or message.type in types:
+            return fn(message)
+    event_signal.connect(subscription, weak=False)
+
+
 def channel_for(obj):
     if isinstance(obj, Channel):
         id = obj.id
@@ -363,7 +388,8 @@ def channel_view(request, id):
             parent = None
         message = channel.publish(type, request.user, tags=tags, content=content, parent=parent, save=True)
         simple = message.simple()
-        simple['html'] = message.render_to_string(RequestContext(request, locals()))
+        if not 'html' in simple:
+            simple['html'] = message.render_to_string(RequestContext(request, locals()))
         return JsonResponse( simple )
 
     type = [x.strip() for x in request.GET.getlist('type[]', '') if x.strip()] or None
@@ -401,3 +427,5 @@ def attachment(request, channel, attachment):
     #if not action:
     #    return HttpResponseBadRequest("Need an action.")
     return render(request, "discourse/channel.html", locals())
+
+

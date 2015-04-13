@@ -452,8 +452,9 @@ Discourse.like = function(channel, uuid) {
         url: channel,
         data: {'type': 'like', 'parent': uuid},
         type: 'post',
-        success: function() {
-            console.log("ok");
+        success: function(result) {
+            var m = window.m = $('#message-' + result.parent);
+            m.find('.likes').empty().append(result.html).hide().fadeIn('fast');
         },
         error: function(response) {
             console.error(response);
@@ -467,12 +468,7 @@ $(document).on('click', '.act-like', function(e) {
     var channel = a.closest('*[data-channel]').attr('data-channel');
     var uuid = a.attr('for');
     Discourse.like(channel, uuid);
-    a
-        .removeClass('act-like')
-        .addClass('act-unlike')
-        .hide()
-        .fadeIn()
-        .html('Unlike');
+    a.remove();
 });
 
 Discourse.unlike = function(channel, uuid) {
@@ -480,8 +476,9 @@ Discourse.unlike = function(channel, uuid) {
         url: channel,
         data: {'type': 'unlike', 'parent': uuid},
         type: 'post',
-        success: function() {
-            console.log("ok");
+        success: function(result) {
+            var m = $('#message-' + result.parent);
+            m.find('.likes').empty().append(result.html).hide().fadeIn('fast');
         },
         error: function(response) {
             console.error(response);
@@ -495,11 +492,5 @@ $(document).on('click', '.act-unlike', function(e) {
     var channel = a.closest('*[data-channel]').attr('data-channel');
     var uuid = a.attr('for');
     Discourse.unlike(channel, uuid);
-    a
-        .removeClass('act-unlike')
-        .addClass('act-like')
-        .hide()
-        .fadeIn()
-        .html('Like');
-        
+    a.remove(); 
 });

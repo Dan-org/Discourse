@@ -58,24 +58,54 @@ def channel(obj):
     return channel_for(obj).url
 
 
-#@register.simple_tag(takes_context=True)
-#def likes(message):
-#    users = set()
-#    for m in message.children.filter(type__in=['like', 'unlike']).select_related('author'):
-#        if m.type == 'like':
-#            users.add(m.author)
-#        if m.type == 'unlike':
-#            users.discard(m.author)
-#
-#    if not users:
-#        return ''
-#
-#    users = list(users)
-#
-#    return ['<a href="%s">%s</a>' % (u.get_absolute_url(), u.get_full_name()) for u in users[:3]]
-#
-#    return users
+@register.inclusion_tag("discourse/likes.html", takes_context=True)
+def like(context, message, show=2):
+    users = set()
+    for m in message.children.filter(type__in=['like', 'unlike']).select_related('author').order_by('created'):
+        if m.type == 'like':
+            print m
+            users.add(m.author)
+        if m.type == 'unlike':
+            print m
+            users.discard(m.author)
 
+    if not users:
+        return {
+            'message': message,
+            'liked': False,
+            'count': 0
+        }
+
+    parts = []
+    liked = False
+    if 'request' in context:
+        user = context['request'].user
+        if user in users:
+            liked = True
+            users.discard(user)
+            parts.append('<a href="%s">You</a>' % user.get_absolute_url())
+    
+    for user in list(users)[:show]:
+        parts.append('<a href="%s">%s</a>' % (user.get_absolute_url(), user.get_full_name()))
+
+    if len(users) > show:
+        parts.append("%s more" % (len(users) - show))
+
+    if len(parts) > 1:
+        parts[-1] = "and %s" % parts[-1]
+
+    if len(parts) > 2:
+        parts = ", ".join(parts)
+    else:
+        parts = " ".join(parts)
+
+    return {
+        'message': message,
+        'liked': liked,
+        'likes': mark_safe( parts ),
+        'users': list(users),
+        'count': len(users)
+    }
 
 
 ### Filters ###
