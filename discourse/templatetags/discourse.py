@@ -63,14 +63,19 @@ def like(context, message, show=2):
     users = set()
     for m in message.children.filter(type__in=['like', 'unlike']).select_related('author').order_by('created'):
         if m.type == 'like':
-            print m
             users.add(m.author)
         if m.type == 'unlike':
-            print m
             users.discard(m.author)
+
+    authenticated = True
+    user = None
+    if 'request' in context:
+        user = context['request'].user
 
     if not users:
         return {
+            'authenticated': user.is_authenticated(),
+            'user': user,
             'message': message,
             'liked': False,
             'count': 0
@@ -78,15 +83,13 @@ def like(context, message, show=2):
 
     parts = []
     liked = False
-    if 'request' in context:
-        user = context['request'].user
-        if user in users:
-            liked = True
-            users.discard(user)
-            parts.append('<a href="%s">You</a>' % user.get_absolute_url())
+    if user and user in users:
+        liked = True
+        users.discard(user)
+        parts.append('<a href="%s">You</a>' % user.get_absolute_url())
     
-    for user in list(users)[:show]:
-        parts.append('<a href="%s">%s</a>' % (user.get_absolute_url(), user.get_full_name()))
+    for u in list(users)[:show]:
+        parts.append('<a href="%s">%s</a>' % (u.get_absolute_url(), u.get_full_name()))
 
     if len(users) > show:
         parts.append("%s more" % (len(users) - show))
@@ -100,6 +103,8 @@ def like(context, message, show=2):
         parts = " ".join(parts)
 
     return {
+        'authenticated': user.is_authenticated(),
+        'user': user,
         'message': message,
         'liked': liked,
         'likes': mark_safe( parts ),

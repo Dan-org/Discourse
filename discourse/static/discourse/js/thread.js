@@ -150,6 +150,8 @@ function onMessageForm(e) {
             formReady(form);
 
             postCommentSuccess(form, response);
+
+            form.removeClass('editing');
         },
         error: function(response) {
             formReady(form);
@@ -275,9 +277,7 @@ function realizeComment(message) {
 }
 
 function postCommentSuccess(form, result) {
-    form.find('textarea').val(null);
-    form.find('input[type=text]').val(null);
-    form.find('select').val(null);
+    form[0].reset()
     var source = realizeComment(result);
     if (source.length > 0)
         source.scrollTo(500, 'swing', function() {

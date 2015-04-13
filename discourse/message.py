@@ -369,6 +369,9 @@ def channel_view(request, id):
         return JsonResponse( message.simple() )
 
     if request.method == 'POST':
+        if not request.user.is_authenticated():
+            raise Http404
+
         type = request.POST['type']
         tags = [x.strip() for x in request.POST.getlist('tags', []) if x.strip()] or None
         content = request.POST.get('content', None)
