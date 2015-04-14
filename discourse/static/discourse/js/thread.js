@@ -379,10 +379,12 @@ function Stream(source) {
 
     source.data('stream', this);
     this.source = source;
+    console.log("Source:", this.source);
     this._filter = {
         type: this.source.attr('data-type').split(),
         tags: this.source.attr('data-tags').split(),
         template: this.source.attr('data-template'),
+        sort: this.source.attr('sort')
     }
 }
 
@@ -403,6 +405,7 @@ Stream.prototype.reload = function(data) {
         'type': this._filter.type,
         'tags': this._filter.tags,
         'template': this._filter.template,
+        'sort': this._filter.sort,
     }, data);
 
     this.source.fadeTo('fast', .5);

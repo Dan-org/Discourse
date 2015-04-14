@@ -74,7 +74,7 @@ def like(context, message, show=2):
 
     if not users:
         return {
-            'authenticated': user.is_authenticated(),
+            'authenticated': user.is_authenticated() if user else None,
             'user': user,
             'message': message,
             'liked': False,

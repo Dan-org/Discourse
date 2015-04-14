@@ -60,7 +60,7 @@ class Channel(models.Model):
         if parent:
             q = q.filter(parent=parent)
         return q
-
+    
     def publish(self, type, author, tags=None, content=None, save=False, parent=None, attachments=None):
         if not self.created:
             self.created = datetime.now()
@@ -115,8 +115,15 @@ class Channel(models.Model):
     #    m = self.publish("attachment", author, content={'action': 'rename', 'filename': attachment.filename, 'new_name': new_name, 'filename_hash': hash(attachment.filename)}, save=True)
     #    return m
 
-    def render_to_string(self, context, template='discourse/stream.html', type=None, tags=None):
+    def render_to_string(self, context, template='discourse/stream.html', type=None, tags=None, sort=None):
         messages = self.search(type=type, tags=tags)
+
+        print "SORT", sort
+
+        if sort == 'recent':
+            messages = messages.order_by('-created')
+        else:
+            messages = messages.order_by('?')
 
         if not isinstance(context, Context):
             context = Context(context)
@@ -397,11 +404,10 @@ def channel_view(request, id):
 
     type = [x.strip() for x in request.GET.getlist('type[]', '') if x.strip()] or None
     tags = [x.strip() for x in request.GET.getlist('tags[]', []) if x.strip()] or None
+    sort = request.GET.get('sort', 'recent')
     template = request.GET.get('template', None)
 
-    print tags
-
-    return HttpResponse( channel.render_to_string(RequestContext(request, locals()), type=type, tags=tags, template=template) )
+    return HttpResponse( channel.render_to_string(RequestContext(request, locals()), type=type, tags=tags, sort=sort, template=template) )
 
 
 def attachment(request, channel, attachment):
