@@ -60,12 +60,7 @@ def channel(obj):
 
 @register.inclusion_tag("discourse/likes.html", takes_context=True)
 def like(context, message, show=2):
-    users = set()
-    for m in message.children.filter(type__in=['like', 'unlike']).exclude(author=None).select_related('author').order_by('created'):
-        if m.type == 'like':
-            users.add(m.author)
-        if m.type == 'unlike':
-            users.discard(m.author)
+    users = message.data.get('likers') or []
 
     authenticated = True
     user = None
@@ -86,10 +81,10 @@ def like(context, message, show=2):
     if user and user in users:
         liked = True
         users.discard(user)
-        parts.append('<a href="%s">You</a>' % user.get_absolute_url())
+        parts.append('<a href="%s">You</a>' % u['url'])
     
     for u in list(users)[:show]:
-        parts.append('<a href="%s">%s</a>' % (u.get_absolute_url(), u.get_full_name()))
+        parts.append('<a href="%s">%s</a>' % (u['url'], u['name']))
 
     if len(users) > show:
         parts.append("%s more" % (len(users) - show))

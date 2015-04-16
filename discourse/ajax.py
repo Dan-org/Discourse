@@ -8,7 +8,9 @@ class EnhancedJSONEncoder(json.JSONEncoder):
     JSONEncoder subclass that knows how to encode date/time and decimal types.
     """
     def default(self, o):
-        if isinstance(o, datetime.datetime):
+        if isinstance(o, set):
+            return list(o)
+        elif isinstance(o, datetime.datetime):
             return tuple(o.timetuple())
         elif isinstance(o, datetime.date):
             return tuple(o.timetuple())

@@ -12,6 +12,9 @@ from django.template.loader import render_to_string, TemplateDoesNotExist
 from django.utils.safestring import mark_safe
 from django.dispatch import Signal
 
+from haystack.query import SearchQuerySet
+from haystack.models import SearchResult
+
 from uuidfield import UUIDField
 from yamlfield.fields import YAMLField
 from ajax import to_json, from_json, JsonResponse
@@ -47,7 +50,8 @@ class Channel(models.Model):
         return "Channel(%s)" % (self.name or self.id)
 
     def search(self, type=None, tags=None, author=None, parent=None):
-        q = self.messages.all()
+        q = self.messages.all() # SearchQuerySet().models(Message).result_class(MessageResult)
+
         if type:
             if isinstance(type, basestring):
                 q = q.filter(type=type)
@@ -59,6 +63,7 @@ class Channel(models.Model):
             q = q.filter(author=author)
         if parent:
             q = q.filter(parent=parent)
+
         return q
     
     def publish(self, type, author, tags=None, content=None, save=False, parent=None, attachments=None):
@@ -102,7 +107,7 @@ class Channel(models.Model):
 
     def get_attachments(self, **search_options):
         search_options.setdefault('type', ['attachment', 'attachment:meta'])
-        messages = self.search(**search_options).select_related('attachments')
+        messages = self.search(**search_options) #[m.object for m in self.search(**search_options).load_all()]
         return library(messages)
 
     def set_attachment_meta(self, author, attachment_id, **kwargs):
@@ -117,8 +122,6 @@ class Channel(models.Model):
 
     def render_to_string(self, context, template='discourse/stream.html', type=None, tags=None, sort=None):
         messages = self.search(type=type, tags=tags)
-
-        print "SORT", sort
 
         if sort == 'recent':
             messages = messages.order_by('-created')
@@ -195,17 +198,6 @@ class Message(models.Model):
             filename=file.name,
             source=file
         )
-
-    def render_to_string(self, context=None):
-        if hasattr(self, '_html'):
-            return self._html
-        context = context or {}
-        context['message'] = self
-        context['replies'] = self.children.filter(type='reply').order_by('created')
-        try:
-            return render_to_string("discourse/message/%s.html" % self.type, context)
-        except TemplateDoesNotExist:
-            return ""
     
     def likes(self):
         if not hasattr(self, '_likes'):
@@ -237,8 +229,49 @@ class Message(models.Model):
             self.tag_set = [self.tag_set.get_or_create(slug=t.strip().lower(), type=type)[0] for t in tags]
         self._tags = tags
 
+
+    def render_to_string(self, context=None):
+        context = context or {}
+        context['message'] = self
+        context['replies'] = self.children.all()
+        try:
+            return render_to_string("discourse/message/%s.html" % self.type, context)
+        except TemplateDoesNotExist:
+            return ""
+
     class Meta:
         ordering = ['parent_id', 'order', '-created']
+
+
+class MessageResult(SearchResult):
+    def __init__(self, app_label, model_name, pk, score, **kwargs):
+        self._raw_data = kwargs.pop('data') or {}
+        super(MessageResult, self).__init__(app_label, model_name, pk, score, **kwargs)
+        self.author = from_json(self.author)
+
+    @property
+    def data(self):
+        if not '_data' in self.__dict__:
+            self._data = from_json(self._raw_data) or {}
+        return self._data
+
+    @property
+    def data(self):
+        if not '_data' in self.__dict__:
+            self._data = from_json(self._raw_data) or {}
+        return self._data
+
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__, self.pk)
+
+    def render_to_string(self, context=None):
+        context = context or {}
+        context['message'] = self
+        #context['replies'] = SearchQuerySet.
+        try:
+            return render_to_string("discourse/message/%s.html" % self.type, context)
+        except TemplateDoesNotExist:
+            return ""
 
 
 class Attachment(models.Model):
@@ -437,4 +470,43 @@ def attachment(request, channel, attachment):
     #    return HttpResponseBadRequest("Need an action.")
     return render(request, "discourse/channel.html", locals())
 
+
+delta_register = {}
+def delta(type):
+    def decorator(fn):
+        delta_register.setdefault(type, []).append(fn)
+        return fn
+    return decorator
+
+
+def apply_delta(state, message):
+    functions = delta_register.get(message.type) or []
+    for fn in functions:
+        fn(state, message)
+
+
+@delta('delete')
+def delete(state, message):
+    state['deleted'] = message.created
+
+
+@delta('undelete')
+def undelete(state, message):
+    state['deleted'] = None
+
+
+@delta('like')
+def like(state, message):
+    if 'likers' not in state['data']:
+        state['data']['likers'] = set()
+    state['data']['likers'].add(message.author)
+    state['value'] += 1
+
+
+@delta('unlike')
+def unlike(state, message):
+    if 'likers' not in state['data']:
+        return
+    state['data']['likers'].discard(message.author)
+    state['value'] -= 1
 
