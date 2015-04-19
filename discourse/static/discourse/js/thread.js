@@ -147,6 +147,8 @@ function onMessageForm(e) {
         data: data,
         type: 'post',
         success: function(response) {
+            console.log(response);
+
             formReady(form);
 
             postCommentSuccess(form, response);
@@ -170,7 +172,7 @@ function formError(form, response) {
 
 function findStream(channel) {
     return $('.discourse.stream').filter(function() {
-        return $(this).attr('data-channel') == channel.url;
+        return $(this).attr('data-channel') == channel;
     });
 }
 
@@ -186,9 +188,10 @@ function realizeComment(message) {
         parent = $('.replies[for=message-' + message.parent + ']');
         parent.append(source);
     } else {
-        var stream = findStream(message.channel);
+        var stream = findStream(message.url);
         source.prependTo(stream.find('.content'));
     }
+
     source.html(message['html']);
 
     return source;
@@ -456,6 +459,7 @@ Discourse.like = function(channel, uuid) {
         data: {'type': 'like', 'parent': uuid},
         type: 'post',
         success: function(result) {
+            console.log(result)
             var m = window.m = $('#message-' + result.parent);
             m.find('.likes').empty().append(result.html).hide().fadeIn('fast');
         },
@@ -471,7 +475,7 @@ $(document).on('click', '.act-like', function(e) {
     var channel = a.closest('*[data-channel]').attr('data-channel');
     var uuid = a.attr('for');
     Discourse.like(channel, uuid);
-    a.remove();
+    a.closest('.likes').empty();
 });
 
 Discourse.unlike = function(channel, uuid) {
@@ -495,5 +499,5 @@ $(document).on('click', '.act-unlike', function(e) {
     var channel = a.closest('*[data-channel]').attr('data-channel');
     var uuid = a.attr('for');
     Discourse.unlike(channel, uuid);
-    a.remove(); 
+    a.closest('.likes').empty();
 });

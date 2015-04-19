@@ -111,13 +111,13 @@ class LibraryTag(ttag.Tag):
         attachments = channel.get_attachments()
         
         try:
-            e = channel.publish('view', request.user, content={'editable': request.user.is_superuser})
+            e = channel.publish('view', request.user, data={'editable': request.user.is_superuser})
             if not e:
                 return ""
         except PermissionDenied:
             return ""
 
-        editable = e.content['editable']
+        editable = e.data.get('editable')
 
         return render_to_string('discourse/library.html', locals())
 

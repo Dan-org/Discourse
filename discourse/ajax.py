@@ -1,5 +1,6 @@
-import json, datetime, decimal, uuid
+import json, datetime, decimal, uuid, time
 from django.http import HttpResponse
+from django.utils import timezone
 from django.db import models
 
 
@@ -11,11 +12,14 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         if isinstance(o, set):
             return list(o)
         elif isinstance(o, datetime.datetime):
-            return tuple(o.timetuple())
+            o = timezone.make_naive(o, timezone.get_current_timezone())
+            return time.mktime(o.timetuple())
         elif isinstance(o, datetime.date):
-            return tuple(o.timetuple())
+            o = timezone.make_naive(o, timezone.get_current_timezone())
+            return time.mktime(o.timetuple())
         elif isinstance(o, datetime.time):
-            return tuple(o.timetuple())
+            o = timezone.make_naive(o, timezone.get_current_timezone())
+            return time.mktime(o.timetuple())
         elif isinstance(o, decimal.Decimal):
             return str(o)
         elif isinstance(o, uuid.UUID):

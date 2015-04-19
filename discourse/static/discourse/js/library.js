@@ -465,9 +465,9 @@ function libraryManipulate(options) {
             }
         },
         success: function(response) {
-            var links = $('#file-' + response.content.filename_hash);
+            var links = $('#file-' + response.data.filename_hash);
 
-            meta = response.content.meta;
+            meta = response.data.meta;
 
             links.toggleClass('hidden', meta.hidden);
             

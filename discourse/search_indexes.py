@@ -1,7 +1,9 @@
 import datetime
+from pprint import pprint
 from django.template.loader import render_to_string, TemplateDoesNotExist, Context, select_template
 from haystack import indexes
-from message import Message, apply_delta
+from haystack.query import SearchQuerySet
+from message import Message
 
 from ajax import to_json
 
@@ -13,16 +15,16 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
     channel = indexes.CharField(model_attr='channel_id')
     order = indexes.IntegerField(model_attr='order')
     parent = indexes.CharField(model_attr='parent_id', null=True)
-    author = indexes.CharField(model_attr='author_id')
     created = indexes.DateTimeField(model_attr='created')
     modified = indexes.DateTimeField(model_attr='modified')
     deleted = indexes.DateTimeField(model_attr='deleted', null=True)
     url = indexes.CharField(model_attr='url', indexed=False)
-    html = indexes.CharField(indexed=False)
-    
     value = indexes.IntegerField(default=0)
+
+    author = indexes.CharField()
     keys = indexes.MultiValueField()
     tags = indexes.MultiValueField()
+    attachments = indexes.CharField(null=True)
     data = indexes.CharField(indexed=False, model_attr='content', null=True)
 
     def get_model(self):
@@ -30,41 +32,65 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
     def index_queryset(self, using=None):
         """Used when the entire index for model is updated."""
-        return self.get_model().objects.all()
+        self.children_index = {}
+        return self.get_model().objects.all().order_by('depth', 'order', '-created').select_related('author')
 
-    def prepare_keys(self, message):
-        if message.keys:
-            return message.keys.split()
-        return []
+    def update(self, using=None):
+        self.children_index = {}
+        super(MessageIndex, self).update(using)
 
-    def prepare_tags(self, message):
-        return message.tags
+    def update_object(self, instance, using=None):
+        if not self.should_update(instance):
+            return False
 
-    def prepare_value(self, message):
-        return 0
+        backend = self._get_backend(using)
+        if backend is None:
+            return
+        
+        self.children_index = {}
+
+        top = instance
+        while top.parent:
+            top = top.parent
+
+        todo = [top]
+        instances = []
+        while todo:
+            instances.extend(todo)
+            todo = list( Message.objects.filter(parent__uuid__in=[x.uuid for x in todo]) )
+
+        instances.reverse()
+        backend.update(self, instances)
 
     def prepare_text(self, message):
         try:
             return render_to_string('discourse/index/%s.txt' % message.type, locals())
         except TemplateDoesNotExist:
-            return repr(message.data)
+            return repr(message.content)
 
     def prepare(self, message):
-        self.prepared_data = super(MessageIndex, self).prepare(message)
+        state = super(MessageIndex, self).prepare(message)
 
-        self.prepared_data['data'] = message.data
-        self.prepared_data['author'] = to_json(message.author)
+        message = message.rebuild()
+        children = self.children_index.get(message.uuid, ())
 
-        apply_delta(self.prepared_data, message)
-        for child in message.children.all():
-            apply_delta(self.prepared_data, child)
-        
-        self.prepared_data['data'] = to_json(self.prepared_data['data'])
+        # Iterate through each child and have it apply() itself to its parent.
+        for child in children:
+            child.apply(message)
 
-        return self.prepared_data
+        if message.parent:
+            self.children_index.setdefault(message.parent, []).append(message)
+
+        state.update(message.pack())
+
+        for key in ['author', 'data', 'attachments']:
+            fix_json(state, key)
+
+        return state
 
 
-
-
-
-
+def fix_json(state, key):
+    if state.get(key, None):
+        state[key] = to_json(state[key])
+    else:
+        state[key] = None

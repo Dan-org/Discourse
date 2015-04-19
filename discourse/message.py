@@ -1,5 +1,8 @@
-import urllib, re, mimetypes, hashlib
+import urllib, re, mimetypes, hashlib, time, numbers
+from django.utils import timezone
+from pprint import pprint
 from datetime import datetime
+from uuid import uuid4
 
 from django.db import models
 from django.apps import apps
@@ -11,6 +14,7 @@ from django.template import Context, RequestContext
 from django.template.loader import render_to_string, TemplateDoesNotExist
 from django.utils.safestring import mark_safe
 from django.dispatch import Signal
+from django.contrib.auth import get_user_model
 
 from haystack.query import SearchQuerySet
 from haystack.models import SearchResult
@@ -28,6 +32,17 @@ try:
     redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
 except ImportError:
     redis = None
+
+
+def to_datetime(dt, or_now=False):
+    if isinstance(dt, tuple) or isinstance(dt, list):
+        time_tuple = time.struct_time(dt)
+        return datetime.fromtimestamp(time.maketime(time_tuple))
+    elif isinstance(dt, numbers.Real):
+        return timezone.make_aware( datetime.fromtimestamp(dt), timezone.get_current_timezone() )
+    if not dt and or_now:
+        return timezone.now()
+    return dt
 
 
 def hash(*args):
@@ -49,8 +64,18 @@ class Channel(models.Model):
     def __unicode__(self):
         return "Channel(%s)" % (self.name or self.id)
 
+    def simple(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'created': self.created,
+            'url': self.url,
+        }
+
     def search(self, type=None, tags=None, author=None, parent=None):
-        q = self.messages.all() # SearchQuerySet().models(Message).result_class(MessageResult)
+        q = SearchQuerySet().models(Message).result_class(MessageResult) # self.messages.all() # 
+
+        q = q.filter(channel__exact=self.id)
 
         if type:
             if isinstance(type, basestring):
@@ -58,7 +83,7 @@ class Channel(models.Model):
             else:
                 q = q.filter(type__in=type)
         if tags:
-            q = q.filter(tag_set__slug__in=tags)
+            q = q.filter(tags__in=tags)
         if author:
             q = q.filter(author=author)
         if parent:
@@ -66,53 +91,68 @@ class Channel(models.Model):
 
         return q
     
-    def publish(self, type, author, tags=None, content=None, save=False, parent=None, attachments=None):
-        if not self.created:
-            self.created = datetime.now()
+    def publish(self, type, author, tags=None, data=None, save=False, parent=None, attachments=None):
+        # If the channel hasn't been saved, now we save it.
+        if not self.created and save:
+            self.created = timezone.now()
             self.save()
 
+        # If the author is anonymous, we make it None
         if not author.is_authenticated():
             author = None
 
-        m = Message(channel=self, type=type, author=author, content=content, parent=parent)
-        if tags:
-            m._tags = tags
-
-        for reciever, result in event_signal.send(sender=None, channel=self, message=m):
-            if result is False:
-                logger.info("EVENT CANCELED:\n%r", self)
-                return None
-
-        if redis:
-            redis.publish("channel:%s" % self.id, to_json( m.simple() ))
-
+        # Generate the uuid, if necessary
         if save:
-            m.save()
-            m.set_tags(m._tags)
-            print "TAGS", m.tags, tags
+            uuid = uuid4().hex
+        else:
+            uuid = None
 
-        if attachments:
-            for file in attachments:
-                m.attach(file)
+        # Create message, give it its initial data.
+        message = MessageType(type=type, uuid=uuid)
+        message.unpack({
+            'channel': self,
+            'author': author,
+            'parent': parent,
+            'data': data,
+            'tags': tags,
+        })
 
-        return m
+        # Allow message to build itself / initialize anything necessary.
+        message.build()
 
-    def upload(self, author, files, tags=None, content=None):
-        return self.publish("attachment", author, tags=tags, content=content, attachments=files, save=True)
+        # Add attachments
+        message._attachments = attachments
+
+        # Signal to all hooked functions
+        if not message.signal():
+            logger.info("EVENT CANCELED:\n%r", m)
+            return None
+
+        # Broadcast to redis or what have you
+        message.broadcast()
+
+        # Save if requested
+        if save:
+            message.save(create=True, update_relations=True)
+
+        return message
+
+    def upload(self, author, files, tags=None, data=None):
+        return self.publish("attachment", author, tags=tags, data=data, attachments=files, save=True)
 
     def download(self, author, attachment_id):
         attachment = get_object_or_404(Attachment.objects.filter(message__channel=self), uuid=attachment_id)
-        self.publish("download", author, content={'attachment': attachment})
+        self.publish("download", author, data={'attachment': attachment})
         return attachment
 
     def get_attachments(self, **search_options):
         search_options.setdefault('type', ['attachment', 'attachment:meta'])
-        messages = self.search(**search_options) #[m.object for m in self.search(**search_options).load_all()]
+        messages = [m for m in self.search(**search_options)]
         return library(messages)
 
     def set_attachment_meta(self, author, attachment_id, **kwargs):
         attachment = get_object_or_404(Attachment.objects.filter(message__channel=self), uuid=attachment_id)
-        m = self.publish("attachment:meta", author, parent=attachment.message, content={'meta': kwargs, 'filename': attachment.filename, 'filename_hash': hash(attachment.filename)}, save=True)
+        m = self.publish("attachment:meta", author, parent=attachment.message, data={'meta': kwargs, 'filename': attachment.filename, 'filename_hash': hash(attachment.filename)}, save=True)
         return m
 
     #def rename_attachment(self, author, attachment_id, new_name):
@@ -125,15 +165,15 @@ class Channel(models.Model):
 
         if sort == 'recent':
             messages = messages.order_by('-created')
-        else:
-            messages = messages.order_by('?')
+        elif sort == 'value':
+            messages = messages.order_by('-value', '-created')
 
         if not isinstance(context, Context):
             context = Context(context)
 
         parts = []
         for m in messages:
-            parts.append( m.render_to_string(context) )
+            parts.append( m.render(context) )
 
         content = mark_safe("\n".join(parts))
         channel = self
@@ -149,14 +189,45 @@ class Channel(models.Model):
         return reverse('discourse:channel', args=[self.id])
 
 
+def attach(message, file):
+    mimetype = getattr(file, 'mimetype', mimetypes.guess_type(file.name)[0])
+
+    return Attachment.objects.create(
+        message_uuid = message['uuid'],
+        mimetype = mimetype or 'application/octet-stream',
+        filename = file.name,
+        source = file
+    )
+
+
+def render_message(message, context):
+    if not isinstance(message, dict):
+        message = message.simple()
+
+    if 'html' in message:
+        return message['html']
+
+    context = context or {}
+    context.push({
+        'message': message,
+        'replies': message['data'].get('replies', []),
+    })
+    try:
+        if '_template' in message:
+            return render_to_string(message['_template'], context)
+        return render_to_string("discourse/message/%s.html" % message['type'], context)
+    except TemplateDoesNotExist:
+        return ""
+
+
 
 class Message(models.Model):
     uuid = UUIDField(auto=True, primary_key=True)
     type = models.SlugField(max_length=255)
     channel = models.ForeignKey(Channel, related_name="messages")
     order = models.IntegerField(default=0)
+    depth = models.IntegerField(default=0)
     parent = models.ForeignKey("Message", blank=True, null=True, related_name="children")
-    #thread = models.ForeignKey("Message", blank=True, null=True, related_name="thread_children")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="messages")
     
     created = models.DateTimeField(auto_now_add=True)
@@ -168,110 +239,349 @@ class Message(models.Model):
     value = models.IntegerField(default=0)
 
     def __unicode__(self):
-        return "Message(%r, %r, %r)" % (self.uuid, self.type, self.channel)
+        return "Message('%s', type='%s', channel='%s')" % (self.uuid, self.type, self.channel.id)
 
-    def simple(self):
-        return {
-            'uuid': self.uuid,
-            'type': self.type,
-            'channel': {'id': self.channel.id, 'url': self.channel.url},
-            'order': self.order,
-            'value': self.value,
-            'parent': self.parent_id if self.parent else None,
-            'author': self.author_id if self.author else None,
-            'created': self.created,
-            'modified': self.modified,
-            'deleted': self.deleted,
-            'tags': self.tags,
-            'keys': [x.strip() for x in self.keys.split(':') if x.strip()] if self.keys else [],
-            'content': self.content,
-            'attachments': [x.simple() for x in self.attachments.all()],
-            'url': self.url,
-        }
-
-    def attach(self, file):
-        mimetype = getattr(file, 'mimetype', mimetypes.guess_type(file.name)[0])
-
-        return self.attachments.create(
-            message=self,
-            mimetype=mimetype or 'application/octet-stream',
-            filename=file.name,
-            source=file
-        )
-    
-    def likes(self):
-        if not hasattr(self, '_likes'):
-            users = set()
-            for m in self.children.filter(type__in=['like', 'unlike']).select_related('author'):
-                if m.type == 'like':
-                    users.add(m.author)
-                if m.type == 'unlike':
-                    users.discard(m.author)
-            self._likes = list(users)
-        return self._likes
-
-    @property
-    def data(self):
-        return self.content or {}
+    def rebuild(self):
+        if not hasattr(self, '_message'):
+            self._message = MessageType(self.type, self.uuid.hex)
+            dct = {
+                'uuid': self.uuid.hex if self.uuid else None,
+                'type': self.type,
+                'channel': self.channel,
+                'order': self.order,
+                'parent': self.parent_id,
+                'depth': self.depth,
+                'author': self.author,
+                'created': self.created,
+                'modified': self.modified,
+                'deleted': self.deleted,
+                'tags': [x.slug for x in self.tag_set.all()],
+                'keys': [x.strip() for x in self.keys.split(' ') if x.strip()] if self.keys else (),
+                'data': self.content,
+                'attachments': [x.simple() for x in self.attachments.all()],
+                'url': self.url
+            }
+            self._message.unpack(dct)
+        return self._message
 
     @property
     def url(self):
         return "%s%s/" % (self.channel.url, self.uuid)
 
-    @property
-    def tags(self):
-        if not hasattr(self, '_tags'):
-            self._tags = [x.slug for x in self.tag_set.all()]
-        return self._tags
-
-    def set_tags(self, tags, type="tag"):
-        if self.uuid:
-            self.tag_set = [self.tag_set.get_or_create(slug=t.strip().lower(), type=type)[0] for t in tags]
-        self._tags = tags
-
-
-    def render_to_string(self, context=None):
-        context = context or {}
-        context['message'] = self
-        context['replies'] = self.children.all()
-        try:
-            return render_to_string("discourse/message/%s.html" % self.type, context)
-        except TemplateDoesNotExist:
-            return ""
-
     class Meta:
-        ordering = ['parent_id', 'order', '-created']
+        ordering = ['depth', 'parent_id', 'order', '-created']
 
 
-class MessageResult(SearchResult):
-    def __init__(self, app_label, model_name, pk, score, **kwargs):
-        self._raw_data = kwargs.pop('data') or {}
-        super(MessageResult, self).__init__(app_label, model_name, pk, score, **kwargs)
-        self.author = from_json(self.author)
+#def render_to_string(self, context=None):
+#    context = context or {}
+#    if hasattr(self, 'state'):
+#        context['message'] = self.state
+#        context['replies'] = self.state['data'].get('replies', [])
+#    else:
+#        context['message'] = getattr(self, 'state', self)
+#        context['replies'] = self.children.all()
+#    try:
+#        return render_to_string("discourse/message/%s.html" % self.type, context)
+#    except TemplateDoesNotExist:
+#        return ""
 
-    @property
-    def data(self):
-        if not '_data' in self.__dict__:
-            self._data = from_json(self._raw_data) or {}
-        return self._data
+class MessageMeta(type):
+    def __init__(cls, name, bases, dct):
+        if not hasattr(cls, '_registry'):
+            # this is the base class.  Create an empty registry
+            cls._registry = {}
+        else:
+            # this is a derived class.  Add cls to the registry
+            name = dct.get('type', name.lower())
+            cls._registry[name] = cls
+        
+        super(MessageMeta, cls).__init__(name, bases, dct)
 
-    @property
-    def data(self):
-        if not '_data' in self.__dict__:
-            self._data = from_json(self._raw_data) or {}
-        return self._data
 
-    def __repr__(self):
-        return "%s(%s)" % (self.__class__.__name__, self.pk)
+class MessageType(object):
+    __metaclass__ = MessageMeta
 
-    def render_to_string(self, context=None):
-        context = context or {}
-        context['message'] = self
-        #context['replies'] = SearchQuerySet.
+    def __init__(self, type, uuid=None):
+        self.uuid = uuid
+        self.type = type
+        self.html = None
+        if self.type in self._registry:
+            self.__class__ = self._registry[self.type]
+
+    def post(self, request):
         try:
-            return render_to_string("discourse/message/%s.html" % self.type, context)
+            self.html = self.render(RequestContext(request, {}))
         except TemplateDoesNotExist:
-            return ""
+            pass
+        return JsonResponse( self.pack() )
+
+    def inform(self, request):
+        try:
+            self.html = self.render(RequestContext(request, {}))
+        except TemplateDoesNotExist:
+            pass
+        return self.pack()
+
+    def render(self, context):
+        context.push({'message': self})
+        return render_to_string(["discourse/message/%s.html" % self.type], context)
+
+    def describe(self):
+        pass
+
+    def pack(self):
+        simple = {
+            'type': self.type,
+            'uuid': self.uuid,
+
+            'channel': self.channel,
+            'author': self.author,
+            'parent': self.parent,
+
+            'created': self.created,
+            'modified': self.modified,
+
+            'url': self.url,
+        }
+
+        if self.order: simple['order'] = self.order
+        if self.value: simple['value'] = self.value
+        if self.deleted: simple['deleted'] = self.deleted
+        if self.keys: simple['keys'] = list(self.keys)
+        if self.tags: simple['tags'] = list(self.tags)
+        if self.attachments: simple['attachments'] = list(self.attachments)
+        if self.html: simple['html'] = self.html
+
+        if self.data:
+            if 'children' in self.data:
+                simple['data'] = dict(self.data)
+                simple['data']['children'] = [c.pack() for c in self.data['children']]
+            else:
+                simple['data'] = self.data
+
+        return simple
+
+    def unpack(self, state):
+        # Get channel
+        self.channel = state['channel']
+        if isinstance( self.channel, models.Model ):
+            self.channel, self._channel = self.channel.id, self.channel
+
+        # Get author
+        self.author = state['author']
+        if isinstance( self.author, basestring ):
+            self.author = from_json(self.author)
+        elif isinstance( self.author, models.Model ):
+            self.author, self._author = self.author.simple(), self.author
+        
+        # Get parent
+        self.parent = state.get('parent', None)
+        if isinstance( self.parent, models.Model ):
+            self.parent = self.parent.uuid
+        if isinstance( self.parent, MessageType ):
+            self.parent, self._parent = self.parent.uuid, self.parent
+
+        self.order = state.get('order', 0)
+        self.value = state.get('order', 0)
+
+        self.created = to_datetime(state.get('created'), or_now=True)
+        self.modified = to_datetime(state.get('modified'), or_now=True)
+        self.deleted = to_datetime(state.get('deleted', None))
+
+        self.keys = set(state.get('keys') or ())
+        self.tags = set(state.get('tags') or ())
+
+        attachments = state.get('attachments') or []
+        if isinstance(attachments, basestring):
+            self.attachments = from_json(attachments)
+        else:
+            self.attachments = attachments
+
+        data = state.get('data') or {}
+        if isinstance(data, basestring):
+            self.data = from_json(data)
+        else:
+            self.data = data
+
+        if 'children' in self.data:
+            self.data['children'] = [MessageType.rebuild(x) for x in self.data['children']]
+
+    def build(self):
+        pass
+
+    def apply(self, parent):
+        pass
+
+    def attach(self, file):
+        mimetype = getattr(file, 'mimetype', mimetypes.guess_type(file.name)[0])
+
+        a = Attachment.objects.create(
+            message = self.get_record(),
+            mimetype = mimetype or 'application/octet-stream',
+            filename = file.name,
+            source = file
+        )
+
+        self.attachments.append(a.simple())
+
+    def cap(self, parent, children):
+        pass
+
+    def save(self, create=False, update_relations=False):
+        if create:
+            record = Message()
+        else:
+            try:
+                record = Message.objects.get(uuid=self.uuid)
+            except Message.DoesNotExist:
+                record = Message()
+
+        record.type = self.type
+        record.created = self.created
+        record.modified = self.modified
+        record.deleted = self.deleted
+        record.order = self.order
+        
+        record.keys = " ".join(self.keys)
+        record.content = self.data
+
+        if update_relations:
+            record.channel = self.get_channel()
+            record.parent = self.get_parent_record()
+            record.author = self.get_author()
+
+        if record.parent:
+            record.depth = record.parent.depth + 1
+
+        # Save
+        record.save()
+
+        # Save M2M
+        record.tag_set = [record.tag_set.get_or_create(slug=t.strip().lower(), type='tags')[0] for t in self.tags]
+
+        # Save our record
+        record._message = self
+        self._record = record
+
+        # Resolve attachments
+        if hasattr(self, '_attachments') and self._attachments:
+            for file in self._attachments:
+                self.attach(file)
+
+        return record
+
+    def broadcast(self):
+        if redis:
+            redis.publish("channel:%s" % self.channel, to_json( self.pack() ))
+
+    def signal(self):
+        for reciever, result in event_signal.send(sender=None, message=self):
+            if result is False:
+                logger.info("EVENT CANCELED:\n%r", self)
+                return False
+        return True
+
+    def get_channel(self):
+        if not hasattr(self, '_channel'):
+            self._channel = Channel.objects.get(id=self.channel)
+        return self._channel
+
+    def get_parent(self):
+        if not self.parent:
+            return None
+
+        if not hasattr(self, '_parent'):
+            self._parent = SearchQuerySet().models(Message).result_class(MessageResult).filter(uuid=self.parent)[0]
+
+        return self._parent
+
+    def get_parent_record(self):
+        if not self.parent:
+            return None
+
+        if hasattr(self, '_parent'):
+            return self._parent.get_record()
+            
+        if not hasattr(self, '_parent_record'):
+            self._parent_record = Message.objects.get(uuid=self.parent)
+        return self._parent_record
+
+    def get_children(self):
+        return SearchQuerySet().models(Message).result_class(MessageResult).filter(parent=self.uuid)
+
+    def get_author(self):
+        if not hasattr(self, '_author'):
+            self._author = get_user_model().objects.get(pk=self.author['id'])
+        return self._author
+
+    def get_record(self):
+        if not hasattr(self, '_record'):
+            self._record = Message.objects.get(uuid=self.uuid)
+        return self._record
+
+    @property
+    def url(self):
+        url = reverse( "discourse:channel", args=[self.channel] )
+        #if self.uuid:
+        #    return "{}{}/".format(url, self.uuid)
+        return url
+
+    @classmethod
+    def hook(cls, fn):
+        hook(cls.type, fn)
+
+    @classmethod
+    def rebuild(self, state, **extra):
+        message = MessageType(type=state['type'], uuid=state['uuid'])
+        message.unpack(state)
+        message.__dict__.update(extra)
+        return message
+
+
+def MessageResult(app_label, model_name, pk, score, **kwargs):
+    result = {
+        'app_label': app_label,  
+        'model_name': model_name,  
+        'pk': pk,  
+        'score': score,
+    }
+    return MessageType.rebuild(kwargs, result=result)
+
+
+
+#class MessageResult(SearchResult):
+#    def __init__(self, app_label, model_name, pk, score, **kwargs):
+#        super(MessageResult, self).__init__(app_label, model_name, pk, score, **kwargs)
+#        self.author = from_json(self.author)
+#        self.data = from_json(self.data) if self.data else {}
+#        for 
+#
+#    def __repr__(self):
+#        return "%s(%s)" % (self.__class__.__name__, self.pk)
+#
+#    def unpack(self, data):
+#        data['created'] = datetime(*data['created'][:6])
+#        return data
+#
+#    def render_to_string(self, context=None):
+#        context = context or {}
+#        context['message'] = self.__dict__
+#        context['replies'] = [self.unpack(x) for x in self.data.get('replies', [])]
+#        try:
+#            return render_to_string("discourse/message/%s.html" % self.type, context)
+#        except TemplateDoesNotExist:
+#            return ""
+#
+#    def simple(self):
+#        simple = self.get_additional_fields()
+#        simple['_result'] = {
+#            'app_label': self.app_label,
+#            'model_name': self.model_name,
+#            'pk': self.pk,
+#            'score': self.score
+#        }
+#        return simple
+
 
 
 class Attachment(models.Model):
@@ -324,7 +634,7 @@ def library(messages):
         if message.type == 'attachment:meta':
             meta.setdefault(message.data['filename'].lower(), {}).update(message.data['meta'])
         else:
-            for attachment in message.attachments.all():
+            for attachment in message.get_record().attachments.all():
                 filename = attachment.filename.lower()
                 meta.setdefault(filename, {})['deleted'] = False
                 by_name.setdefault(filename, []).append(attachment)
@@ -371,7 +681,7 @@ def channel_for(obj):
         app = cls._meta.app_label      # auth
         model = cls._meta.model_name   # User
         pk = str( obj._get_pk_val() )    # 7
-        id = "~%s/%s/%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
+        id = "channel:%s.%s.%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
     else:
         raise TypeError("first argument to channel_for() must be a string or django model")
 
@@ -396,7 +706,7 @@ def object_of_channel(name):
 from django.shortcuts import render
 
 
-def channel_view(request, id):
+def channel_view(request, id, message_id=None):
     print "METHOD", request.method
     print "GET", request.GET
     print "POST", request.POST
@@ -406,7 +716,7 @@ def channel_view(request, id):
 
     if request.FILES:
         message = channel.upload(request.user, request.FILES.getlist('attachment'))
-        return JsonResponse( message.simple() )
+        return message.post(request)
 
     if request.method == 'POST':
         if not request.user.is_authenticated():
@@ -414,26 +724,23 @@ def channel_view(request, id):
 
         type = request.POST['type']
         tags = [x.strip() for x in request.POST.getlist('tags', []) if x.strip()] or None
-        content = request.POST.get('content', None)
-        if content:
-            content = from_json( content )
+        data = request.POST.get('data', None)
+        if data:
+            data = from_json( data )
         else:
-            content = {}
+            data = {}
 
         for k, v in request.POST.items():
             if k.startswith('data-'):
-                content[k[5:]] = v
+                data[k[5:]] = v
 
         parent = request.POST.get('parent', None)
         if parent:
             parent = get_object_or_404(Message, pk=parent)
         else:
             parent = None
-        message = channel.publish(type, request.user, tags=tags, content=content, parent=parent, save=True)
-        simple = message.simple()
-        if not 'html' in simple:
-            simple['html'] = message.render_to_string(RequestContext(request, locals()))
-        return JsonResponse( simple )
+        message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, save=True)
+        return message.post(request)
 
     type = [x.strip() for x in request.GET.getlist('type[]', '') if x.strip()] or None
     tags = [x.strip() for x in request.GET.getlist('tags[]', []) if x.strip()] or None
@@ -448,12 +755,12 @@ def attachment(request, channel, attachment):
 
     if (request.method == 'POST' and request.POST.get('delete')) or request.method == 'DELETE':
         message = channel.set_attachment_meta(request.user, attachment, deleted=True)
-        return JsonResponse( message.simple() )
+        return JsonResponse( message.pack() )
 
     if (request.method == 'POST' and 'hidden' in request.POST):
         hidden = request.POST.get('hidden') in ('true', 'True', 'yes', '1')
         message = channel.set_attachment_meta(request.user, attachment, hidden=hidden)
-        return JsonResponse( message.simple() )
+        return JsonResponse( message.pack() )
 
         message = channel.set_attachment_meta(request.user, attachment, hidden=(request.POST.get('hidden') == 'true'))
 
@@ -471,42 +778,55 @@ def attachment(request, channel, attachment):
     return render(request, "discourse/channel.html", locals())
 
 
-delta_register = {}
-def delta(type):
-    def decorator(fn):
-        delta_register.setdefault(type, []).append(fn)
-        return fn
-    return decorator
+class Like(MessageType):
+    def apply(self, parent):
+        likes = set( parent.data.get('likes', ()) )
+        if self.author['id'] in likes:
+            return
+        likes.add(self.author['id'])
+
+        parent.data['likes'] = likes
+        parent.value += 1
+
+    def post(self, request):
+        from discourse.templatetags.discourse import like
+        context = RequestContext(request)
+        m = self.get_parent()
+        
+        context.push( like(context, self.get_parent()) )
+        try:
+            self.html = render_to_string( "discourse/likes.html", context )
+        except TemplateDoesNotExist:
+            pass
+
+        return JsonResponse(self.pack())
 
 
-def apply_delta(state, message):
-    functions = delta_register.get(message.type) or []
-    for fn in functions:
-        fn(state, message)
+class Unlike(Like):
+    def apply(self, other):
+        likes = set( other.data.get('likes', ()) )
+        if self.author['id'] not in likes:
+            return
+
+        likes.remove(self.author['id'])
+        other.data['likes'] = likes
+        other.value -= 1
 
 
-@delta('delete')
-def delete(state, message):
-    state['deleted'] = message.created
+
+class Reply(MessageType):
+    def apply(self, parent):
+        parent.data.setdefault('children', []).append(self)
 
 
-@delta('undelete')
-def undelete(state, message):
-    state['deleted'] = None
 
 
-@delta('like')
-def like(state, message):
-    if 'likers' not in state['data']:
-        state['data']['likers'] = set()
-    state['data']['likers'].add(message.author)
-    state['value'] += 1
 
-
-@delta('unlike')
-def unlike(state, message):
-    if 'likers' not in state['data']:
-        return
-    state['data']['likers'].discard(message.author)
-    state['value'] -= 1
-
+#class AttachmentMeta(MessageType):
+#    type = "attachment:meta"
+#    def apply(self, parent):
+#        pass
+#        #parent.data.setdefault(self.data['filename'].lower(), {}).update(self.data['meta'])
+#        #parent.data.update(self.data)
+#
+#

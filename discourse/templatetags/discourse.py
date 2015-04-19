@@ -1,6 +1,8 @@
 import urllib, json, re
+from pprint import pprint
 
 from django.utils.safestring import mark_safe
+from django.contrib.auth import get_user_model
 from django import template
 
 import ttag
@@ -60,14 +62,26 @@ def channel(obj):
 
 @register.inclusion_tag("discourse/likes.html", takes_context=True)
 def like(context, message, show=2):
-    users = message.data.get('likers') or []
+    #users = set()
+    #for m in message.children.filter(type__in=['like', 'unlike']).exclude(author=None).select_related('author').order_by('created'):
+    #    if m.type == 'like':
+    #        users.add(m.author)
+    #    if m.type == 'unlike':
+    #        users.discard(m.author)
+    
+    print "LIKE ",
+    pprint(message)
+
+    likes = set( message.data.get('likes', []) )
 
     authenticated = True
     user = None
     if 'request' in context:
         user = context['request'].user
+    elif 'user' in context:
+        user = context['user']
 
-    if not users:
+    if not likes:
         return {
             'authenticated': user.is_authenticated() if user else None,
             'user': user,
@@ -78,16 +92,17 @@ def like(context, message, show=2):
 
     parts = []
     liked = False
-    if user and user in users:
+    if user.id in likes:
         liked = True
-        users.discard(user)
-        parts.append('<a href="%s">You</a>' % u['url'])
+        likes.remove(user.id)
+        parts.append('<a href="%s">You</a>' % user.get_absolute_url())
     
-    for u in list(users)[:show]:
-        parts.append('<a href="%s">%s</a>' % (u['url'], u['name']))
+    for id in list(likes)[:show]:
+        u = get_user_model().objects.get(pk=id)
+        parts.append('<a href="{}">{}</a>'.format(u.get_absolute_url(), u.get_full_name()))
 
-    if len(users) > show:
-        parts.append("%s more" % (len(users) - show))
+    if len(likes) > show:
+        parts.append("{} more".format(len(likes) - show))
 
     if len(parts) > 1:
         parts[-1] = "and %s" % parts[-1]
@@ -98,13 +113,12 @@ def like(context, message, show=2):
         parts = " ".join(parts)
 
     return {
-        'authenticated': user.is_authenticated(),
+        'authenticated': user.is_authenticated() if user else None,
         'user': user,
         'message': message,
         'liked': liked,
         'likes': mark_safe( parts ),
-        'users': list(users),
-        'count': len(users)
+        'count': len(likes)
     }
 
 
