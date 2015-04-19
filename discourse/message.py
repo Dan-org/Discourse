@@ -225,7 +225,7 @@ def render_message(message, context):
 
 
 class Message(models.Model):
-    uuid = UUIDField(auto=True, primary_key=True)
+    uuid = UUIDField(auto=False, primary_key=True)
     type = models.SlugField(max_length=255)
     channel = models.ForeignKey(Channel, related_name="messages")
     order = models.IntegerField(default=0)
@@ -433,7 +433,7 @@ class MessageType(object):
 
     def save(self, create=False, update_relations=False):
         if create:
-            record = Message()
+            record = Message(uuid=self.uuid)
         else:
             try:
                 record = Message.objects.get(uuid=self.uuid)
