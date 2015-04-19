@@ -515,3 +515,15 @@ $(document).on('click', '.act-unlike', function(e) {
     Discourse.unlike(channel, uuid);
     a.closest('.likes').empty();
 });
+
+
+$(document).on('change', 'form.sorter', function(e) {
+    var form = $(this);
+    var val = 'recent';
+    form.find('input[type=radio]').each(function() {
+        if ($(this).prop('checked')) {
+            val = $(this).val();
+        }
+    });
+    Discourse.stream($(this).attr('for')).filter({'sort': val});
+});
