@@ -134,7 +134,6 @@ function formReady(form) {
 }
 
 function onMessageForm(e) {
-    console.log(e);
     e.preventDefault();
 
     var form = $(this);
@@ -382,13 +381,15 @@ function Stream(source) {
 
     source.data('stream', this);
     this.source = source;
-    console.log("Source:", this.source);
+
     this._filter = {
         type: this.source.attr('data-type').split(),
         tags: this.source.attr('data-tags').split(),
         template: this.source.attr('data-template'),
         sort: this.source.attr('sort')
     }
+
+    this._original = $.extend({}, this._filter);
 }
 
 Discourse.stream = function(source) {
@@ -410,7 +411,7 @@ Stream.prototype.reload = function(data) {
         'template': this._filter.template,
         'sort': this._filter.sort,
     }, data);
-
+    
     this.source.fadeTo('fast', .5);
 
     this._loading = $.ajax({
@@ -437,18 +438,31 @@ Stream.prototype.complete = function(xhr, textStatus) {
 
 Stream.prototype.filter = function(filter) {
     $.extend(this._filter, filter);
+
+    if (!this._filter.type || this._filter.type.length == 0) {
+        this._filter.type = this.source.attr('data-type').split();
+    }
+
     this.reload();
 }
 
 $(document).on('change', 'form.discourse-stream-filter', function(e) {
+    var form = $(this).closest('form');
+
     var tags = [];
+    var type = [];
+
     $(this).find('input[type=checkbox]').each(function(i, item) {
-        if ($(item).prop('checked')) {
-            tags.push($(item).attr('value'));
+        var item = $(item);
+        if (item.prop('checked')) {
+            if (item.attr('name') == 'tags') 
+                tags.push($(item).attr('value'));
+            else if (item.attr('name') == 'type') 
+                type.push($(item).attr('value'));
         }
     });
 
-    Discourse.stream( $('#thread-container div').eq(0) ).filter({'tags': tags});
+    Discourse.stream( form.attr('for') ).filter({'tags': tags, 'type': type});
 });
 
 

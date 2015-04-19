@@ -4,6 +4,14 @@ from django.utils import timezone
 from django.db import models
 
 
+def timestamp(obj):
+    if isinstance(obj, datetime.date) and not isinstance(obj, datetime.datetime):
+        return obj.strftime("%x")
+    if timezone.is_aware(obj):
+        obj = timezone.make_naive(obj, timezone.get_current_timezone())
+    return time.mktime(obj.timetuple())
+
+
 class EnhancedJSONEncoder(json.JSONEncoder):
     """
     JSONEncoder subclass that knows how to encode date/time and decimal types.
@@ -12,14 +20,11 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         if isinstance(o, set):
             return list(o)
         elif isinstance(o, datetime.datetime):
-            o = timezone.make_naive(o, timezone.get_current_timezone())
-            return time.mktime(o.timetuple())
+            return timestamp(o)
         elif isinstance(o, datetime.date):
-            o = timezone.make_naive(o, timezone.get_current_timezone())
-            return time.mktime(o.timetuple())
+            return timestamp(o)
         elif isinstance(o, datetime.time):
-            o = timezone.make_naive(o, timezone.get_current_timezone())
-            return time.mktime(o.timetuple())
+            return timestamp(o)
         elif isinstance(o, decimal.Decimal):
             return str(o)
         elif isinstance(o, uuid.UUID):

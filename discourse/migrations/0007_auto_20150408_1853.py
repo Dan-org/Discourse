@@ -31,9 +31,9 @@ class Migration(migrations.Migration):
             model_name='comment',
             name='parent',
         ),
-        migrations.DeleteModel(
-            name='Comment',
-        ),
+        #migrations.DeleteModel(
+        #    name='Comment',
+        #),
         migrations.RemoveField(
             model_name='old_attachments',
             name='author',
@@ -45,9 +45,9 @@ class Migration(migrations.Migration):
             model_name='vote',
             name='user',
         ),
-        migrations.DeleteModel(
-            name='Vote',
-        ),
+        #migrations.DeleteModel(
+        #    name='Vote',
+        #),
         migrations.RemoveField(
             model_name='message',
             name='tags',

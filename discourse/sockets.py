@@ -1,6 +1,5 @@
 import redis, json
 from socketio.namespace import BaseNamespace
-from discourse.models import Comment
 from django.conf import settings
 
 

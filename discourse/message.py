@@ -173,7 +173,10 @@ class Channel(models.Model):
 
         parts = []
         for m in messages:
-            parts.append( m.render(context) )
+            try:
+                parts.append( m.render(context) )
+            except TemplateDoesNotExist:
+                continue
 
         content = mark_safe("\n".join(parts))
         channel = self
@@ -234,7 +237,8 @@ class Message(models.Model):
     modified = models.DateTimeField(auto_now=True)
     deleted = models.DateTimeField(blank=True, null=True)
 
-    keys = models.CharField(max_length=255, blank=True, null=True)
+    tags = models.TextField(blank=True, null=True)
+    keys = models.TextField(blank=True, null=True)
     content = YAMLField(blank=True, null=True)
     value = models.IntegerField(default=0)
 
@@ -255,7 +259,7 @@ class Message(models.Model):
                 'created': self.created,
                 'modified': self.modified,
                 'deleted': self.deleted,
-                'tags': [x.slug for x in self.tag_set.all()],
+                'tags': [x.strip() for x in self.tags.split(' ') if x.strip()] if self.tags else (),
                 'keys': [x.strip() for x in self.keys.split(' ') if x.strip()] if self.keys else (),
                 'data': self.content,
                 'attachments': [x.simple() for x in self.attachments.all()],
@@ -443,6 +447,7 @@ class MessageType(object):
         record.order = self.order
         
         record.keys = " ".join(self.keys)
+        record.tags = " ".join(self.tags)
         record.content = self.data
 
         if update_relations:
@@ -455,9 +460,6 @@ class MessageType(object):
 
         # Save
         record.save()
-
-        # Save M2M
-        record.tag_set = [record.tag_set.get_or_create(slug=t.strip().lower(), type='tags')[0] for t in self.tags]
 
         # Save our record
         record._message = self
@@ -614,15 +616,6 @@ class Attachment(models.Model):
         return reverse('discourse:attachment', args=[self.message.channel.id, self.uuid]) + self.filename
 
 
-class MessageTag(models.Model):
-    message = models.ForeignKey(Message, related_name="tag_set")
-    slug = models.SlugField()
-    type = models.SlugField(default="tag", max_length=24)
-
-    def __unicode__(self):
-        return self.slug
-
-
 def library(messages):
     """
     Play through messages to get the current list of attachments.
@@ -742,12 +735,22 @@ def channel_view(request, id, message_id=None):
         message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, save=True)
         return message.post(request)
 
-    type = [x.strip() for x in request.GET.getlist('type[]', '') if x.strip()] or None
-    tags = [x.strip() for x in request.GET.getlist('tags[]', []) if x.strip()] or None
+    type = expand_tags(request.GET.getlist('type[]'))
+    tags = expand_tags(request.GET.getlist('tags[]'))
+
     sort = request.GET.get('sort', 'recent')
     template = request.GET.get('template', None)
 
     return HttpResponse( channel.render_to_string(RequestContext(request, locals()), type=type, tags=tags, sort=sort, template=template) )
+
+
+def expand_tags(tags):
+    if not tags:
+        return None
+    results = []
+    for t in tags:
+        results.extend( t.split() )
+    return filter(None, [x.strip() for x in results]) or None
 
 
 def attachment(request, channel, attachment):

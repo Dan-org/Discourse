@@ -163,8 +163,8 @@ class DocumentTag(ttag.Tag):
             return "\n".join( [o.body for o in DocumentContent.objects.filter(document__anchor_uri=anchor)] )
 
         try:
-            doc = Document.objects.get(anchor_uri=anchor)
-        except Document.DoesNotExist:
+            doc = Document.objects.filter(anchor_uri=anchor)[0]
+        except IndexError:
             if template:
                 template = DocumentTemplate.objects.get_or_create(slug=template)[0]
             else:
