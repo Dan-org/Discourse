@@ -629,10 +629,13 @@ def library(messages):
     """
     by_name = {}
     meta = {}
+    return []
 
     for message in messages:
         if message.type == 'attachment:meta':
             meta.setdefault(message.data['filename'].lower(), {}).update(message.data['meta'])
+        if message.type == 'attachment:link':
+            pass
         else:
             for attachment in message.get_record().attachments.all():
                 filename = attachment.filename.lower()
