@@ -13,8 +13,7 @@ class DiscourseSocket(BaseNamespace):
         for item in o.listen():
             if item.get('type') == 'message':
                 data = json.loads(item['data'])
-                if data.get('predicate'):
-                    self.emit(data['predicate'], data)
+                self.emit(data['type'], data)
 
     def on_follow(self, path):
         self.spawn(self.follow_loop, path)

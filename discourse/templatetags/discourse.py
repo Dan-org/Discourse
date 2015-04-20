@@ -62,16 +62,6 @@ def channel(obj):
 
 @register.inclusion_tag("discourse/likes.html", takes_context=True)
 def like(context, message, show=2):
-    #users = set()
-    #for m in message.children.filter(type__in=['like', 'unlike']).exclude(author=None).select_related('author').order_by('created'):
-    #    if m.type == 'like':
-    #        users.add(m.author)
-    #    if m.type == 'unlike':
-    #        users.discard(m.author)
-    
-    print "LIKE ",
-    pprint(message)
-
     likes = set( message.data.get('likes', []) )
 
     authenticated = True

@@ -1,4 +1,4 @@
-import urllib, re, mimetypes, hashlib, time, numbers
+import urllib, re, mimetypes, hashlib, time, numbers, inspect
 from django.utils import timezone
 from pprint import pprint
 from datetime import datetime
@@ -106,6 +106,8 @@ class Channel(models.Model):
             uuid = uuid4().hex
         else:
             uuid = None
+
+        print "PUBLISH", type, author
 
         # Create message, give it its initial data.
         message = MessageType(type=type, uuid=uuid)
@@ -473,8 +475,9 @@ class MessageType(object):
         return record
 
     def broadcast(self):
+        print "BROADCAST", self.channel, self.type
         if redis:
-            redis.publish("channel:%s" % self.channel, to_json( self.pack() ))
+            redis.publish(self.channel, to_json( self.pack() ))
 
     def signal(self):
         for reciever, result in event_signal.send(sender=None, message=self):
@@ -534,6 +537,8 @@ class MessageType(object):
 
     @classmethod
     def rebuild(self, state, **extra):
+        if isinstance(state, MessageType):
+            return state
         message = MessageType(type=state['type'], uuid=state['uuid'])
         message.unpack(state)
         message.__dict__.update(extra)
@@ -654,7 +659,12 @@ def on(*types):
 
 
 def hook(fn, *types):
-    print "HOOKING", fn, types
+    if settings.DEBUG:
+        filename = inspect.getsourcefile(fn)
+        filename = filename[filename.find('loft/') + 5:]
+        source, lineno = inspect.getsourcelines(fn)
+        print "HOOK {} - {}:{}".format(" ".join(types), filename, lineno)
+
     def subscription(sender, message, **kwargs):
         if '*' in types or message.type in types:
             return fn(message)

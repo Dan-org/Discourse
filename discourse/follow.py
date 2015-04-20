@@ -57,6 +57,7 @@ class Subscription(models.Model):
         """
         Checks to see if a user is subscribed to the given target.
         """
+        print "is_following:", uri(target)
         return cls.objects.filter(user=user, target_uri=uri(target), toggle=True).count() > 0
 
     @classmethod
