@@ -23,7 +23,7 @@ from uuidfield import UUIDField
 from yamlfield.fields import YAMLField
 from ajax import to_json, from_json, JsonResponse
 
-from uri import uri, resolve_model_uri
+from uri import uri, resolve_model_uri, simple
 
 
 event_signal = Signal(['event'])
@@ -338,7 +338,7 @@ class MessageType(object):
         pass
 
     def pack(self):
-        simple = {
+        result = {
             'type': self.type,
             'uuid': self.uuid,
 
@@ -352,22 +352,22 @@ class MessageType(object):
             'url': self.url,
         }
 
-        if self.order: simple['order'] = self.order
-        if self.value: simple['value'] = self.value
-        if self.deleted: simple['deleted'] = self.deleted
-        if self.keys: simple['keys'] = list(self.keys)
-        if self.tags: simple['tags'] = list(self.tags)
-        if self.attachments: simple['attachments'] = list(self.attachments)
-        if self.html: simple['html'] = self.html
+        if self.order: result['order'] = self.order
+        if self.value: result['value'] = self.value
+        if self.deleted: result['deleted'] = self.deleted
+        if self.keys: result['keys'] = list(self.keys)
+        if self.tags: result['tags'] = list(self.tags)
+        if self.attachments: result['attachments'] = list(self.attachments)
+        if self.html: result['html'] = self.html
 
         if self.data:
             if 'children' in self.data:
-                simple['data'] = dict(self.data)
-                simple['data']['children'] = [c.pack() for c in self.data['children']]
+                result['data'] = dict(self.data)
+                result['data']['children'] = [c.pack() for c in self.data['children']]
             else:
-                simple['data'] = self.data
+                result['data'] = simple( self.data )
 
-        return simple
+        return result
 
     def unpack(self, state):
         # Get channel
@@ -452,7 +452,7 @@ class MessageType(object):
         
         record.keys = " ".join(self.keys)
         record.tags = " ".join(self.tags)
-        record.content = self.data
+        record.content = simple( self.data )
 
         if update_relations:
             record.channel = self.get_channel()

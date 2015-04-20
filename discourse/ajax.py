@@ -32,7 +32,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
         elif hasattr(o, 'simple'):
             return o.simple()
         elif isinstance(o, models.Model):
-            return o._get_primary_key()
+            return o._get_pk_val()
         else:
             return super(EnhancedJSONEncoder, self).default(o)
 
