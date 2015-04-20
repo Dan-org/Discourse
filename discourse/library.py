@@ -9,7 +9,6 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponseBadRequest, HttpResponseRedirect
 
 from uri import *
-from event import publish
 from ajax import JsonResponse
 
 from message import Message, Attachment, channel_for
@@ -111,13 +110,13 @@ class LibraryTag(ttag.Tag):
         attachments = channel.get_attachments()
         
         try:
-            e = channel.publish('view', request.user, data={'editable': request.user.is_superuser})
-            if not e:
+            m = channel.publish('view', request.user, data={'editable': request.user.is_superuser})
+            if not m:
                 return ""
         except PermissionDenied:
             return ""
 
-        editable = e.data.get('editable')
+        editable = m.data.get('editable')
 
         return render_to_string('discourse/library.html', locals())
 

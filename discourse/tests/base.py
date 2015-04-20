@@ -4,7 +4,6 @@ from django.core.urlresolvers import reverse
 from django.template.loader import Template, Context
 
 from discourse.uri import uri
-from discourse.event import on, on_notify
 
 
 class MockRequest(object):
@@ -29,15 +28,6 @@ class TestCase(DjangoTestCase):
         self.events = []
         self.last_event = None
         self.last_notify = None
-
-        @on("*")
-        def on_event(e):
-            self.events.append(e)
-            self.last_event = e
-
-        @on_notify
-        def on_notifier(e, users):
-            self.last_notify = users
 
 
     def ajax_post(self, url, data, **kwargs):

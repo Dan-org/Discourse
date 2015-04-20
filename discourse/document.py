@@ -15,7 +15,7 @@ from cleaner import clean_html
 
 from ajax import JsonResponse
 from uri import *
-from event import publish
+from message import channel_for
 
 
 class DocumentTemplate(models.Model):
@@ -181,13 +181,13 @@ class DocumentTag(ttag.Tag):
 
         if request:
             try:
-                e = publish(anchor, request.user, 'view-document', doc, data={'editable': request.user.is_superuser}, internal=True)
-                if not e:
+                m = channel_for(anchor).publish('view', request.user, data={'editable': request.user.is_superuser}, save=False)
+                if not m:
                     return ""
             except PermissionDenied:
                 return ""
 
-            context_vars['editable'] = e.data['editable']
+            context_vars['editable'] = m.data['editable']
 
         if doc.template:
             return render_to_string(['discourse/document-%s.html' % doc.template.slug, 'discourse/document.html'], context_vars, context)

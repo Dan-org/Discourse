@@ -3,8 +3,13 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseBadRequest, HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
-from uri import *
+from message import channel_for
 from ajax import JsonResponse
+
+
+def uri(target):
+    print target
+    return channel_for(target).id
 
 
 class Subscription(models.Model):
@@ -61,7 +66,7 @@ class Subscription(models.Model):
 
     @classmethod
     def get_subscribed(cls, user, target_cls):
-        target_uri = uri(target_cls)
+        target_uri = "channel:{}.{}.".format(target_cls._meta.app_label.lower(), target_cls.__name__.lower())
         return cls.objects.filter(target_uri__startswith=target_uri, user=user, toggle=True)
 
     @classmethod

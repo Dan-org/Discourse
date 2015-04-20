@@ -86,10 +86,6 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         for key in ['author', 'data', 'attachments']:
             fix_json(state, key)
 
-        print message.tags
-        print "INDEX ",
-        pprint(state)
-
         return state
 
 

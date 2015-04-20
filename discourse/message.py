@@ -455,8 +455,8 @@ class MessageType(object):
             record.parent = self.get_parent_record()
             record.author = self.get_author()
 
-        if record.parent:
-            record.depth = record.parent.depth + 1
+            if record.parent:
+                record.depth = record.parent.depth + 1
 
         # Save
         record.save()
@@ -654,6 +654,7 @@ def on(*types):
 
 
 def hook(fn, *types):
+    print "HOOKING", fn, types
     def subscription(sender, message, **kwargs):
         if '*' in types or message.type in types:
             return fn(message)
@@ -662,7 +663,7 @@ def hook(fn, *types):
 
 def channel_for(obj):
     if isinstance(obj, Channel):
-        id = obj.id
+        return obj
     elif isinstance(obj, basestring):
         id = obj
     elif hasattr(obj, 'get_channel'):
@@ -676,7 +677,7 @@ def channel_for(obj):
         pk = str( obj._get_pk_val() )    # 7
         id = "channel:%s.%s.%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
     else:
-        raise TypeError("first argument to channel_for() must be a string or django model")
+        raise TypeError("first argument to channel_for() must be a string or django model, not whatever this is: %r" % obj)
 
     return Channel(id=id)
 
