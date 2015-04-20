@@ -181,7 +181,7 @@ class DocumentTag(ttag.Tag):
 
         if request:
             try:
-                m = channel_for(anchor).publish('view', request.user, data={'editable': request.user.is_superuser}, save=False)
+                m = channel_for(anchor).publish('view', request.user, data={'editable': request.user.is_superuser})
                 if not m:
                     return ""
             except PermissionDenied:
@@ -206,7 +206,7 @@ def manipulate(request, uri):
     attribute = request.POST['attribute']
     value = clean_html(request.POST['value']).strip()
 
-    if not publish(uri, request.user, 'document', data={'attribute': attribute, 'value': value}, record=True):
+    if not channel_for(document).publish('update', request.user, data={'attribute': attribute, 'value': value}):
         raise PermissionDenied()
 
     if not value:
