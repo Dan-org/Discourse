@@ -38,7 +38,7 @@ class FavoriteTag(ttag.Tag):
     def render(self, context):
         request = context['request']
         data = self.resolve(context)
-        anchor = uri( data['anchor'] )
+        anchor = uri(data['anchor'])
         
         url = reverse("discourse:favorite")
         if request.user.is_authenticated():
@@ -54,13 +54,13 @@ def manipulate(request):
     if not request.POST:
         return HttpResponseBadRequest()
 
-    target_uri = uri(request.POST['uri'])
+    target = request.POST['uri']
 
     if request.POST.get('unfavorite', '').lower() in ('yes', 'true'):
-        unfavorite(request.user, target_uri)
+        unfavorite(request.user, target)
     else:
-        favorite(request.user, target_uri, True)
+        favorite(request.user, target, True)
 
-    return JsonResponse(get_favorited_count(target_uri))
+    return JsonResponse(get_favorited_count(target))
 
 

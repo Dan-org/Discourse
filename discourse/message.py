@@ -8,7 +8,7 @@ from django.db import models
 from django.apps import apps
 from django.conf import settings
 from django.core.urlresolvers import reverse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.http import Http404, HttpResponse, HttpResponseRedirect, HttpResponseForbidden, HttpResponseBadRequest
 from django.template import Context, RequestContext
 from django.template.loader import render_to_string, TemplateDoesNotExist
@@ -22,6 +22,8 @@ from haystack.models import SearchResult
 from uuidfield import UUIDField
 from yamlfield.fields import YAMLField
 from ajax import to_json, from_json, JsonResponse
+
+from uri import uri, resolve_model_uri
 
 
 event_signal = Signal(['event'])
@@ -681,33 +683,16 @@ def channel_for(obj):
     elif hasattr(obj, 'channel'):
         id = obj.channel
     elif isinstance(obj, models.Model):
-        cls = obj.__class__
-        app = cls._meta.app_label      # auth
-        model = cls._meta.model_name   # User
-        pk = str( obj._get_pk_val() )    # 7
-        id = "channel:%s.%s.%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
+        id = uri(obj)
+    elif isinstance(obj, type) and issubclass(obj, models.Model):
+        id = uri(obj)
     else:
         raise TypeError("first argument to channel_for() must be a string or django model, not whatever this is: %r" % obj)
 
     return Channel(id=id)
 
 
-re_model_uri = re.compile(r"\~([^/]+)/([^/]+)/([^/]+)(/.*)?")         # i.e. /<app>/<model>/<pk> [/<rest>]
 
-def object_of_channel(name):
-    m = re_model_uri.match(uri)
-    if m is None:
-        return None, uri
-    app, model, pk, rest = m.groups()
-    cls = apps.get_model( urllib.unquote(app), urllib.unquote(model) )
-    obj = cls.objects.get(pk=urllib.unquote(pk))
-    if rest is None:
-        return obj, None
-    else:
-        return obj, urllib.unquote(rest[1:])
-
-
-from django.shortcuts import render
 
 
 def channel_view(request, id, message_id=None):

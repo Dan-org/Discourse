@@ -6,7 +6,7 @@ from django.apps import apps
 __all__ = ['uri', 'resolve_model_uri', 'simple']
 
 
-re_model_uri = re.compile(r"([^/]+)/([^/]+)/([^/]+)(/.*)?")         # i.e. /<app>/<model>/<pk> [/<rest>]
+re_model_uri = re.compile(r"(\w+)\.(\w+)\.(\w+)(/.*)?")         # i.e. <app>.<model>.<pk>/<rest>?
 
 
 def uri(obj, rest=None):
@@ -16,15 +16,15 @@ def uri(obj, rest=None):
         app = cls._meta.app_label      # auth
         model = cls._meta.model_name   # User
         pk = str( obj._get_pk_val() )    # 7
-        uri = "%s/%s/%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
+        uri = "%s.%s.%s" % ( urllib.quote(app), urllib.quote(model), urllib.quote(pk) )
     elif isinstance(obj, type) and issubclass(obj, models.Model):
         cls = obj
         app = cls._meta.app_label      # auth
         model = cls._meta.model_name   # User
-        uri = "%s/%s" % ( urllib.quote(app), urllib.quote(model))
+        uri = "%s.%s" % ( urllib.quote(app), urllib.quote(model))
 
     if rest is not None:
-        return posixpath.join(uri, urllib.quote( str(rest) ))
+        return "{}/{}".format(uri, urllib.quote( str(rest) ))
     else:
         return uri
 

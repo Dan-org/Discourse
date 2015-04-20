@@ -3,13 +3,8 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseBadRequest, HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
-from message import channel_for
+from uri import uri, resolve_model_uri
 from ajax import JsonResponse
-
-
-def uri(target):
-    print target
-    return channel_for(target).id
 
 
 class Subscription(models.Model):
@@ -57,7 +52,6 @@ class Subscription(models.Model):
         """
         Checks to see if a user is subscribed to the given target.
         """
-        print "is_following:", uri(target)
         return cls.objects.filter(user=user, target_uri=uri(target), toggle=True).count() > 0
 
     @classmethod
@@ -67,7 +61,7 @@ class Subscription(models.Model):
 
     @classmethod
     def get_subscribed(cls, user, target_cls):
-        target_uri = "channel:{}.{}.".format(target_cls._meta.app_label.lower(), target_cls.__name__.lower())
+        target_uri = uri(target_cls) + "."
         return cls.objects.filter(target_uri__startswith=target_uri, user=user, toggle=True)
 
     @classmethod
