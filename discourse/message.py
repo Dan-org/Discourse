@@ -237,8 +237,8 @@ class Message(models.Model):
     parent = models.ForeignKey("Message", blank=True, null=True, related_name="children")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="messages")
     
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField()
+    modified = models.DateTimeField(blank=True, null=True)
     deleted = models.DateTimeField(blank=True, null=True)
 
     tags = models.TextField(blank=True, null=True)
@@ -446,7 +446,7 @@ class MessageType(object):
 
         record.type = self.type
         record.created = self.created
-        record.modified = self.modified
+        record.modified = timezone.now()
         record.deleted = self.deleted
         record.order = self.order
         

@@ -111,27 +111,11 @@ def migrate_comments_and_records(apps, schema_editor):
                 type = 'like',
                 channel = channel,
                 parent = m,
-                author = vote.user
+                author = vote.user,
+                created = comment.created
             )
 
         mapping[comment.id] = m
-
-
-def move_events_to_records(apps, schema_editor):
-    Event = apps.get_model("discourse", "Event")
-    Record = apps.get_model("discourse", "Record")
-    events = [vars(e) for e in Event.objects.all()]
-    for event in Event.objects.all():
-        r = Record.objects.create(
-            id = uuid.uuid4().hex,
-            anchor_uri = event.path,
-            predicate = event.type,
-            when = event.created,
-            actor =  event.actor,
-            data = {},
-        )
-        r.when = event.created
-        r.save()
 
 
 class Migration(migrations.Migration):
@@ -182,8 +166,8 @@ class Migration(migrations.Migration):
                 ('type', models.SlugField(max_length=255)),
                 ('order', models.IntegerField(default=0)),
                 ('depth', models.IntegerField(default=0)),
-                ('created', models.DateTimeField(auto_now_add=True)),
-                ('modified', models.DateTimeField(auto_now=True)),
+                ('created', models.DateTimeField()),
+                ('modified', models.DateTimeField(null=True, blank=True)),
                 ('deleted', models.DateTimeField(null=True, blank=True)),
                 ('tags', models.TextField(null=True, blank=True)),
                 ('keys', models.TextField(null=True, blank=True)),
