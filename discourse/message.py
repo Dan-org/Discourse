@@ -347,7 +347,7 @@ class MessageType(object):
             'parent': self.parent,
 
             'created': self.created,
-            'modified': self.modified,
+            'modified': self.modified or self.created,
 
             'url': self.url,
         }

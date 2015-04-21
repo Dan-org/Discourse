@@ -16,7 +16,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
     order = indexes.IntegerField(model_attr='order')
     parent = indexes.CharField(model_attr='parent_id', null=True)
     created = indexes.DateTimeField(model_attr='created')
-    modified = indexes.DateTimeField(model_attr='modified')
+    modified = indexes.DateTimeField(model_attr='modified', null=True)
     deleted = indexes.DateTimeField(model_attr='deleted', null=True)
     url = indexes.CharField(model_attr='url', indexed=False)
     value = indexes.IntegerField(default=0)

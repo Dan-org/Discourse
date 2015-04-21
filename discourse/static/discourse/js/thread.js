@@ -473,9 +473,8 @@ Discourse.like = function(channel, uuid) {
         data: {'type': 'like', 'parent': uuid},
         type: 'post',
         success: function(result) {
-            console.log(result)
             var m = window.m = $('#message-' + result.parent);
-            m.find('.likes').empty().append(result.html).hide().fadeIn('fast');
+            m.find('.likes').eq(0).empty().append(result.html).hide().fadeIn('fast');
         },
         error: function(response) {
             console.error(response);
@@ -499,7 +498,7 @@ Discourse.unlike = function(channel, uuid) {
         type: 'post',
         success: function(result) {
             var m = $('#message-' + result.parent);
-            m.find('.likes').empty().append(result.html).hide().fadeIn('fast');
+            m.find('.likes').eq(0).empty().append(result.html).hide().fadeIn('fast');
         },
         error: function(response) {
             console.error(response);
