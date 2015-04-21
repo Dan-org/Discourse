@@ -50,8 +50,11 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         self.children_index = {}
 
         top = instance
-        while top.parent:
-            top = top.parent
+        try:
+            while top.parent:
+                top = top.parent
+        except Message.DoesNotExist:
+            pass
 
         todo = [top]
         instances = []
