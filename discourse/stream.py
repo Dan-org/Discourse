@@ -33,7 +33,10 @@ def library_tag(context, channel, size=21, tags=None, sort="filename", template=
     for message in messages:
         if message.type != 'attachment' or (message.deleted and not deleted):
             continue
-        by_filename.setdefault(message.data['filename_hash'], message)
+        if not isinstance(message.data, dict):
+            print "!!!!!!", message.pack()
+            continue
+        by_filename.setdefault(message.data.get('filename_hash'), message)
 
     messages = [x for x in by_filename.values() if not x.data.get('deleted')]
     if sort == 'recent':
