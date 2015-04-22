@@ -17,6 +17,8 @@ def translate_anchor(old_uri):
     return old_uri, None
 
 
+attachments = []
+
 def migrate_comments_and_records(apps, schema_editor):
     Comment = apps.get_model("discourse", "Comment")
     Message = apps.get_model("discourse", "Message")
@@ -28,7 +30,12 @@ def migrate_comments_and_records(apps, schema_editor):
     channels = {}
     types = set()
 
+    unused = set(("accept", "apply", "calendar-event-update", "comment", "initiative_order", "edit", "task_order", "vote", "create", "attach", "report", "new-member", "download", "delete", "document"))
+
     for record in Record.objects.all():
+        if record.predicate in unused:
+            continue
+
         anchor, rest = translate_anchor( record.anchor_uri )
         tags = []
         if rest:
@@ -116,6 +123,24 @@ def migrate_comments_and_records(apps, schema_editor):
             )
 
         mapping[comment.id] = m
+
+    for a in Attachment.objects.all():
+        attachments.append()
+
+    #class Attachment(models.Model):
+#    anchor_uri = models.CharField(max_length=255)
+#    filename = models.CharField(max_length=255)
+#    content_type = models.CharField(max_length=255)
+#    author = models.ForeignKey(settings.AUTH_USER_MODEL)
+#    caption = models.TextField(blank=True)
+#    featured = models.BooleanField(default=False)
+#    hidden = models.BooleanField(default=False)
+#    created = models.DateTimeField(auto_now_add=True)
+#    modified = models.DateTimeField(auto_now=True, blank=True, null=True)
+#    order = models.IntegerField(default=0)
+#    file = models.FileField(upload_to="attachments", blank=True, null=True)
+#    link = models.CharField(max_length=255, blank=True, null=True)
+#    
 
 
 class Migration(migrations.Migration):

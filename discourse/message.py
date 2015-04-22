@@ -898,10 +898,7 @@ class AttachmentMeta(MessageType):
     type = "attachment:meta"
 
     def apply(self, other):
-        if self.data.get('deleted'):
-            other.deleted = True
-        else:
-            other.data.update(self.data)
+        other.data.update(self.data)
 
 
 class Delete(MessageType):

@@ -35,7 +35,7 @@ def library_tag(context, channel, size=21, tags=None, sort="filename", template=
             continue
         by_filename.setdefault(message.data['filename_hash'], message)
 
-    messages = list( by_filename.values() )
+    messages = [x for x in by_filename.values() if not x.data.get('deleted')]
     if sort == 'recent':
         messages.sort(key=lambda m: m.created, reversed=True)
     if sort == 'filename':
