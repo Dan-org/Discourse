@@ -6,6 +6,7 @@ from django.conf import settings
 from uuid import uuid4
 import uuidfield.fields
 import yamlfield.fields
+import mimetypes
 
 
 def translate_anchor(old_uri):
@@ -124,23 +125,62 @@ def migrate_comments_and_records(apps, schema_editor):
 
         mapping[comment.id] = m
 
+    Attachment = apps.get_model("discourse", "Attachment")
     for a in Attachment.objects.all():
-        attachments.append()
+        anchor, rest = translate_anchor( a.anchor_uri )
+        if anchor in channels:
+            channel = channels[anchor]
+        else:
+            channel = channels[anchor] = Channel.objects.create(id=anchor)
+        
+        attachments.append({
+            'channel': channel.id,
+            'filename': a.filename,
+            'author': a.author_id,
+            'hidden': a.hidden,
+            'created': a.created,
+            'modified': a.modified,
+            'mimetype': a.content_type,
+            'file': a.file,
+            'link': a.link
+        })
 
-    #class Attachment(models.Model):
-#    anchor_uri = models.CharField(max_length=255)
-#    filename = models.CharField(max_length=255)
-#    content_type = models.CharField(max_length=255)
-#    author = models.ForeignKey(settings.AUTH_USER_MODEL)
-#    caption = models.TextField(blank=True)
-#    featured = models.BooleanField(default=False)
-#    hidden = models.BooleanField(default=False)
-#    created = models.DateTimeField(auto_now_add=True)
-#    modified = models.DateTimeField(auto_now=True, blank=True, null=True)
-#    order = models.IntegerField(default=0)
-#    file = models.FileField(upload_to="attachments", blank=True, null=True)
-#    link = models.CharField(max_length=255, blank=True, null=True)
-#    
+
+def create_new_attachments(apps, schema_editor):
+    Message = apps.get_model("discourse", "Message")
+    Attachment = apps.get_model("discourse", "Attachment")
+
+    for a in attachments:
+        data = {}
+
+        if a['hidden']:
+            data['hidden'] = True
+
+        if a['link']:
+            data['link'] = a['link']
+
+        m = Message.objects.create(
+            uuid = uuid4().hex,
+            type = 'attachment' if 'link' not in data else "link",
+            channel_id = a['channel'],
+            author_id = a['author'],
+            created = a['created'],
+            modified = a['modified'],
+            content = data,
+        )
+
+        file = a['file']
+
+        if file:
+            mimetype = mimetypes.guess_type(file.name)[0]
+
+            Attachment.objects.create(
+                message = m,
+                uuid = uuid4().hex,
+                mimetype = mimetype or 'application/octet-stream',
+                filename = a['filename'],
+                source = file
+            )
 
 
 class Migration(migrations.Migration):
@@ -265,5 +305,8 @@ class Migration(migrations.Migration):
             options={
             },
             bases=(models.Model,),
+        ),
+        migrations.RunPython(
+            create_new_attachments
         ),
     ]
