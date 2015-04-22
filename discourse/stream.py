@@ -17,6 +17,8 @@ def stream_tag(context, channel, type='comment', size=21, tags=None, sort="recen
     messages = channel.search(type=type, tags=tags, sort=sort, deleted=deleted)
 
     context['stream_id'] = id or uuid4().hex
+    context['type'] = " ".join(type or [])
+    context['tags'] = " ".join(tags or [])
     return channel.render_to_string(context, messages, template=template)
 
 
@@ -41,5 +43,6 @@ def library_tag(context, channel, size=21, tags=None, sort="filename", template=
     elif sort == 'likes':
         messages.sort(key=lambda m: m.value)
 
+    context['tags'] = " ".join(tags or [])
     context['library_id'] = id or uuid4().hex
     return channel.render_to_string(context, messages, template=template)

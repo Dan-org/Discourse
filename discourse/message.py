@@ -899,7 +899,6 @@ class AttachmentMeta(MessageType):
 
     def apply(self, other):
         if self.data.get('deleted'):
-            print "DELETE!"
             other.deleted = True
         else:
             other.data.update(self.data)
@@ -909,7 +908,7 @@ class Delete(MessageType):
     type = "delete"
 
     def apply(self, other):
-        other.deleted = timezone.now()
+        other.deleted = True
 
 
 class Tag(MessageType):
