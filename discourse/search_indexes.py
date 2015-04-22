@@ -18,6 +18,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
     created = indexes.DateTimeField(model_attr='created')
     modified = indexes.DateTimeField(model_attr='modified', null=True)
     deleted = indexes.BooleanField(model_attr='deleted', null=True)
+    status = indexes.CharField()
     url = indexes.CharField(model_attr='url', indexed=False)
     value = indexes.IntegerField(default=0)
 
@@ -91,9 +92,9 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
             fix_json(state, key)
 
         if not state.get('deleted'):
-            state['deleted'] = None
+            state['status'] = 'alive'
         else:
-            state['deleted'] = 1
+            state['status'] = 'deleted'
 
         return state
 

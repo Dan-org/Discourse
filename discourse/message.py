@@ -95,7 +95,7 @@ class Channel(models.Model):
             q = q.filter(parent=parent)
 
         if not deleted:
-            q = q.exclude(deleted=1)
+            q = q.exclude(status='deleted')
 
         if sort == 'recent':
             q = q.order_by('-created')
@@ -402,6 +402,9 @@ class MessageType(object):
         self.created = to_datetime(state.get('created'), or_now=True)
         self.modified = to_datetime(state.get('modified'), or_now=True)
         self.deleted = bool(state.get('deleted', None))
+
+        if state.get('status') == 'deleted':
+            self.deleted = True
 
         self.keys = set(state.get('keys') or ())
         self.tags = set(state.get('tags') or ())
