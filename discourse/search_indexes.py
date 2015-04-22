@@ -92,6 +92,8 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
         if not state.get('deleted'):
             state['deleted'] = None
+        else:
+            state['deleted'] = 1
 
         return state
 
