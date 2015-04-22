@@ -16,7 +16,7 @@ from django.utils.safestring import mark_safe
 from django.dispatch import Signal
 from django.contrib.auth import get_user_model
 
-from haystack.query import SearchQuerySet
+from haystack.query import SearchQuerySet, SQ
 from haystack.models import SearchResult
 
 from uuidfield import UUIDField
@@ -77,7 +77,7 @@ class Channel(models.Model):
     def search(self, type=None, tags=None, author=None, parent=None, deleted=False, sort='recent'):
         q = SearchQuerySet().models(Message).result_class(MessageResult)
 
-        q = q.filter(channel__exact=self.id)
+        q = q.filter(SQ(channel__exact=self.id) | SQ(tags=self.id))
 
         if type:
             if isinstance(type, basestring):
@@ -85,7 +85,10 @@ class Channel(models.Model):
             else:
                 q = q.filter(type__in=type)
         if tags:
-            q = q.filter(tags__in=tags)
+            sq = SQ(tags=tags.pop())
+            while tags:
+                sq = sq & SQ(tags=tags.pop())
+            q = q.filter(sq)
         if author:
             q = q.filter(author=author)
         if parent:
@@ -154,7 +157,7 @@ class Channel(models.Model):
         message.broadcast()
 
         # Save if requested
-        if save:
+        if save and message.saveable:
             message.save(create=True, update_relations=True)
 
         return message
@@ -309,6 +312,7 @@ class MessageMeta(type):
 
 class MessageType(object):
     __metaclass__ = MessageMeta
+    saveable = True
 
     def __init__(self, type, uuid=None):
         self.uuid = uuid
@@ -332,7 +336,9 @@ class MessageType(object):
         return self.pack()
 
     def render(self, context):
-        context.push({'message': self, 'data': self.data})
+        user = context['request'].user
+        can_edit_message = (user.is_superuser or user.id == self.author['id'])
+        context.push({'message': self, 'data': self.data, 'can_edit_message': can_edit_message})
         return render_to_string(["discourse/message/%s.html" % self.type], context)
 
     def describe(self):
@@ -889,7 +895,6 @@ class AttachmentMeta(MessageType):
     type = "attachment:meta"
 
     def apply(self, other):
-        print "APPLY", self.data
         if self.data.get('deleted'):
             print "DELETE!"
             other.deleted = True
@@ -902,6 +907,22 @@ class Delete(MessageType):
 
     def apply(self, other):
         other.deleted = timezone.now()
+
+
+class Tag(MessageType):
+    def apply(self, other):
+        if 'set' in self.data:
+            other.tags = self.get_data_tags('set')
+        other.tags |= self.get_data_tags('add')
+        other.tags -= self.get_data_tags('remove')
+
+    def get_data_tags(self, k):
+        tags = self.data.get(k)
+        if not tags:
+            return set()
+        if isinstance(tags, basestring):
+            return set([tags])
+        return set(tags)
 
 
 #class AttachmentMeta(MessageType):

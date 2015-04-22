@@ -121,6 +121,8 @@ class LibraryTag(ttag.Tag):
         return render_to_string('discourse/library.html', locals())
 
 
+
+
 ### Views ###
 def get_attachment_changes(request):
     changes = {}

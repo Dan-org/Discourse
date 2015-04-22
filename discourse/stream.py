@@ -7,10 +7,10 @@ from message import channel_for
 
 
 def stream_tag(context, channel, type='comment', size=21, tags=None, sort="recent", template='discourse/stream.html', id=None, deleted=False):
-    if type:
+    if type and isinstance(type, basestring):
         type = [x.strip() for x in type.split() if x.strip()]
 
-    if tags:
+    if tags and isinstance(tags, basestring):
         tags = [x.strip() for x in tags.split() if x.strip()]
 
     channel = channel_for(channel)
@@ -21,7 +21,7 @@ def stream_tag(context, channel, type='comment', size=21, tags=None, sort="recen
 
 
 def library_tag(context, channel, size=21, tags=None, sort="filename", template='discourse/library.html', id=None, deleted=False):
-    if tags:
+    if tags and isinstance(tags, basestring):
         tags = [x.strip() for x in tags.split() if x.strip()]
 
     channel = channel_for(channel)

@@ -75,11 +75,12 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         state = super(MessageIndex, self).prepare(message)
 
         message = message.rebuild()
-        children = self.children_index.get(message.uuid, ())
+        message.children = self.children_index.get(message.uuid, ())
 
         # Iterate through each child and have it apply() itself to its parent.
-        for child in children:
-            child.apply(message)
+        for child in message.children:
+            if not child.deleted:
+                child.apply(message)
 
         if message.parent:
             self.children_index.setdefault(message.parent, []).append(message)

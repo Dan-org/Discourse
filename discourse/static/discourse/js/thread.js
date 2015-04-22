@@ -21,11 +21,8 @@ $(document).on('blur', '.discourse .thread textarea', function(e) {
     }, 100);
 });
 
-// When 'delete' is pressed on a comment, it is deleted.
-$(document).on('click', '.discourse .thread .controls .delete', function(e) {
-    deleteComment($(e.target).closest('.comment'));
-    e.preventDefault();
-});
+// When 'delete' is pressed on a message, it is deleted.
+$(document).on('click', '.discourse .messages .act-delete', deleteMessage);
 
 // When 'reply' is pressed on a comment, the form is copied and added to the end of the subthread.
 $(document).on('click', '.discourse .thread .controls .reply', function(e) {
@@ -146,8 +143,6 @@ function onMessageForm(e) {
         data: data,
         type: 'post',
         success: function(response) {
-            console.log(response);
-
             formReady(form);
 
             postCommentSuccess(form, response);
@@ -176,13 +171,14 @@ function findStream(channel) {
 }
 
 function realizeComment(message) {
-    var source = $('#message-' + message.uuid);
-    if (source.length != 0) {
-        source.html(message.html);
+    var source = $('<div>').append(message['html']).children().detach();
+
+    var existing = $('#message-' + message.uuid);
+    if (existing.length > 0) {
+        existing.replaceWith(source);
         return source;
     }
 
-    var source = $('<div id="message-' + message.uuid + '">');
     if (message.parent) {
         parent = $('.replies[for=message-' + message.parent + ']');
         parent.append(source);
@@ -190,8 +186,6 @@ function realizeComment(message) {
         var stream = findStream(message.url);
         source.prependTo(stream.find('.content'));
     }
-
-    source.html(message['html']);
 
     return source;
 
@@ -287,22 +281,20 @@ function postCommentSuccess(form, result) {
         });
 }
 
-function deleteComment(comment) {
-    var url = comment.closest('.thread').find('form').first().attr('action');
-    var id = comment.attr('id').substring('comment-'.length);
-    var comment_and_subthread = comment.add(comment.next('.subthread'));
-
+function deleteMessage(e) {
+    e.preventDefault();
+    var self = $(this).closest('.messages');
+    var id = self.attr('id').substring('message-'.length);
+    var url = self.closest('.stream').attr('data-channel');
     $.ajax({
-        url: url,
-        data: {'id': id, 'delete': true},
         type: 'post',
+        url: url,
+        data: {'type': 'delete', 'parent': id},
         success: function() {
-            comment_and_subthread.fadeOut('normal', function() {
-                comment_and_subthread.remove();
-            });
-        },
-        error: function() {
-            comment.fadeOut('fast').fadeIn('fast');
+            self.fadeOut();
+            $('*[for]').filter(function(i, item) {
+                return ($(item).attr('for') == 'message-' + id);
+            }).fadeOut();
         }
     });
 }
