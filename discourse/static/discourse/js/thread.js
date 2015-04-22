@@ -1,7 +1,12 @@
 // When the page loads, have discourse follow all threads
 $(function() {
-    $('.discourse .stream').each(function(i, e) {
-        discourse.follow($(e).attr('data-channel'));
+    following = {};
+
+    $('.discourse.stream').each(function(i, e) {
+        var channel = $(e).attr('data-channel-id');
+        if (following[channel]) return;
+        following[channel] = true;
+        discourse.follow(channel);
     })
 });
 
@@ -415,7 +420,7 @@ Stream.update = function(result) {
 }
 
 // When discourse tells us that there is a new comment
-discourse.on('create', Stream.update);
+discourse.on('feedback', Stream.update);
 
 $(document).on('change', 'form.discourse-stream-filter', function(e) {
     var form = $(this).closest('form');

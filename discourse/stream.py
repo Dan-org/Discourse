@@ -29,7 +29,6 @@ def library_tag(context, channel, size=21, tags=None, sort="filename", template=
 
     by_filename = {}
     for message in messages:
-        print "DELETED", message.deleted
         if message.type != 'attachment' or (message.deleted and not deleted):
             continue
         by_filename.setdefault(message.data['filename_hash'], message)

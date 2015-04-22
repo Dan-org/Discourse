@@ -95,7 +95,7 @@ class Channel(models.Model):
             q = q.filter(parent=parent)
 
         if not deleted:
-            q = q.exclude(deleted=True)
+            q = q.exclude(deleted=1)
 
         if sort == 'recent':
             q = q.order_by('-created')
