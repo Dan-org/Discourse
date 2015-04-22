@@ -17,7 +17,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
     parent = indexes.CharField(model_attr='parent_id', null=True)
     created = indexes.DateTimeField(model_attr='created')
     modified = indexes.DateTimeField(model_attr='modified', null=True)
-    deleted = indexes.DateTimeField(model_attr='deleted', null=True)
+    deleted = indexes.BooleanField(model_attr='deleted', null=True)
     url = indexes.CharField(model_attr='url', indexed=False)
     value = indexes.IntegerField(default=0)
 
@@ -88,6 +88,9 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
         for key in ['author', 'data', 'attachments']:
             fix_json(state, key)
+
+        if not state.get('deleted'):
+            state['deleted'] = None
 
         return state
 

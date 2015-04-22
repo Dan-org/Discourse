@@ -34,7 +34,7 @@
 #    obj = get_instance_from_sig(attachment.path)
 #    if hasattr(obj, 'secure'):
 #        if obj.secure:
-#            if not obj.can_see(request):
+#            if not obj.can_see(request.user):
 #                raise PermissionDenied()
 #            storage.secure = obj.secure
 #

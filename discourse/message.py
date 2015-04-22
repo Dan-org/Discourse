@@ -74,14 +74,14 @@ class Channel(models.Model):
             'url': self.url,
         }
 
-    def search(self, type=None, tags=None, author=None, parent=None):
-        q = SearchQuerySet().models(Message).result_class(MessageResult) # self.messages.all() # 
+    def search(self, type=None, tags=None, author=None, parent=None, deleted=False, sort='recent'):
+        q = SearchQuerySet().models(Message).result_class(MessageResult)
 
         q = q.filter(channel__exact=self.id)
 
         if type:
             if isinstance(type, basestring):
-                q = q.filter(type=type)
+                q = q.filter(type__exact=type)
             else:
                 q = q.filter(type__in=type)
         if tags:
@@ -91,7 +91,23 @@ class Channel(models.Model):
         if parent:
             q = q.filter(parent=parent)
 
+        if not deleted:
+            q = q.exclude(deleted=True)
+
+        if sort == 'recent':
+            q = q.order_by('-created')
+        elif sort == 'value':
+            q = q.order_by('-value', '-created')
+
         return q
+
+    def get_anchor(self):
+        if not hasattr(self, '_anchor'):
+            self._anchor, _ = resolve_model_uri(self.id)
+        return self._anchor
+
+    def get_message(self, uuid):
+        return SearchQuerySet().models(Message).result_class(MessageResult).get(uuid=uuid)
     
     def publish(self, type, author, tags=None, data=None, save=False, parent=None, attachments=None):
         # If the channel hasn't been saved, now we save it.
@@ -121,11 +137,13 @@ class Channel(models.Model):
             'tags': tags,
         })
 
+        # Add attachments
+        if attachments:
+            for file in attachments:
+                message.attach(file)
+
         # Allow message to build itself / initialize anything necessary.
         message.build()
-
-        # Add attachments
-        message._attachments = attachments
 
         # Signal to all hooked functions
         if not message.signal():
@@ -144,8 +162,8 @@ class Channel(models.Model):
     def upload(self, author, files, tags=None, data=None):
         return self.publish("attachment", author, tags=tags, data=data, attachments=files, save=True)
 
-    def download(self, author, attachment_id):
-        attachment = get_object_or_404(Attachment.objects.filter(message__channel=self), uuid=attachment_id)
+    def download(self, author, attachment_id, filename):
+        attachment = get_object_or_404(Attachment, message__uuid=attachment_id, filename=filename)
         self.publish("download", author, data={'attachment': attachment})
         return attachment
 
@@ -164,13 +182,8 @@ class Channel(models.Model):
     #    m = self.publish("attachment", author, content={'action': 'rename', 'filename': attachment.filename, 'new_name': new_name, 'filename_hash': hash(attachment.filename)}, save=True)
     #    return m
 
-    def render_to_string(self, context, template='discourse/stream.html', type=None, tags=None, sort=None):
-        messages = self.search(type=type, tags=tags)
-
-        if sort == 'recent':
-            messages = messages.order_by('-created')
-        elif sort == 'value':
-            messages = messages.order_by('-value', '-created')
+    def render_to_string(self, context, messages, template='discourse/stream.html'):
+        #messages = self.search(type=type, tags=tags, deleted=deleted)
 
         if not isinstance(context, Context):
             context = Context(context)
@@ -185,9 +198,6 @@ class Channel(models.Model):
         content = mark_safe("\n".join(parts))
         channel = self
 
-        tags = tags or []
-        type = type or []
-
         with context.push(locals()):
             return render_to_string(template, context)
 
@@ -195,16 +205,6 @@ class Channel(models.Model):
     def url(self):
         return reverse('discourse:channel', args=[self.id])
 
-
-def attach(message, file):
-    mimetype = getattr(file, 'mimetype', mimetypes.guess_type(file.name)[0])
-
-    return Attachment.objects.create(
-        message_uuid = message['uuid'],
-        mimetype = mimetype or 'application/octet-stream',
-        filename = file.name,
-        source = file
-    )
 
 
 def render_message(message, context):
@@ -270,6 +270,7 @@ class Message(models.Model):
                 'url': self.url
             }
             self._message.unpack(dct)
+            self._message.build()
         return self._message
 
     @property
@@ -331,7 +332,7 @@ class MessageType(object):
         return self.pack()
 
     def render(self, context):
-        context.push({'message': self})
+        context.push({'message': self, 'data': self.data})
         return render_to_string(["discourse/message/%s.html" % self.type], context)
 
     def describe(self):
@@ -357,7 +358,7 @@ class MessageType(object):
         if self.deleted: result['deleted'] = self.deleted
         if self.keys: result['keys'] = list(self.keys)
         if self.tags: result['tags'] = list(self.tags)
-        if self.attachments: result['attachments'] = list(self.attachments)
+        if self.attachments: result['attachments'] = self.attachments
         if self.html: result['html'] = self.html
 
         if self.data:
@@ -394,7 +395,7 @@ class MessageType(object):
 
         self.created = to_datetime(state.get('created'), or_now=True)
         self.modified = to_datetime(state.get('modified'), or_now=True)
-        self.deleted = to_datetime(state.get('deleted', None))
+        self.deleted = bool(state.get('deleted', None))
 
         self.keys = set(state.get('keys') or ())
         self.tags = set(state.get('tags') or ())
@@ -420,18 +421,6 @@ class MessageType(object):
     def apply(self, parent):
         pass
 
-    def attach(self, file):
-        mimetype = getattr(file, 'mimetype', mimetypes.guess_type(file.name)[0])
-
-        a = Attachment.objects.create(
-            message = self.get_record(),
-            mimetype = mimetype or 'application/octet-stream',
-            filename = file.name,
-            source = file
-        )
-
-        self.attachments.append(a.simple())
-
     def cap(self, parent, children):
         pass
 
@@ -447,7 +436,7 @@ class MessageType(object):
         record.type = self.type
         record.created = self.created
         record.modified = timezone.now()
-        record.deleted = self.deleted
+        record.deleted = timezone.now() if self.deleted else None
         record.order = self.order
         
         record.keys = " ".join(self.keys)
@@ -469,12 +458,39 @@ class MessageType(object):
         record._message = self
         self._record = record
 
-        # Resolve attachments
-        if hasattr(self, '_attachments') and self._attachments:
-            for file in self._attachments:
-                self.attach(file)
+        # Resolve new attachments
+        self.save_attachments()
 
         return record
+
+    def save_attachments(self):
+        if not hasattr(self, '_attachment_objects'):
+            return
+
+        for attachment in self._attachment_objects:
+            attachment.message = self.get_record()
+            attachment.save()
+
+
+    def attach(self, file):
+        mimetype = file.content_type or getattr(file, 'mimetype', mimetypes.guess_type(file.name)[0])
+
+        a = Attachment(
+            uuid = uuid4().hex,
+            mimetype =  mimetype or 'application/octet-stream',
+            filename = file.name,
+            source = file
+        )
+
+        if not hasattr(self, '_attachment_objects'):
+            self._attachment_objects = []
+        self._attachment_objects.append(a)
+
+        simple = a.simple()
+        simple['size'] = file.size
+        self.attachments.append(simple)
+
+        return simple
 
     def broadcast(self):
         print "BROADCAST", self.channel, self.type
@@ -492,6 +508,9 @@ class MessageType(object):
         if not hasattr(self, '_channel'):
             self._channel = Channel.objects.get(id=self.channel)
         return self._channel
+
+    def get_channel_anchor(self):
+        return self.get_channel().get_anchor()
 
     def get_parent(self):
         if not self.parent:
@@ -594,7 +613,7 @@ def MessageResult(app_label, model_name, pk, score, **kwargs):
 
 
 class Attachment(models.Model):
-    uuid = UUIDField(auto=True, primary_key=True)
+    uuid = UUIDField(auto=False, primary_key=True)
     message = models.ForeignKey(Message, related_name="attachments")
     mimetype = models.CharField(max_length=255)
     filename = models.CharField(max_length=255)
@@ -609,8 +628,6 @@ class Attachment(models.Model):
             'mimetype': self.mimetype,
             'filename': self.filename,
             'url': self.source.url,
-            'message': self.message_id,
-            'url': self.url,
             'filename_hash': self.filename_hash,
         }
 
@@ -620,7 +637,7 @@ class Attachment(models.Model):
 
     @property
     def url(self):
-        return reverse('discourse:attachment', args=[self.message.channel.id, self.uuid]) + self.filename
+        return reverse('discourse:attachment', args=[self.message.channel.id, self.uuid, self.filename])
 
 
 def library(messages):
@@ -706,14 +723,10 @@ def channel_view(request, id, message_id=None):
 
     channel = channel_for(id)
 
-    if request.FILES:
-        message = channel.upload(request.user, request.FILES.getlist('attachment'))
-        return message.post(request)
-
     if request.method == 'POST':
         if not request.user.is_authenticated():
             raise Http404
-
+        
         type = request.POST['type']
         tags = [x.strip() for x in request.POST.getlist('tags', []) if x.strip()] or None
         data = request.POST.get('data', None)
@@ -725,22 +738,33 @@ def channel_view(request, id, message_id=None):
         for k, v in request.POST.items():
             if k.startswith('data-'):
                 data[k[5:]] = v
+            if k.startswith('data['):
+                data[k[5:-1]] = v
 
         parent = request.POST.get('parent', None)
         if parent:
             parent = get_object_or_404(Message, pk=parent)
         else:
             parent = None
-        message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, save=True)
+
+        attachments = None
+        if request.FILES:
+            attachments = request.FILES.getlist('attachment')
+
+        message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, attachments=attachments, save=True)
         return message.post(request)
 
     type = expand_tags(request.GET.getlist('type[]'))
     tags = expand_tags(request.GET.getlist('tags[]'))
+    deleted = request.POST.get('deleted') in ('true', 'yes', 'on', 'True')
 
     sort = request.GET.get('sort', 'recent')
     template = request.GET.get('template', None)
 
-    return HttpResponse( channel.render_to_string(RequestContext(request, locals()), type=type, tags=tags, sort=sort, template=template) )
+    messages = channel.search(type=type, tags=tags, sort=sort, deleted=deleted)
+    context = RequestContext(request, locals())
+
+    return HttpResponse(channel.render_to_string(context, messages=messages, template=template))
 
 
 def expand_tags(tags):
@@ -752,21 +776,21 @@ def expand_tags(tags):
     return filter(None, [x.strip() for x in results]) or None
 
 
-def attachment(request, channel, attachment):
+def attachment(request, channel, attachment, filename):
     channel = channel_for(channel)
 
-    if (request.method == 'POST' and request.POST.get('delete')) or request.method == 'DELETE':
-        message = channel.set_attachment_meta(request.user, attachment, deleted=True)
-        return JsonResponse( message.pack() )
+    #if (request.method == 'POST' and request.POST.get('delete')) or request.method == 'DELETE':
+    #    message = channel.set_attachment_meta(request.user, attachment, deleted=True)
+    #    return JsonResponse( message.pack() )
+    #
+    #if (request.method == 'POST' and 'hidden' in request.POST):
+    #    hidden = request.POST.get('hidden') in ('true', 'True', 'yes', '1')
+    #    message = channel.set_attachment_meta(request.user, attachment, hidden=hidden)
+    #    return JsonResponse( message.pack() )
+    #
+    #    message = channel.set_attachment_meta(request.user, attachment, hidden=(request.POST.get('hidden') == 'true'))
 
-    if (request.method == 'POST' and 'hidden' in request.POST):
-        hidden = request.POST.get('hidden') in ('true', 'True', 'yes', '1')
-        message = channel.set_attachment_meta(request.user, attachment, hidden=hidden)
-        return JsonResponse( message.pack() )
-
-        message = channel.set_attachment_meta(request.user, attachment, hidden=(request.POST.get('hidden') == 'true'))
-
-    attachment = channel.download(request.user, attachment)
+    attachment = channel.download(request.user, attachment, filename)
 
     #if attachment.content_type == 'text/url':
     #    return HttpResponseRedirect(attachment.link)
@@ -822,6 +846,62 @@ class Reply(MessageType):
 
 
 
+class AttachmentType(MessageType):
+    type = "attachment"
+
+    def build(self):
+        if not self.attachments:
+            return
+
+        attachment = self.attachments[0]
+        self.data.update({
+            'filename': attachment['filename'],
+            'filename_hash': hash(attachment['filename']),
+            'url': reverse('discourse:attachment', args=[self.channel, self.uuid, attachment['filename']]),
+            'size': attachment.get('size', '?'),
+            'mimetype': attachment['mimetype']
+        })
+        self.data['icon'] = self.icon
+        return self.data
+
+    @property
+    def icon(self):
+         """
+         Returns the icon type for the file.
+         """
+         if "application/pdf" in self.data['mimetype']:
+             return "icon-doc-text"
+         elif "image/" in self.data['mimetype']:
+             return "icon-doc"
+         elif "application/msword" in self.data['mimetype']:
+             return "icon-doc-text"
+         elif "officedocument" in self.data['mimetype']:
+             return "icon-doc-text"
+         elif self.data['filename'].endswith(".pages"):
+             return "icon-doc-text"
+         return "icon-doc"
+
+    def thumbnail(self):
+        return '<i class="{}"></i> '.format(self.icon)
+
+
+class AttachmentMeta(MessageType):
+    type = "attachment:meta"
+
+    def apply(self, other):
+        print "APPLY", self.data
+        if self.data.get('deleted'):
+            print "DELETE!"
+            other.deleted = True
+        else:
+            other.data.update(self.data)
+
+
+class Delete(MessageType):
+    type = "delete"
+
+    def apply(self, other):
+        other.deleted = timezone.now()
 
 
 #class AttachmentMeta(MessageType):

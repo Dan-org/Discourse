@@ -421,6 +421,9 @@ function setupFileInput(options) {
         withCredentials: true,
         maxfiles: 32,
         maxfilesize: 2000,
+        data: {
+            type: 'attachment'
+        },
         headers: {
             'X-CSRFToken': $.cookie('csrftoken')
         },
@@ -446,16 +449,11 @@ function setupFileInput(options) {
 }
 
 
-function libraryManipulate(options) {
-    var url = options.url;
-    var success = options.success || jQuery.noop();
-    var error = options.error;
-    var data = options.data;
-
+function libraryManipulate(url, type, id, data, success, error) {
     jQuery.ajax({
         url: url,
         type: 'POST',
-        data: data,
+        data: {type: type, parent: id, data: data},
         context: this,
         error: function() {
             if (error) {
@@ -465,13 +463,11 @@ function libraryManipulate(options) {
             }
         },
         success: function(response) {
-            var links = $('#file-' + response.data.filename_hash);
+            var links = $('#message-' + response.parent);
 
-            meta = response.data.meta;
-
-            links.toggleClass('hidden', meta.hidden);
+            links.toggleClass('hidden', response.data.hidden);
             
-            if (meta.deleted) {
+            if (response.data.deleted) {
                 links.fadeOut(400, function() {
                     links.remove();
                 });
@@ -489,81 +485,22 @@ function humanFileSize(size) {
     return ( size / Math.pow(1024, i) ).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
 };
 
-function setupFileDrop(library) {
-    $(document.body).filedrop({
-        fallback_id: 'library-upload',    // an identifier of a standard file input element
-        url: library.url,                // upload handler, handles each file separately, can also be a function returning a url
-        paramname: 'file',                // POST parameter name used on serverside to reference file
-        withCredentials: true,            // make a cross-origin request with cookies
-        headers: {          // Send additional request headers
-            'X-CSRFToken': $.cookie('csrftoken')
-        },
-        maxfiles: 32,
-        maxfilesize: 10000,
-        dragOver: function() {
-            // user dragging files over #dropzone
-        },
-        dragLeave: function() {
-            // user dragging files out of #dropzone
-        },
-        docOver: function() {
-            // user dragging files anywhere inside the browser document window
-        },
-        docLeave: function() {
-            // user dragging files out of the browser document window
-        },
-        drop: function() {
-            Overlay.status.progress("Begining upload...", 0);
-        },
-        uploadStarted: function(i, file, len) {
-            // a file began uploading
-            // i = index => 0, 1, 2, 3, 4 etc
-            // file is the actual file of the index
-            // len = total files user dropped
-        },
-        uploadFinished: function(i, file, response, time) {
-            try {
-                var attachment = eval(response);
-                if (!attachment) return;
-            } catch(e) {
-                return;
-            }
-
-            library.changeFile(attachment);
-        },
-        progressUpdated: function(i, file, progress) {
-            // this function is used for large files and updates intermittently
-            // progress is the integer value of file being uploaded percentage to completion
-        },
-        globalProgressUpdated: function(progress) {
-            Overlay.status.progress("Upload progress", progress / 100);
-            // progress for all the files uploaded on the current instance (percentage)
-            // ex: $('#progress div').width(progress+"%");
-        },
-        speedUpdated: function(i, file, speed) {
-            // speed in kb/s
-        },
-        rename: function(name) {
-            // name in string format
-            // must return alternate name as string
-        },
-        beforeEach: function(file) {
-            // file is a file object
-            // return false to cancel upload
-        },
-        beforeSend: function(file, i, done) {
-            // file is a file object
-            // i is the file index
-            // call done() to start the upload
-            console.log(file);
-            done();
-        },
-        afterAll: function() {
-            Overlay.status.progress("Upload complete.", 1);
-            //console.log("uploads complete");
-            // runs after all files have been uploaded or otherwise dealt with
-        }
+function findLibrary(channel_id) {
+    return $('.discourse.library').filter(function() {
+        return $(this).attr('data-channel-id') == channel_id;
     });
 }
 
-/* */
+function realizeAttachment(message) {
+    console.log("realizeAttachment", message);
+    var stream = findLibrary(message.channel);
+
+    var source = stream.find('*[name=' + message.data.filename_hash + ']');
+    console.log(source);
+    if (source.length != 0) {
+        source.replaceWith(message.html);
+        return source;
+    }
+
+    stream.find('.file-list').prepend(message['html']);
+}

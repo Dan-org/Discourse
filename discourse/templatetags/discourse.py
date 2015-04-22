@@ -39,20 +39,21 @@ class Uri(ttag.Tag):
 #register.tag(StreamTag)
 #register.tag(Uri)
 
-from ..library import LibraryTag
+#from ..library import LibraryTag
 from ..follow import FollowTag
 from ..favorite import FavoriteTag
 from ..document import DocumentTag
 from ..message import channel_for
 
 register = template.Library()
-register.tag(LibraryTag)
+#register.tag(LibraryTag)
 register.tag(FollowTag)
 register.tag(FavoriteTag)
 register.tag(DocumentTag)
 
-from ..stream import stream_tag
+from ..stream import stream_tag, library_tag
 register.simple_tag(takes_context=True, name="stream")(stream_tag)
+register.simple_tag(takes_context=True, name="library")(library_tag)
 
 
 @register.simple_tag

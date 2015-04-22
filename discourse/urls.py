@@ -12,6 +12,6 @@ urlpatterns = patterns('discourse',
     #url(r'^stream/(?P<uri>.+)$', 'event.stream',  name="stream"),
     #url(r'^vote/(?P<uri>.+)$', 'vote.cast',  name="vote"),
 
-    url(r'^(?P<channel>.+)/attachments/(?P<attachment>.+)/.*$', 'message.attachment',  name="attachment"),
+    url(r'^(?P<channel>.+?)/attachments/(?P<attachment>\w+)/(?P<filename>.+?)$', 'message.attachment',  name="attachment"),
     url(r'^(?P<id>.+)/$', 'message.channel_view', name="channel"),
 )
