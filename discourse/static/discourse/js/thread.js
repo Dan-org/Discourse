@@ -1,7 +1,7 @@
 // When the page loads, have discourse follow all threads
 $(function() {
-    $('.discourse .thread').each(function(i, e) {
-        discourse.follow($(e).attr('rel'));
+    $('.discourse .stream').each(function(i, e) {
+        discourse.follow($(e).attr('data-channel'));
     })
 });
 
@@ -78,34 +78,6 @@ function updateCounts(tag, prompt_id) {
     prompt.text('(' + value + ')');
 }   
 
-// When discourse tells us that there is a new comment
-discourse.on('create', function (data) {
-    var comment = data.target;
-    realizeComment(comment);
-    var tags = comment.tags = findAllTags(comment.body);
-    var prompt_id = comment.anchor.match(/\d+$/g);
-    for(var i = 0; i < tags.length; i++) {
-        updateCounts(tags[i], prompt_id);
-    }
-});
-
-// When discourse tells us there's a new vote.
-discourse.on('comment-vote', function (data) {
-    var comment = $('#comment-' + data.data.comment_id);
-    var value = data.data.value;
-
-    comment.find('.meta .score').empty().append(value).fadeOut().fadeIn();
-});
-
- // When discourse tells us a comment was deleted.
-discourse.on('delete', function(data) {
-    var comment = $('#comment-' + data.id);
-    var comment_and_subthread = comment.add(comment.next('.subthread'));
-
-    comment_and_subthread.fadeOut('normal', function() {
-        comment_and_subthread.remove();
-    });
-});
 
 
 function clearForm(form) {
@@ -437,6 +409,13 @@ Stream.prototype.filter = function(filter) {
 
     this.reload();
 }
+
+Stream.update = function(result) {
+    console.log(result);
+}
+
+// When discourse tells us that there is a new comment
+discourse.on('create', Stream.update);
 
 $(document).on('change', 'form.discourse-stream-filter', function(e) {
     var form = $(this).closest('form');
