@@ -6,35 +6,42 @@ from django.utils.safestring import mark_safe
 from message import channel_for
 
 
-def stream_tag(context, channel, type='comment', size=21, tags=None, sort="recent", template='discourse/stream.html', id=None, deleted=False):
+def stream_tag(context, channel, type='comment', size=21, require_any=None, require_all=None, sort="recent", template='discourse/stream.html', id=None, deleted=False, inform=False):
     if type and isinstance(type, basestring):
         type = [x.strip() for x in type.split() if x.strip()]
 
-    if tags and isinstance(tags, basestring):
-        tags = [x.strip() for x in tags.split() if x.strip()]
+    if require_any and isinstance(require_any, basestring):
+        require_any = [x.strip() for x in require_any.split() if x.strip()]
+
+    if require_all and isinstance(require_all, basestring):
+        require_all = [x.strip() for x in require_all.split() if x.strip()]
 
     channel = channel_for(channel)
-    messages = channel.search(type=type, tags=tags, sort=sort, deleted=deleted)
+    messages = channel.search(type=type, require_any=require_any, require_all=require_all, sort=sort, deleted=deleted)
 
     context['stream_id'] = id or uuid4().hex
     context['type'] = " ".join(type or [])
-    context['tags'] = " ".join(tags or [])
+    context['require_any'] = " ".join(require_any or [])
+    context['require_all'] = " ".join(require_all or [])
+    context['inform'] = inform
     return channel.render_to_string(context, messages, template=template)
 
 
-def library_tag(context, channel, size=21, tags=None, sort="filename", template='discourse/library.html', id=None, deleted=False):
-    if tags and isinstance(tags, basestring):
-        tags = [x.strip() for x in tags.split() if x.strip()]
+def library_tag(context, channel, size=21, require_any=None, require_all=None, sort="filename", template='discourse/library.html', id=None, deleted=False):
+    if require_any and isinstance(require_any, basestring):
+        require_any = [x.strip() for x in require_any.split() if x.strip()]
+
+    if require_all and isinstance(require_all, basestring):
+        require_all = [x.strip() for x in require_all.split() if x.strip()]
 
     channel = channel_for(channel)
-    messages = channel.search(type='attachment', tags=tags, sort='recent', deleted=deleted)
+    messages = channel.search(type='attachment', require_any=require_any, require_all=require_all, sort='recent', deleted=deleted)
 
     by_filename = {}
     for message in messages:
         if message.type != 'attachment' or (message.deleted and not deleted):
             continue
         if not isinstance(message.data, dict):
-            print "!!!!!!", message.pack()
             continue
         by_filename.setdefault(message.data.get('filename_hash'), message)
 
@@ -46,6 +53,7 @@ def library_tag(context, channel, size=21, tags=None, sort="filename", template=
     elif sort == 'likes':
         messages.sort(key=lambda m: m.value)
 
-    context['tags'] = " ".join(tags or [])
+    context['require_any'] = " ".join(require_any or [])
+    context['require_all'] = " ".join(require_all or [])
     context['library_id'] = id or uuid4().hex
     return channel.render_to_string(context, messages, template=template)

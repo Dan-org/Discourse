@@ -74,7 +74,7 @@ class Channel(models.Model):
             'url': self.url,
         }
 
-    def search(self, type=None, tags=None, author=None, parent=None, deleted=False, sort='recent'):
+    def search(self, type=None, require_all=None, require_any=None, author=None, parent=None, deleted=False, sort='recent'):
         q = SearchQuerySet().models(Message).result_class(MessageResult)
 
         q = q.filter(SQ(channel__exact=self.id) | SQ(tags=self.id))
@@ -84,11 +84,14 @@ class Channel(models.Model):
                 q = q.filter(type__exact=type)
             else:
                 q = q.filter(type__in=type)
-        if tags:
-            sq = SQ(tags=tags.pop())
-            while tags:
-                sq = sq & SQ(tags=tags.pop())
+        if require_all:
+            require_all = set(require_all)
+            sq = SQ(tags=require_all.pop())
+            while require_all:
+                sq = sq & SQ(tags=require_all.pop())
             q = q.filter(sq)
+        if require_any:
+            q = q.filter(tags__in=require_any)
         if author:
             q = q.filter(author=author)
         if parent:
@@ -139,6 +142,9 @@ class Channel(models.Model):
             'data': data,
             'tags': tags,
         })
+
+        if author:
+            message.tags.add(uri(author))
 
         # Add attachments
         if attachments:
@@ -194,7 +200,10 @@ class Channel(models.Model):
         parts = []
         for m in messages:
             try:
-                parts.append( m.render(context) )
+                if m.channel == self.id:
+                    parts.append( m.render(context) )
+                else:
+                    parts.append( m.inform(context) )
             except TemplateDoesNotExist:
                 continue
 
@@ -328,12 +337,9 @@ class MessageType(object):
             pass
         return JsonResponse( self.pack() )
 
-    def inform(self, request):
-        try:
-            self.html = self.render(RequestContext(request, {}))
-        except TemplateDoesNotExist:
-            pass
-        return self.pack()
+    def inform(self, context):
+        with context.push(inform=True):
+            return self.render(context)
 
     def render(self, context):
         user = context['request'].user
@@ -764,13 +770,14 @@ def channel_view(request, id, message_id=None):
         return message.post(request)
 
     type = expand_tags(request.GET.getlist('type[]'))
-    tags = expand_tags(request.GET.getlist('tags[]'))
+    require_any = expand_tags(request.GET.getlist('require_any[]'))
+    require_all = expand_tags(request.GET.getlist('require_all[]'))
     deleted = request.POST.get('deleted') in ('true', 'yes', 'on', 'True')
 
     sort = request.GET.get('sort', 'recent')
     template = request.GET.get('template', None)
 
-    messages = channel.search(type=type, tags=tags, sort=sort, deleted=deleted)
+    messages = channel.search(type=type, require_any=require_any, require_all=require_all, sort=sort, deleted=deleted)
     context = RequestContext(request, locals())
 
     return HttpResponse(channel.render_to_string(context, messages=messages, template=template))

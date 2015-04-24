@@ -353,7 +353,8 @@ function Stream(source) {
 
     this._filter = {
         type: this.source.attr('data-type').split(),
-        tags: this.source.attr('data-tags').split(),
+        require_any: this.source.attr('data-any').split(),
+        require_all: this.source.attr('data-all').split(),
         template: this.source.attr('data-template'),
         sort: this.source.attr('sort')
     }
@@ -376,7 +377,8 @@ Stream.prototype.reload = function(data) {
 
     data = $.extend({
         'type': this._filter.type,
-        'tags': this._filter.tags,
+        'require_any': this._filter.require_any,
+        'require_all': this._filter.require_all,
         'template': this._filter.template,
         'sort': this._filter.sort,
     }, data);
@@ -438,7 +440,7 @@ $(document).on('change', 'form.discourse-stream-filter', function(e) {
         }
     });
 
-    Discourse.stream( form.attr('for') ).filter({'tags': tags, 'type': type});
+    Discourse.stream( form.attr('for') ).filter({'require_any': tags, 'type': type});
 });
 
 
