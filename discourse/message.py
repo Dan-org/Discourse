@@ -176,10 +176,23 @@ class Channel(models.Model):
         self.publish("download", author, data={'attachment': attachment})
         return attachment
 
-    def get_attachments(self, **search_options):
-        search_options.setdefault('type', ['attachment', 'attachment:meta'])
-        messages = [m for m in self.search(**search_options)]
-        return library(messages)
+    def download_by_filename(self, author, filename):
+        for msg in self.get_attachments( self.search(type='attachment') ):
+            print filename, msg.data
+            if msg.data['filename'] == filename:
+                return HttpResponseRedirect( msg.data['url'] )
+        raise Http404
+
+    def get_attachments(self, messages, deleted=False):
+        by_filename = {}
+        for message in messages:
+            if message.type != 'attachment' or (message.deleted and not deleted):
+                continue
+            if not isinstance(message.data, dict):
+                continue
+            by_filename.setdefault(message.data.get('filename_hash'), message)
+
+        return [x for x in by_filename.values() if not x.data.get('deleted')]
 
     def set_attachment_meta(self, author, attachment_id, **kwargs):
         attachment = get_object_or_404(Attachment.objects.filter(message__channel=self), uuid=attachment_id)

@@ -256,27 +256,28 @@ def download_attachment(request, anchor, filename):
     return HttpResponseRedirect(attachment.file.url)
 
 
-def manipulate(request, channel):
+def manipulate(request, channel, filename):
     """
     Manipulate the attachments.
     """
-    channel = channel_for(channel)
+    channel = channel_for(channel.replace('/', '.'))
+    return channel.download_by_filename(request.user, filename)
 
-    if filename:
-        filename = urllib.unquote(filename)
-    elif 'filename' in request.POST:
-        filename = request.POST['filename']
-    elif 'filename' in request.GET:
-        filename = request.GET['filename']
-
-    if request.method == 'DELETE' or request.POST.get('delete', '').lower() in ('yes', 'true'):
-        return delete_attachment(request, anchor, filename)
-    elif 'attachment' in request.FILES or 'link' in request.POST:
-        return upload(request, anchor, filename)
-    elif request.POST:
-        return edit_attachment(request, anchor, filename)
-    else:
-        return download_attachment(request, anchor, filename)
+    #if filename:
+    #    filename = urllib.unquote(filename)
+    #elif 'filename' in request.POST:
+    #    filename = request.POST['filename']
+    #elif 'filename' in request.GET:
+    #    filename = request.GET['filename']
+    #
+    #if request.method == 'DELETE' or request.POST.get('delete', '').lower() in ('yes', 'true'):
+    #    return delete_attachment(request, anchor, filename)
+    #elif 'attachment' in request.FILES or 'link' in request.POST:
+    #    return upload(request, anchor, filename)
+    #elif request.POST:
+    #    return edit_attachment(request, anchor, filename)
+    #else:
+    #   download_attachment(request, channel, filename)
 
 
 #    """

@@ -35,17 +35,10 @@ def library_tag(context, channel, size=21, require_any=None, require_all=None, s
         require_all = [x.strip() for x in require_all.split() if x.strip()]
 
     channel = channel_for(channel)
-    messages = channel.search(type='attachment', require_any=require_any, require_all=require_all, sort='recent', deleted=deleted)
+    messages = channel.search(type='attachment', require_any=require_any, require_all=require_all, sort='recent', deleted=True)
+    
+    messages = channel.get_attachments(messages, deleted=deleted)
 
-    by_filename = {}
-    for message in messages:
-        if message.type != 'attachment' or (message.deleted and not deleted):
-            continue
-        if not isinstance(message.data, dict):
-            continue
-        by_filename.setdefault(message.data.get('filename_hash'), message)
-
-    messages = [x for x in by_filename.values() if not x.data.get('deleted')]
     if sort == 'recent':
         messages.sort(key=lambda m: m.created, reversed=True)
     if sort == 'filename':

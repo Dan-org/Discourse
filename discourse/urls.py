@@ -3,7 +3,7 @@ from django.conf.urls import patterns, include, url
 ### Urls
 urlpatterns = patterns('discourse',
     #url(r'^thread/(?P<uri>.+)$', 'thread.manipulate',  name="thread"),
-    #url(r'^library/(?P<uri>.+)$', 'library.manipulate',  name="library"),
+    url(r'^library/(?P<channel>.+?/.+?/.+?)/(?P<filename>.*?)/?$', 'library.manipulate',  name="library"),
 
     url(r'^document/(?P<uri>.+)$', 'document.manipulate',  name="document"),
     url(r'^follow/$', 'follow.manipulate', name="follow"),
