@@ -8,9 +8,11 @@ class DocumentContentAdmin(admin.TabularInline):
     model = DocumentContent
 
 class DocumentAdmin(admin.ModelAdmin):
+    search_fields = ['anchor_uri']
     inlines = [
         DocumentContentAdmin,
     ]
+
 
 admin.site.register(Document, DocumentAdmin)
 admin.site.register(DocumentTemplate)
