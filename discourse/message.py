@@ -199,29 +199,28 @@ class Channel(models.Model):
         m = self.publish("attachment:meta", author, parent=attachment.message, data={'meta': kwargs, 'filename': attachment.filename, 'filename_hash': hash(attachment.filename)}, save=True)
         return m
 
-    #def rename_attachment(self, author, attachment_id, new_name):
-    #    attachment = get_object_or_404(Attachment.objects.filter(message__channel=self), uuid=attachment_id)
-    #    m = self.publish("attachment", author, content={'action': 'rename', 'filename': attachment.filename, 'new_name': new_name, 'filename_hash': hash(attachment.filename)}, save=True)
-    #    return m
-
     def render_to_string(self, context, messages, template='discourse/stream.html'):
-        #messages = self.search(type=type, tags=tags, deleted=deleted)
-
         if not isinstance(context, Context):
             context = Context(context)
 
-        parts = []
-        for m in messages:
-            try:
-                if m.channel == self.id:
-                    parts.append( m.render(context) )
-                else:
-                    parts.append( m.inform(context) )
-            except TemplateDoesNotExist:
-                continue
+        can_edit_channel = context.get('can_edit_channel', None)
+        if hasattr(self.get_anchor(), 'can_edit') and 'request' in context:
+            can_edit_channel = self.get_anchor().can_edit(context['request'].user)
 
-        content = mark_safe("\n".join(parts))
         channel = self
+        content = None
+
+        with context.push(locals()):
+            parts = []
+            for m in messages:
+                try:
+                    if m.channel == self.id:
+                        parts.append( m.render(context) )
+                    else:
+                        parts.append( m.inform(context) )
+                except TemplateDoesNotExist:
+                    continue
+            content = mark_safe("\n".join(parts))
 
         with context.push(locals()):
             return render_to_string(template, context)
@@ -229,27 +228,6 @@ class Channel(models.Model):
     @property
     def url(self):
         return reverse('discourse:channel', args=[self.id])
-
-
-
-def render_message(message, context):
-    if not isinstance(message, dict):
-        message = message.simple()
-
-    if 'html' in message:
-        return message['html']
-
-    context = context or {}
-    context.push({
-        'message': message,
-        'replies': message['data'].get('replies', []),
-    })
-    try:
-        if '_template' in message:
-            return render_to_string(message['_template'], context)
-        return render_to_string("discourse/message/%s.html" % message['type'], context)
-    except TemplateDoesNotExist:
-        return ""
 
 
 
@@ -345,7 +323,7 @@ class MessageType(object):
 
     def post(self, request):
         try:
-            self.html = self.render(RequestContext(request, {}))
+            self.html = self.render(RequestContext(request, {'can_edit_message': True, 'can_edit_channel': True}))
         except TemplateDoesNotExist:
             pass
         return JsonResponse( self.pack() )
@@ -356,9 +334,9 @@ class MessageType(object):
 
     def render(self, context):
         user = context['request'].user
-        can_edit_message = (user.is_superuser or user.id == self.author['id'])
-        context.push({'message': self, 'data': self.data, 'can_edit_message': can_edit_message})
-        return render_to_string(["discourse/message/%s.html" % self.type], context)
+        can_edit_message = context.get('can_edit_message', (user.is_superuser or user.id == self.author['id']))
+        with context.push(message=self, data=self.data, can_edit_message=can_edit_message):
+            return render_to_string(["discourse/message/%s.html" % self.type], context)
 
     def describe(self):
         pass
@@ -738,8 +716,6 @@ def channel_for(obj):
         raise TypeError("first argument to channel_for() must be a string or django model, not whatever this is: %r" % obj)
 
     return Channel(id=id)
-
-
 
 
 
