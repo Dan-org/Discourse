@@ -5,8 +5,10 @@ from django.db import models
 
 
 def timestamp(obj):
-    if isinstance(obj, datetime.date) and not isinstance(obj, datetime.datetime):
-        return obj.strftime("%x")
+    if isinstance(obj, datetime.datetime):
+        return obj.strftime("%c")
+    if isinstance(obj, datetime.date):
+        return obj.strftime("%Y-%m-%d")
     if timezone.is_aware(obj):
         obj = timezone.make_naive(obj, timezone.get_current_timezone())
     return time.mktime(obj.timetuple())
