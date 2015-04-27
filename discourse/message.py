@@ -1,7 +1,6 @@
 import urllib, re, mimetypes, hashlib, time, numbers, inspect
-from django.utils import timezone
 from pprint import pprint
-from datetime import datetime
+from datetime import datetime, date
 from uuid import uuid4
 
 from django.db import models
@@ -15,6 +14,8 @@ from django.template.loader import render_to_string, TemplateDoesNotExist
 from django.utils.safestring import mark_safe
 from django.dispatch import Signal
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime, parse_date
 
 from haystack.query import SearchQuerySet, SQ
 from haystack.models import SearchResult
@@ -39,10 +40,18 @@ except ImportError:
 def to_datetime(dt, or_now=False):
     if isinstance(dt, tuple) or isinstance(dt, list):
         time_tuple = time.struct_time(dt)
-        return datetime.fromtimestamp(time.maketime(time_tuple))
+        return timezone.localtime( datetime.fromtimestamp(time.maketime(time_tuple)) )
     elif isinstance(dt, numbers.Real):
         return timezone.make_aware( datetime.fromtimestamp(dt), timezone.get_current_timezone() )
-    if not dt and or_now:
+    elif dt and isinstance(dt, basestring):
+        as_datetime = parse_datetime(dt)
+        if as_datetime:
+            if timezone.is_naive(as_datetime):
+                as_datetime = datetime(as_datetime.year, as_datetime.month, as_datetime.day, as_datetime.hour, as_datetime.minute, as_datetime.day, tzinfo=timezone.UTC())
+            return timezone.localtime(as_datetime)
+    elif isinstance(dt, datetime):
+        return timezone.localtime(dt)
+    elif not dt and or_now:
         return timezone.now()
     return dt
 
@@ -113,7 +122,7 @@ class Channel(models.Model):
         return self._anchor
 
     def get_message(self, uuid):
-        return SearchQuerySet().models(Message).result_class(MessageResult).get(uuid=uuid)
+        return SearchQuerySet().models(Message).result_class(MessageResult).filter(uuid=uuid)[0]
     
     def publish(self, type, author, tags=None, data=None, save=False, parent=None, attachments=None):
         # If the channel hasn't been saved, now we save it.

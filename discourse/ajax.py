@@ -2,13 +2,14 @@ import json, datetime, decimal, uuid, time
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db import models
+from dateutil import tz
 
 
 def timestamp(obj):
     if isinstance(obj, datetime.datetime):
-        return obj.strftime("%c")
+        return obj.astimezone(tz.tzutc()).strftime('%Y-%m-%d %H:%M:%S')
     if isinstance(obj, datetime.date):
-        return obj.strftime("%Y-%m-%d")
+        return str(obj)
     if timezone.is_aware(obj):
         obj = timezone.make_naive(obj, timezone.get_current_timezone())
     return time.mktime(obj.timetuple())
