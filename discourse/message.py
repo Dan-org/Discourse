@@ -189,7 +189,6 @@ class Channel(models.Model):
 
     def download_by_filename(self, author, filename):
         for msg in self.get_attachments( self.search(type='attachment') ):
-            print filename, msg.data
             if msg.data['filename'] == filename:
                 return HttpResponseRedirect( msg.data['url'] )
         raise Http404
@@ -835,11 +834,12 @@ class Like(MessageType):
         context = RequestContext(request)
         m = self.get_parent()
         
-        context.push( like(context, self.get_parent()) )
-        try:
-            self.html = render_to_string( "discourse/likes.html", context )
-        except TemplateDoesNotExist:
-            pass
+        tag_data = like(context, self.get_parent())
+        with context.push( tag_data ):
+            try:
+                self.html = render_to_string( "discourse/likes.html", context )
+            except TemplateDoesNotExist:
+                pass
 
         return JsonResponse(self.pack())
 

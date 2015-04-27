@@ -83,9 +83,10 @@ def like(context, message, show=2):
 
     parts = []
     liked = False
-    if user.id in likes:
+    if user.id in likes or str(user.id) in likes:
         liked = True
-        likes.remove(user.id)
+        likes.discard(user.id)
+        likes.discard(str(user.id))
         parts.append('<a href="%s">You</a>' % user.get_absolute_url())
     
     for id in list(likes)[:show]:
