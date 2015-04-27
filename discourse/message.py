@@ -50,6 +50,8 @@ def to_datetime(dt, or_now=False):
                 as_datetime = datetime(as_datetime.year, as_datetime.month, as_datetime.day, as_datetime.hour, as_datetime.minute, as_datetime.day, tzinfo=timezone.UTC())
             return timezone.localtime(as_datetime)
     elif isinstance(dt, datetime):
+        if timezone.is_naive(as_datetime):
+            dt = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.day, tzinfo=timezone.UTC())
         return timezone.localtime(dt)
     elif not dt and or_now:
         return timezone.now()
