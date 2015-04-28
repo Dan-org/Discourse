@@ -10,22 +10,6 @@ $(function() {
     })
 });
 
-// When a user focuses on a textarea it adds "focused" to the form this allows us to do things like 
-// change the color of the submit button to blue.
-$(document).on('focus', '.discourse .thread textarea', function(e) {
-    $(this).closest('form').addClass('focused');
-    $(this).closest('form').addClass('editing');
-});
-
-$(document).on('blur', '.discourse .thread textarea', function(e) {
-    var form = $(this).closest('form');
-    setTimeout(function() {
-        form.removeClass('focused');
-        if (form.find('textarea').val() == '')
-            form.removeClass('editing');
-    }, 100);
-});
-
 // When 'delete' is pressed on a message, it is deleted.
 $(document).on('click', '.discourse .messages .act-delete', deleteMessage);
 
@@ -35,15 +19,12 @@ $(document).on('click', '.discourse .thread .controls .reply', function(e) {
     e.preventDefault();
 });
 
-// When the user blurs on a reply form, clear them.
-$(document).on('blur', '.discourse .thread textarea', function(e) {
-    //clearReplyForms();
-});
-
-// When 'edit' is pressed, the comment is hidden and replaced with a form to edit it.
-$(document).on('click', '.discourse .thread .controls .edit', function(e) {
-    editComment($(e.target).closest('.comment'));
+// When 'edit' is pressed, the message content is hidden and replaced with a form to edit it.
+$(document).on('click', '.discourse.stream .act-edit', function(e) {
     e.preventDefault();
+    var source = $(e.target).closest('.messages');
+    var value = $.parseJSON(unescape( $(e.target).attr('data-value') ));
+    editMessage(source, value);
 });
 
 // When the down arrow or up arrow are pressed, a vote is cast.
@@ -86,11 +67,7 @@ function updateCounts(tag, prompt_id) {
 
 
 function clearForm(form) {
-    form.find('textarea').val('');
-    form.find('input[type=text]').val('');
-    form.find('input[type=checkbox]').prop('checked', false);
-    form.find('input[type=radio]').prop('checked', false);
-    form.find('select').val('');
+    form[0].reset();
 }
 
 
@@ -122,7 +99,7 @@ function onMessageForm(e) {
         success: function(response) {
             formReady(form);
 
-            postCommentSuccess(form, response);
+            postMessageSuccess(form, response);
 
             form.removeClass('editing');
         },
@@ -147,11 +124,12 @@ function findStream(channel) {
     });
 }
 
-function realizeComment(message) {
+function realizeMessage(message) {
     var source = $('<div>').append(message['html']).children().detach();
 
     var existing = $('#message-' + message.uuid);
     if (existing.length > 0) {
+        $('*[for=message-' + message.uuid + ']').remove();
         existing.replaceWith(source);
         return source;
     }
@@ -249,9 +227,9 @@ function realizeComment(message) {
     return source;
 }
 
-function postCommentSuccess(form, result) {
+function postMessageSuccess(form, result) {
     form[0].reset()
-    var source = realizeComment(result);
+    var source = realizeMessage(result);
     if (source.length > 0)
         source.scrollTo(500, 'swing', function() {
             source.fadeTo(250, 0).fadeTo(500, 1);    
@@ -313,6 +291,37 @@ function editComment(comment) {
     form.find('[name=id]').val(id);
     form.find('[type=submit]').val("Save Changes");
     form.find('textarea').val(text).focus();
+}
+
+function editMessage(source, value) {
+    console.log("editMessage", source[0], value);
+
+    var type = value.form;
+    var form = $('input[type=hidden][name=type][value=' + type + ']').eq(0).closest('form').clone().show().removeClass('hidden');
+
+    source.find('.contents').children().hide();
+    $('*[for=message-' + value.parent + ']').hide();
+
+    source.find('.contents').append(form);
+
+    focusForm(form);
+
+    form.on('cancel', function() {
+        form.remove();
+        $('*[for=message-' + value.parent + ']').show();
+        source.find('.contents').children().show();
+    });
+
+    source.find('[name]').each(function(i, item) {
+        item = $(item);
+        var k = item.attr('name');
+        var v = value[k];
+        if (item.attr('type') == 'radio' || item.attr('type') == 'checkbox') {
+            item.prop('checked', item.attr('value') == v);
+        } else {
+            $(item).val(v);
+        }
+    });
 }
 
 function clearReplyForms() {

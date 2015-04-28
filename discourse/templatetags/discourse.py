@@ -5,6 +5,8 @@ from django.utils.safestring import mark_safe
 from django.contrib.auth import get_user_model
 from django import template
 
+from ..ajax import to_json
+
 import ttag
 
 
@@ -115,9 +117,9 @@ def like(context, message, show=2):
 
 
 ### Filters ###
-@register.filter(is_safe=True)
-def to_json(value):
-    return mark_safe(json.dumps(value))
+@register.filter(is_safe=True, name="to_json")
+def json_filter(value):
+    return mark_safe(to_json(value))
 
 
 re_hash = re.compile(r'\#\w[-_\w]+\w')

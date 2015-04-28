@@ -196,9 +196,11 @@ class Channel(models.Model):
     def get_attachments(self, messages, deleted=False):
         by_filename = {}
         for message in messages:
-            if message.type != 'attachment' or (message.deleted and not deleted):
+            if message.type not in ('attachment', 'attachment:link') or (message.deleted and not deleted):
                 continue
-            if not isinstance(message.data, dict):
+            elif not isinstance(message.data, dict):
+                continue
+            elif not 'filename' in message.data:
                 continue
             by_filename.setdefault(message.data.get('filename_hash'), message)
 
@@ -294,19 +296,6 @@ class Message(models.Model):
         ordering = ['depth', 'parent_id', 'order', '-created']
 
 
-#def render_to_string(self, context=None):
-#    context = context or {}
-#    if hasattr(self, 'state'):
-#        context['message'] = self.state
-#        context['replies'] = self.state['data'].get('replies', [])
-#    else:
-#        context['message'] = getattr(self, 'state', self)
-#        context['replies'] = self.children.all()
-#    try:
-#        return render_to_string("discourse/message/%s.html" % self.type, context)
-#    except TemplateDoesNotExist:
-#        return ""
-
 class MessageMeta(type):
     def __init__(cls, name, bases, dct):
         if not hasattr(cls, '_registry'):
@@ -344,9 +333,13 @@ class MessageType(object):
 
     def render(self, context):
         user = context['request'].user
+        can_edit_channel = context.get('can_edit_channel', False)
         can_edit_message = context.get('can_edit_message', (user.is_superuser or user.id == self.author['id']))
-        with context.push(message=self, data=self.data, can_edit_message=can_edit_message):
-            return render_to_string(["discourse/message/%s.html" % self.type], context)
+        can_delete_message = context.get('can_edit_message', (can_edit_channel or user.is_superuser or user.id == self.author['id']))
+        message = self
+        data = self.data
+        with context.push(locals()):
+            return render_to_string(["discourse/message/%s.html" % self.type.replace(':', '-')], context)
 
     def describe(self):
         pass
@@ -561,6 +554,18 @@ class MessageType(object):
             self._record = Message.objects.get(uuid=self.uuid)
         return self._record
 
+    def get_edit_info(self):
+        """Return the data needed to edit the message via the front-end."""
+        info = {
+            'form': self.type,
+            'type': 'edit',
+            'parent': self.uuid
+        }
+        for k, v in self.data.items():
+            if k != 'children':
+                info['data-' + k] = v
+        return info
+
     @property
     def url(self):
         url = reverse( "discourse:channel", args=[self.channel] )
@@ -590,41 +595,6 @@ def MessageResult(app_label, model_name, pk, score, **kwargs):
         'score': score,
     }
     return MessageType.rebuild(kwargs, result=result)
-
-
-
-#class MessageResult(SearchResult):
-#    def __init__(self, app_label, model_name, pk, score, **kwargs):
-#        super(MessageResult, self).__init__(app_label, model_name, pk, score, **kwargs)
-#        self.author = from_json(self.author)
-#        self.data = from_json(self.data) if self.data else {}
-#        for 
-#
-#    def __repr__(self):
-#        return "%s(%s)" % (self.__class__.__name__, self.pk)
-#
-#    def unpack(self, data):
-#        data['created'] = datetime(*data['created'][:6])
-#        return data
-#
-#    def render_to_string(self, context=None):
-#        context = context or {}
-#        context['message'] = self.__dict__
-#        context['replies'] = [self.unpack(x) for x in self.data.get('replies', [])]
-#        try:
-#            return render_to_string("discourse/message/%s.html" % self.type, context)
-#        except TemplateDoesNotExist:
-#            return ""
-#
-#    def simple(self):
-#        simple = self.get_additional_fields()
-#        simple['_result'] = {
-#            'app_label': self.app_label,
-#            'model_name': self.model_name,
-#            'pk': self.pk,
-#            'score': self.score
-#        }
-#        return simple
 
 
 
@@ -860,6 +830,10 @@ class Reply(MessageType):
     def apply(self, parent):
         parent.data.setdefault('children', []).append(self)
 
+    def get_edit_info(self):
+        info = super(Reply, self).get_edit_info()
+        info['data-body'] = self.data['body']
+        return info
 
 
 class AttachmentType(MessageType):
@@ -908,6 +882,20 @@ class AttachmentMeta(MessageType):
         other.data.update(self.data)
 
 
+class AttachmentLink(MessageType):
+    type = "attachment:link"
+
+    def build(self):
+        self.data.update({
+            'filename': self.data['url'],
+            'filename_hash': hash(self.data['url']),
+            'size': 0,
+            'mimetype': 'text/url',
+            'icon': 'icon-map'
+        })
+        return self.data
+
+
 class Delete(MessageType):
     type = "delete"
 
@@ -929,6 +917,14 @@ class Tag(MessageType):
         if isinstance(tags, basestring):
             return set([tags])
         return set(tags)
+
+
+class Edit(MessageType):
+    def apply(self, other):
+        other.data.update(self.data)
+
+    def post(self, request):
+        return self.get_parent().post(request)
 
 
 #class AttachmentMeta(MessageType):

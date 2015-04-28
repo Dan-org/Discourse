@@ -35,7 +35,7 @@ def library_tag(context, channel, size=21, require_any=None, require_all=None, s
         require_all = [x.strip() for x in require_all.split() if x.strip()]
 
     channel = channel_for(channel)
-    messages = channel.search(type='attachment', require_any=require_any, require_all=require_all, sort='recent', deleted=True)
+    messages = channel.search(type=['attachment', 'attachment:link'], require_any=require_any, require_all=require_all, sort='recent', deleted=True)
     
     messages = channel.get_attachments(messages, deleted=deleted)
 
