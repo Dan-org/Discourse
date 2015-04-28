@@ -1,6 +1,7 @@
 from models import *
 from follow import follow, unfollow, get_followers, get_follower_count
 from message import channel_for, MessageType, on
+from uri import uri, resolve_model_uri, simple
 
 
 ### Helpers ###
