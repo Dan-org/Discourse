@@ -154,6 +154,8 @@ class Channel(models.Model):
             'tags': tags,
         })
 
+        message.saveable = save
+
         if author:
             message.tags.add(uri(author))
 
@@ -311,7 +313,6 @@ class MessageMeta(type):
 
 class MessageType(object):
     __metaclass__ = MessageMeta
-    saveable = True
 
     def __init__(self, type, uuid=None):
         self.uuid = uuid
@@ -338,6 +339,9 @@ class MessageType(object):
             return self.render(context)
 
     def emit(self, socket, context):
+        if not self.save:
+            return
+
         try:
             self.html = self.render(context)
         except TemplateDoesNotExist:
