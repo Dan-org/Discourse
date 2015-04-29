@@ -142,6 +142,8 @@ function realizeMessage(message) {
         source.prependTo(stream.find('.content'));
     }
 
+    source.hide().fadeIn();
+
     return source;
 
     var parent = $('#comment-' + comment.parent);
@@ -426,12 +428,23 @@ Stream.prototype.filter = function(filter) {
     this.reload();
 }
 
-Stream.update = function(result) {
-    console.log(result);
+Stream.prototype.add = function(message) {
+    // Filter require_any / require_all / type
+    if (message.parent)
+        return;
+
+    if (message.html)
+        this.source.find('.content').eq(0).prepend( message.html );
+}
+
+Stream.update = function(message) {
+    var source = $('.discourse.stream').filter(function(i, item) { return $(item).attr('data-channel-id') == message.channel });
+    var stream = Discourse.stream( source );
+    stream.add(message);
 }
 
 // When discourse tells us that there is a new comment
-discourse.on('feedback', Stream.update);
+discourse.on('message', realizeMessage);
 
 $(document).on('change', 'form.discourse-stream-filter', function(e) {
     var form = $(this).closest('form');

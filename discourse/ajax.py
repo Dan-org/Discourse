@@ -7,7 +7,10 @@ from dateutil import tz
 
 def timestamp(obj):
     if isinstance(obj, datetime.datetime):
-        return obj.astimezone(tz.tzutc()).strftime('%Y-%m-%d %H:%M:%S')
+        if timezone.is_aware(obj):
+            return obj.astimezone(tz.tzutc()).strftime('%Y-%m-%d %H:%M:%SZ')
+        else:
+            return obj.strftime('%Y-%m-%d %H:%M:%SZ')
     if isinstance(obj, datetime.date):
         return str(obj)
     if timezone.is_aware(obj):

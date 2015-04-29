@@ -126,7 +126,7 @@ class Channel(models.Model):
     def get_message(self, uuid):
         return SearchQuerySet().models(Message).result_class(MessageResult).filter(uuid=uuid)[0]
     
-    def publish(self, type, author, tags=None, data=None, save=False, parent=None, attachments=None):
+    def publish(self, type, author, data=None, tags=None, save=False, parent=None, attachments=None):
         # If the channel hasn't been saved, now we save it.
         if not self.created and save:
             self.created = timezone.now()
@@ -320,6 +320,12 @@ class MessageType(object):
         if self.type in self._registry:
             self.__class__ = self._registry[self.type]
 
+    def __repr__(self):
+        return "%s('%s', channel='%s')" % (self.__class__.__name__, self.uuid, self.channel)
+
+    def __unicode__(self):
+        return repr(self)
+
     def post(self, request):
         try:
             self.html = self.render(RequestContext(request, {'can_edit_message': True, 'can_edit_channel': True}))
@@ -330,6 +336,13 @@ class MessageType(object):
     def inform(self, context):
         with context.push(inform=True):
             return self.render(context)
+
+    def emit(self, socket, context):
+        try:
+            self.html = self.render(context)
+        except TemplateDoesNotExist:
+            pass
+        return socket.emit('message', self.pack())
 
     def render(self, context):
         user = context['request'].user
@@ -925,6 +938,10 @@ class Edit(MessageType):
 
     def post(self, request):
         return self.get_parent().post(request)
+
+    def emit(self, socket, context):
+        self.apply(self.get_parent())
+        return self.get_parent().emit(socket, context)
 
 
 #class AttachmentMeta(MessageType):
