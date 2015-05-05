@@ -338,6 +338,9 @@ class MessageType(object):
         with context.push(inform=True):
             return self.render(context)
 
+    def describe(self, user):
+        return None
+
     def emit(self, socket, context):
         if not self.save:
             return
@@ -357,9 +360,6 @@ class MessageType(object):
         data = self.data
         with context.push(locals()):
             return render_to_string(["discourse/message/%s.html" % self.type.replace(':', '-')], context)
-
-    def describe(self):
-        pass
 
     def pack(self):
         result = {

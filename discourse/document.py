@@ -158,6 +158,12 @@ class DocumentTag(ttag.Tag):
         anchor = uri(data.get('anchor'), data.get('sub'))
         template = data.get('template')
         request = context.get('request')
+        editable = False
+
+        channel = channel_for(anchor)
+
+        if hasattr(channel.get_anchor(), 'can_edit') and hasattr(request, 'user'):
+            editable = channel.get_anchor().can_edit(request.user)
 
         if data.get('plain'):
             return "\n".join( [o.body for o in DocumentContent.objects.filter(document__anchor_uri=anchor)] )
@@ -181,7 +187,7 @@ class DocumentTag(ttag.Tag):
 
         if request:
             try:
-                m = channel_for(anchor).publish('view', request.user, data={'editable': request.user.is_superuser})
+                m = channel.publish('view', request.user, data={'editable': editable})
                 if not m:
                     return ""
             except PermissionDenied:

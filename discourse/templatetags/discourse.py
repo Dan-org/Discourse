@@ -65,7 +65,10 @@ def channel(obj):
 
 @register.inclusion_tag("discourse/likes.html", takes_context=True)
 def like(context, message, show=2):
-    likes = set( message.data.get('likes', []) )
+    try:
+        likes = set( message.data.get('likes', []) )
+    except:
+        likes = set()
 
     authenticated = True
     user = None
