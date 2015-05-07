@@ -34,7 +34,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
     def index_queryset(self, using=None):
         """Used when the entire index for model is updated."""
         self.children_index = {}
-        return self.get_model().objects.filter(type='status').order_by('depth', 'order', '-created').select_related('author')
+        return self.get_model().objects.all().order_by('depth', 'order', '-created').select_related('author')
 
     def update(self, using=None):
         self.children_index = {}
