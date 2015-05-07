@@ -204,6 +204,9 @@ class Channel(models.Model):
                 continue
             elif not 'filename' in message.data:
                 continue
+            if message.type == 'attachment:link':
+                if '://' not in message.data['url']:
+                    message.data['url'] = 'http://' + message.data['url']
             by_filename.setdefault(message.data.get('filename_hash'), message)
 
         return [x for x in by_filename.values() if not x.data.get('deleted')]
