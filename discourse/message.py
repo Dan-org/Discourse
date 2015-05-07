@@ -907,12 +907,15 @@ class AttachmentLink(MessageType):
             'filename': self.data.get('filename', self.data['url']),
             'filename_hash': hash(self.data['url']),
             'size': 0,
-            'mimetype': 'text/url',
-            'icon': 'icon-map'
+            'mimetype': 'text/url'
         })
         if '://' not in self.data['url']:
             self.data['url'] = 'http://' + self.data['url']
         return self.data
+
+    def thumbnail(self):
+        return '<i class="icon-link-ext-alt"></i> '
+
 
 
 class Delete(MessageType):
