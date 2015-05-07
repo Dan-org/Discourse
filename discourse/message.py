@@ -904,12 +904,14 @@ class AttachmentLink(MessageType):
 
     def build(self):
         self.data.update({
-            'filename': self.data['url'],
+            'filename': self.data.get('filename', self.data['url']),
             'filename_hash': hash(self.data['url']),
             'size': 0,
             'mimetype': 'text/url',
             'icon': 'icon-map'
         })
+        if '://' not in self.data['url']:
+            self.data['url'] = 'http://' + self.data['url']
         return self.data
 
 
