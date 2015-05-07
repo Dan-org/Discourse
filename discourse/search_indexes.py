@@ -40,6 +40,9 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         self.children_index = {}
         super(MessageIndex, self).update(using)
 
+    def get_updated_field(self):
+        return 'modified'
+
     def update_object(self, instance, using=None):
         if not self.should_update(instance):
             return False
