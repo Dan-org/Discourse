@@ -231,7 +231,7 @@ function realizeMessage(message) {
 
 function postMessageSuccess(form, result) {
     form[0].reset()
-    var source = realizeMessage(result);
+    var source = Stream.update(result);
     if (source.length > 0)
         source.scrollTo(500, 'swing', function() {
             source.fadeTo(250, 0).fadeTo(500, 1);    
@@ -362,10 +362,14 @@ function Stream(source) {
     source.data('stream', this);
     this.source = source;
 
+    function getAttrArray(name) {
+        return source.attr(name).split().filter(function(item) { return item.length > 0 });
+    }
+
     this._filter = {
-        type: this.source.attr('data-type').split(),
-        require_any: this.source.attr('data-any').split(),
-        require_all: this.source.attr('data-all').split(),
+        type: getAttrArray('data-type'),
+        require_any: getAttrArray('data-any'),
+        require_all: getAttrArray('data-all'),
         template: this.source.attr('data-template'),
         sort: this.source.attr('sort')
     }
@@ -429,22 +433,76 @@ Stream.prototype.filter = function(filter) {
 }
 
 Stream.prototype.add = function(message) {
-    // Filter require_any / require_all / type
-    if (message.parent)
+    // If the message has no html, ignore it.
+    if (!message.html)
         return;
 
-    if (message.html)
-        this.source.find('.content').eq(0).prepend( message.html );
+    var source = $('<div>').append(message['html']).children().detach();
+
+    var existing = this.source.find('#message-' + message.uuid);
+    if (existing.length > 0) {
+        this.source.find('*[for=message-' + message.uuid + ']').remove();
+        existing.replaceWith(source);
+        return source;
+    }
+
+    if (message.parent) {
+        var parent = this.source.find('.replies[for=message-' + message.parent + ']');
+        return source.appendTo(parent);
+    }
+
+    // We must filter the message to make sure it's the right type.
+    if (!Stream.hasAnyType(message, this._filter.type))
+        return;
+
+    // We must filter the message to make sure it has the any of the require_any tags
+    if (!Stream.hasAnyTag(message, this._filter.require_any))
+        return;
+
+    // We must filter the message to make sure it has the all of the require_all tags
+    if (!Stream.hasAllTags(message, this._filter.require_all))
+        return;
+
+    this.source.find('.content').eq(0).prepend( source );
+    return source
+}
+
+Stream.hasAnyType = function(message, types) {
+    if (types.length < 1)
+        return true;
+    if ( $([message.type]).filter(types).length > 0 )
+        return true;
+    console.log("Not hasAnyType", message.type, types);
+    return false;
+}
+
+Stream.hasAnyTag = function(message, tags) {
+    if (tags.length < 1)
+        return true;
+    if ( $(message.tags).filter(tags).length > 0 )
+        return true;
+    console.log("Not hasAnyTag", message.tags, tags);
+    return false;
+}
+
+Stream.hasAllTags = function(message, tags) {
+    if (tags.length < 1)
+        return true;
+    
+    if ( $(message.tags).filter(tags).length >= tags.length )
+        return true;
+    console.log("Not hasAllTags", message.tags, tags);
+    return false;
 }
 
 Stream.update = function(message) {
     var source = $('.discourse.stream').filter(function(i, item) { return $(item).attr('data-channel-id') == message.channel });
     var stream = Discourse.stream( source );
-    stream.add(message);
+    return stream.add(message);
 }
 
 // When discourse tells us that there is a new comment
-discourse.on('message', realizeMessage);
+discourse.on('message', Stream.update);
 
 $(document).on('change', 'form.discourse-stream-filter', function(e) {
     var form = $(this).closest('form');
