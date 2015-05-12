@@ -342,6 +342,8 @@ Stream.prototype.add = function(message) {
     }
 
     if (message.parent) {
+        if (message.type == 'like' || message.type == 'unlike') return;
+
         var parent = this.source.find('.replies[for=message-' + message.parent + ']');
         return source.appendTo(parent);
     }
