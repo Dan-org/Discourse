@@ -124,111 +124,6 @@ function findStream(channel) {
     });
 }
 
-function realizeMessage(message) {
-    var source = $('<div>').append(message['html']).children().detach();
-
-    var existing = $('#message-' + message.uuid);
-    if (existing.length > 0) {
-        $('*[for=message-' + message.uuid + ']').remove();
-        existing.replaceWith(source);
-        return source;
-    }
-
-    if (message.parent) {
-        parent = $('.replies[for=message-' + message.parent + ']');
-        parent.append(source);
-    } else {
-        var stream = findStream(message.url);
-        source.prependTo(stream.find('.content'));
-    }
-
-    source.hide().fadeIn();
-
-    return source;
-
-    var parent = $('#comment-' + comment.parent);
-
-    if (source.length == 0) {
-        var thread = findThread(comment.anchor);
-        var prototype = thread.find('.comment.prototype').first();
-        var source = prototype.clone().removeClass('prototype');
-        
-        if (parent.length == 0) {
-            if (thread.find('.insert-comments-here').length > 0)
-                thread.find('.insert-comments-here').before( source.show() );
-            else
-                thread.append(source.show());
-        } else {
-            var container = parent.closest('.subthread');
-            if (container.length == 0) {
-                container = parent.next('.subthread');
-            }
-            container.append(source.show());
-        }
-
-        source.addClass('created');
-    } else {
-        if ( source.hasClass('created') ) {
-            return source;
-        }
-    }
-
-    // Container
-    source.attr('id', 'comment-' + comment.id);
-    if (comment.deleted)
-        source.addClass('deleted');
-    else
-        source.removeClass('deleted');
-
-    // Meta
-    source.find('.meta .score').empty().append(comment.value);
-    source.find('.meta .voting a').removeClass('selected');
-    if (comment.up)
-        source.find('.meta .voting a.upvote').addClass('selected');
-    if (comment.down)
-        source.find('.meta .voting a.downvote').addClass('selected');
-
-    if (comment.url)
-        source.find('.meta .voting').attr('rel', comment.url)
-
-    // Icon
-    source.find('.user-icon').attr('href', comment.author.url || '#');
-    source.find('.user-icon img').attr('src', comment.author.thumbnail || '/static/img/star.jpg')
-                                 .attr('alt', comment.author.name)
-                                 .attr('title', comment.author.name);
-
-    // Body
-    source.find('.info .body a').attr('href', comment.author.url || '#')
-                                .empty()
-                                .append(comment.author.name);
-    source.find('.info .body .html').empty()
-                                    .append(comment.html || comment.body);
-    source.find('.info .body .text').empty()
-                                   .append(comment.body);
-
-    // Date
-    source.find('.date')
-          .attr('title', comment.created)
-          .empty()
-          .append(comment.naturaltime);
-
-    // Controls
-    if (comment.editable) {
-        source.find('.controls .edit').show();
-        source.find('.controls .delete').show();
-    } else {
-        source.find('.controls .edit').hide();
-        source.find('.controls .delete').hide();
-    }
-
-    // Subthread
-    if (!comment.parent) {
-        source.after('<div class="subthread">');
-    }
-
-    return source;
-}
-
 function postMessageSuccess(form, result) {
     form[0].reset()
     var source = Stream.update(result);
@@ -488,7 +383,7 @@ Stream.hasAnyTag = function(message, tags) {
 Stream.hasAllTags = function(message, tags) {
     if (tags.length < 1)
         return true;
-    
+
     if ( $(message.tags).filter(tags).length >= tags.length )
         return true;
     console.log("Not hasAllTags", message.tags, tags);
