@@ -258,7 +258,7 @@ function Stream(source) {
     this.source = source;
 
     function getAttrArray(name) {
-        return source.attr(name).split().filter(function(item) { return item.length > 0 });
+        return source.attr(name).split(/\s/).filter(function(item) { return item.length > 0 });
     }
 
     this._filter = {
@@ -321,7 +321,7 @@ Stream.prototype.filter = function(filter) {
     $.extend(this._filter, filter);
 
     if (!this._filter.type || this._filter.type.length == 0) {
-        this._filter.type = this.source.attr('data-type').split();
+        this._filter.type = this.source.attr('data-type').split(/\s/);
     }
 
     this.reload();
