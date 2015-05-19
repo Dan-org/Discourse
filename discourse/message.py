@@ -325,7 +325,7 @@ class MessageType(object):
             self.__class__ = self._registry[self.type]
 
     def __repr__(self):
-        return "%s('%s', channel='%s')" % (self.__class__.__name__, self.uuid, self.channel)
+        return "%s('%s', type='%s', channel='%s')" % (self.__class__.__name__, self.uuid, self.type, self.channel)
 
     def __unicode__(self):
         return repr(self)
