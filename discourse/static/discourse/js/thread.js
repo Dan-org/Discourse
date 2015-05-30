@@ -72,7 +72,6 @@ function clearForm(form) {
 
 
 function formWaiting(form) {
-    clearForm(form);
     form.find('input').attr('disabled', true);
     form.find('textarea').attr('disabled', true);
     form.find('select').attr('disabled', true);
@@ -86,6 +85,11 @@ function formReady(form) {
 
 function onMessageForm(e) {
     e.preventDefault();
+
+    if (this == window) {
+        console.log("nope...", this);
+        return;
+    }
 
     var form = $(this);
     var data = form.serialize();
