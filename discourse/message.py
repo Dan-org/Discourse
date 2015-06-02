@@ -52,7 +52,7 @@ def to_datetime(dt, or_now=False):
     elif isinstance(dt, datetime):
         if timezone.is_naive(dt):
             dt = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.day, tzinfo=timezone.UTC())
-        return timezone.localtime(dt)
+        return dt
     elif not dt and or_now:
         return timezone.now()
     return dt
@@ -133,7 +133,7 @@ class Channel(models.Model):
             self.save()
 
         # If the author is anonymous, we make it None
-        if not author.is_authenticated():
+        if author is None or not author.is_authenticated():
             author = None
 
         # Generate the uuid, if necessary
@@ -319,16 +319,21 @@ class MessageType(object):
 
     def __init__(self, type, uuid=None):
         self.uuid = uuid
-        self.type = type
         self.html = None
-        if self.type in self._registry:
-            self.__class__ = self._registry[self.type]
+        self.set_type(type)
 
     def __repr__(self):
         return "%s('%s', type='%s', channel='%s')" % (self.__class__.__name__, self.uuid, self.type, self.channel)
 
     def __unicode__(self):
         return repr(self)
+
+    def set_type(self, type):
+        self.type = type
+        if self.type in self._registry:
+            self.__class__ = self._registry[self.type]
+        else:
+            self.__class__ = MessageType
 
     def post(self, request):
         try:
@@ -405,7 +410,10 @@ class MessageType(object):
         # Get author
         self.author = state['author']
         if isinstance( self.author, basestring ):
-            self.author = from_json(self.author)
+            try:
+                self.author = from_json(self.author)
+            except ValueError:
+                self.author = None
         elif isinstance( self.author, models.Model ):
             self.author, self._author = self.author.simple(), self.author
         
@@ -566,7 +574,10 @@ class MessageType(object):
 
     def get_author(self):
         if not hasattr(self, '_author'):
-            self._author = get_user_model().objects.get(pk=self.author['id'])
+            if self.author is None:
+                self._author = None
+            else:
+                self._author = get_user_model().objects.get(pk=self.author['id'])
         return self._author
 
     def get_record(self):
