@@ -127,9 +127,6 @@ class Channel(models.Model):
         return SearchQuerySet().models(Message).result_class(MessageResult).filter(uuid=uuid)[0]
     
     def publish(self, type, author, data=None, tags=None, save=False, parent=None, attachments=None):
-        print "PUBLISH", type, author, "tags:", tags, "save:", save, "parent:", parent
-        return
-
         # If the channel hasn't been saved, now we save it.
         if not self.created and save:
             self.created = timezone.now()
