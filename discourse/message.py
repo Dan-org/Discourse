@@ -127,6 +127,9 @@ class Channel(models.Model):
         return SearchQuerySet().models(Message).result_class(MessageResult).filter(uuid=uuid)[0]
     
     def publish(self, type, author, data=None, tags=None, save=False, parent=None, attachments=None):
+        print "PUBLISH", type, author, "tags:", tags, "save:", save, "parent:", parent
+        return
+
         # If the channel hasn't been saved, now we save it.
         if not self.created and save:
             self.created = timezone.now()
@@ -535,7 +538,7 @@ class MessageType(object):
 
     def get_channel(self):
         if not hasattr(self, '_channel'):
-            self._channel = Channel.objects.get(id=self.channel)
+            self._channel = channel_for(self.channel)
         return self._channel
 
     def get_channel_anchor(self):
@@ -699,6 +702,7 @@ def hook(fn, *types):
     event_signal.connect(subscription, weak=False)
 
 
+_channel_cache = {}
 def channel_for(obj):
     if isinstance(obj, Channel):
         return obj
@@ -715,7 +719,12 @@ def channel_for(obj):
     else:
         raise TypeError("first argument to channel_for() must be a string or django model, not whatever this is: %r" % obj)
 
-    return Channel(id=id)
+    if id not in _channel_cache:
+        try:
+            _channel_cache[id] = Channel.objects.get(id=id)
+        except Channel.DoesNotExist:
+            _channel_cache[id] = Channel(id=id)
+    return _channel_cache[id]
 
 
 
