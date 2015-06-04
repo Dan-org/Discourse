@@ -125,7 +125,7 @@ def json_filter(value):
     return mark_safe(to_json(value))
 
 
-re_hash = re.compile(r'\#\w[-_\w]+\w')
+re_hash = re.compile(r'\b\#\w[-_\w]+\w')
 def hash_link(m):
     tag = m.group(0)
     name = tag.lstrip('#')
