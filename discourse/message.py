@@ -1,4 +1,7 @@
-import urllib, re, mimetypes, hashlib, time, numbers, inspect
+import urllib, re, mimetypes, hashlib, time, numbers, inspect, logging
+
+import gevent
+
 from pprint import pprint
 from datetime import datetime, date
 from uuid import uuid4
@@ -27,6 +30,7 @@ from ajax import to_json, from_json, JsonResponse
 from uri import uri, resolve_model_uri, simple
 
 
+logger = logging.getLogger(__name__)
 event_signal = Signal(['event'])
 
 
@@ -126,7 +130,9 @@ class Channel(models.Model):
     def get_message(self, uuid):
         return SearchQuerySet().models(Message).result_class(MessageResult).filter(uuid=uuid)[0]
     
-    def publish(self, type, author, data=None, tags=None, save=False, parent=None, attachments=None):
+    def publish(self, type, author, data=None, tags=None, save=False, parent=None, attachments=None, broadcast=True):
+        start = time.time()
+
         # If the channel hasn't been saved, now we save it.
         if not self.created and save:
             self.created = timezone.now()
@@ -142,8 +148,6 @@ class Channel(models.Model):
         else:
             uuid = None
 
-        print "PUBLISH", type, author
-
         # Create message, give it its initial data.
         message = MessageType(type=type, uuid=uuid)
         message.unpack({
@@ -153,7 +157,6 @@ class Channel(models.Model):
             'data': data,
             'tags': tags,
         })
-
         message.saveable = save
 
         if author:
@@ -169,16 +172,18 @@ class Channel(models.Model):
 
         # Signal to all hooked functions
         if not message.signal():
-            logger.info("EVENT CANCELED:\n%r", m)
+            logger.debug("CANCELED - {!r}\n     type={!r}\n     author='{!s}'\n     parent={!r}\n     tags={!r}\n     time={}".format(self.id, type, author, parent, tags, (time.time() - start) * 1000))
             return None
 
         # Broadcast to redis or what have you
-        message.broadcast()
+        if broadcast or (broadcast is None and save):
+            gevent.spawn_raw(message.broadcast)
 
         # Save if requested
         if save and message.saveable:
             message.save(create=True, update_relations=True)
-
+        
+        logger.debug("PUBLISH - {!r}\n     type={!r}\n     author='{!s}'\n     parent={!r}\n     tags={!r}\n     time={}".format(self.id, type, author, parent, tags, (time.time() - start) * 1000))
         return message
 
     def upload(self, author, files, tags=None, data=None):
@@ -416,7 +421,7 @@ class MessageType(object):
                 self.author = None
         elif isinstance( self.author, models.Model ):
             self.author, self._author = self.author.simple(), self.author
-        
+
         # Get parent
         self.parent = state.get('parent', None)
         if isinstance( self.parent, models.Model ):
@@ -530,7 +535,7 @@ class MessageType(object):
         return simple
 
     def broadcast(self):
-        print "BROADCAST", self.channel, self.type
+        print "BROADCAST"
         if redis:
             redis.publish(self.channel, to_json( self.pack() ))
 
