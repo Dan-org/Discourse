@@ -615,9 +615,14 @@ class MessageType(object):
 
     @classmethod
     def rebuild(self, state, **extra):
-        if isinstance(state, MessageType):
-            return state
-        message = MessageType(type=state['type'], uuid=state['uuid'])
+        try:
+            if isinstance(state, MessageType):
+                return state
+            if isinstance(state, basestring):
+                state = from_json(state)
+            message = MessageType(type=state['type'], uuid=state['uuid'])
+        except:
+            return None
         message.unpack(state)
         message.__dict__.update(extra)
         return message
