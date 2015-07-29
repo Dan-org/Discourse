@@ -400,7 +400,7 @@ class MessageType(object):
         if self.data:
             if 'children' in self.data:
                 result['data'] = dict(self.data)
-                result['data']['children'] = [c.pack() for c in self.data['children']]
+                result['data']['children'] = [c.pack() for c in self.data['children'] if c is not None]
             else:
                 result['data'] = simple( self.data )
 
