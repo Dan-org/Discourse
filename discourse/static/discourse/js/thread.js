@@ -8,7 +8,33 @@ $(function() {
         following[channel] = true;
         discourse.follow(channel);
     })
+
+    $('.discourse.stream .loader').each(function(i, e) {
+        setupLoader(e);
+    });
 });
+
+function setupLoader(e) {
+    var self = $(e);
+    var above_fold = false;
+
+    $(window).on('scroll', function() {
+        if (!self.is(':visible')) return;
+
+        if (self.offset().top - 100 < $(window).scrollTop() + $(window).height()) {
+            if (!above_fold) {
+                above_fold = true;
+                self.trigger(jQuery.Event('above-fold'));
+            }
+        } else {
+            above_fold = false;
+        }
+    });
+
+    self.on('above-fold', function() {
+        Discourse.stream(self.closest('.discourse.stream')).more()
+    });
+}
 
 // When 'delete' is pressed on a message, it is deleted.
 $(document).on('click', '.discourse .messages .act-delete', deleteMessage);
@@ -131,7 +157,7 @@ function findStream(channel) {
 function postMessageSuccess(form, result) {
     form[0].reset()
     var source = Stream.update(result);
-    if (source.length > 0)
+    if (source && source.length > 0)
         source.scrollTo(500, 'swing', function() {
             source.fadeTo(250, 0).fadeTo(500, 1);    
         });
@@ -270,7 +296,8 @@ function Stream(source) {
         require_any: getAttrArray('data-any'),
         require_all: getAttrArray('data-all'),
         template: this.source.attr('data-template'),
-        sort: this.source.attr('sort')
+        sort: this.source.attr('sort'),
+        after: null
     }
 
     this._original = $.extend({}, this._filter);
@@ -295,6 +322,7 @@ Stream.prototype.reload = function(data) {
         'require_all': this._filter.require_all,
         'template': this._filter.template,
         'sort': this._filter.sort,
+        'after': null,
     }, data);
     
     this.source.fadeTo('fast', .5);
@@ -306,6 +334,16 @@ Stream.prototype.reload = function(data) {
         error: $.proxy(this.error, this),
         complete: $.proxy(this.complete, this)
     });
+}
+
+Stream.prototype.more = function() {
+    var source = this.source;
+    var last = source.find('.messages:last');
+    if (last.length == 0) return false;
+
+    var id = last.attr('id').substring('message-'.length);
+    console.log("Load after: ", id);
+    this.reload({'after': id});
 }
 
 Stream.prototype.success = function(data, textStatus, xhr) {
@@ -401,6 +439,7 @@ Stream.update = function(message) {
     var stream = Discourse.stream( source );
     return stream.add(message);
 }
+
 
 // When discourse tells us that there is a new comment
 discourse.on('message', Stream.update);

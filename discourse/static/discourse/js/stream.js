@@ -27,4 +27,4 @@ $(document).on('click', '.discourse .more', function(e) {
             }
         }
     });
-})
+});
