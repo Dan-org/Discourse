@@ -18,13 +18,17 @@ def stream_tag(context, channel, type='comment', size=21, require_any=None, requ
 
     channel = channel_for(channel)
     messages = channel.search(type=type, require_any=require_any, require_all=require_all, sort=sort, deleted=deleted)
+
+    count = context['count'] = len(messages)
     messages = messages[:size]
 
+    context['more'] = (count > len(messages))
     context['stream_id'] = id or uuid4().hex
     context['type'] = " ".join(type or [])
     context['require_any'] = " ".join(require_any or [])
     context['require_all'] = " ".join(require_all or [])
     context['inform'] = inform
+    
     return channel.render_to_string(context, messages, template=template)
 
 

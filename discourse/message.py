@@ -788,6 +788,7 @@ def channel_view(request, id, message_id=None):
     type = expand_tags(request.GET.getlist('type[]'))
     require_any = expand_tags(request.GET.getlist('require_any[]'))
     require_all = expand_tags(request.GET.getlist('require_all[]'))
+    after = request.GET.get('after')
     deleted = request.POST.get('deleted') in ('true', 'yes', 'on', 'True')
 
     sort = request.GET.get('sort', 'recent')
@@ -795,7 +796,7 @@ def channel_view(request, id, message_id=None):
 
     messages = channel.search(type=type, require_any=require_any, require_all=require_all, sort=sort, deleted=deleted)
     context = RequestContext(request, locals())
-
+    
     return HttpResponse(channel.render_to_string(context, messages=messages, template=template))
 
 

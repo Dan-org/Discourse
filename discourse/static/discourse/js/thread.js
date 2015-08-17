@@ -32,7 +32,7 @@ function setupLoader(e) {
     });
 
     self.on('above-fold', function() {
-        Discourse.stream(self.closest('.discourse.stream')).more()
+        Discourse.stream(self.closest('.discourse.stream')).more();
     });
 }
 
@@ -338,7 +338,7 @@ Stream.prototype.reload = function(data) {
 
 Stream.prototype.more = function() {
     var source = this.source;
-    var last = source.find('.messages:last');
+    var last = source.find('.messages').not('[for]').last();
     if (last.length == 0) return false;
 
     var id = last.attr('id').substring('message-'.length);
@@ -523,4 +523,43 @@ $(document).on('change', 'form.sorter', function(e) {
         }
     });
     Discourse.stream($(this).attr('for')).filter({'sort': val});
+});
+
+$(document).on('click', '.discourse .more', function(e) {
+    e.preventDefault();
+    var more = $(this);
+
+    if (more.data('loading'))
+        return;
+
+    Discourse.stream($(this).closest('.discourse.stream')).more();
+
+    more.data('loading', true);
+    more.data('text', more.text());
+    more.text("Loading...");
+    more.prop('disabled', true);
+
+    return;
+    $.ajax({
+        url: more.attr('href'),
+        success: function(response) {
+            var size = response.size;
+            var results = response.results;
+            var next = response.next;
+            
+            for(var i = 0; i < results.length; i++) {
+                more.before(results[i]);
+            }
+
+            more.attr('loading', null);
+            more.text(more.data('text'));
+            more.prop('disabled', false);
+
+            if (next) {
+                more.attr('href', next);
+            } else {
+                more.hide();
+            }
+        }
+    });
 });
