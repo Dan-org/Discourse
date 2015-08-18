@@ -342,7 +342,7 @@ class MessageType(object):
 
     def post(self, request):
         try:
-            self.html = self.render(RequestContext(request, {'can_edit_message': True, 'can_edit_channel': True}))
+            self.html = self.render(RequestContext(request, {'can_edit_message': True, 'can_edit_channel': True, 'request': request}))
         except TemplateDoesNotExist:
             pass
         return JsonResponse( self.pack() )
@@ -783,6 +783,8 @@ def channel_view(request, id, message_id=None):
             attachments = request.FILES.getlist('attachment')
 
         message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, attachments=attachments, save=True)
+        print message
+
         return message.post(request)
 
     type = expand_tags(request.GET.getlist('type[]'))
