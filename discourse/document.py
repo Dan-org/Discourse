@@ -10,7 +10,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 
 import ttag
-from yamlfield import YAMLField
+from yamlfield.fields import YAMLField
 from cleaner import clean_html
 
 from ajax import JsonResponse

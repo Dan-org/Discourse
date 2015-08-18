@@ -12,5 +12,5 @@ setup( name='django-discourse',
        packages = find_packages(),
        include_package_data = True,
        zip_safe = False,
-       install_requires = ['django-yamlfield', 'bleach', 'django-ttag']
+       install_requires = ['django-yamlfield', 'bleach', 'django-ttag', 'django-uuidfield']
       )
