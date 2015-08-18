@@ -29,9 +29,7 @@ def stream_tag(context, channel, type='comment', size=21, require_any=None, requ
     context['require_all'] = " ".join(require_all or [])
     context['inform'] = inform
     
-    s = channel.render_to_string(context, messages, template=template)
-    print messages[0].type
-    return s
+    return channel.render_to_string(context, messages, template=template)
 
 
 def library_tag(context, channel, size=21, require_any=None, require_all=None, sort="filename", template='discourse/library.html', id=None, deleted=False):

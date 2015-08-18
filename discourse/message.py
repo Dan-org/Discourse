@@ -783,8 +783,6 @@ def channel_view(request, id, message_id=None):
             attachments = request.FILES.getlist('attachment')
 
         message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, attachments=attachments, save=True)
-        print message
-
         return message.post(request)
 
     type = expand_tags(request.GET.getlist('type[]'))
