@@ -77,7 +77,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
     def prepare(self, message):
         state = super(MessageIndex, self).prepare(message)
-
+        
         message = message.rebuild()
         message.children = self.children_index.get(message.uuid, ())
 
@@ -89,7 +89,11 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         if message.parent:
             self.children_index.setdefault(message.parent, []).append(message)
 
-        state.update(message.pack())
+        data = message.pack()
+        state.update(data)
+
+        print "INDEXING"
+        pprint(data)
 
         for key in ['author', 'data', 'attachments']:
             fix_json(state, key)

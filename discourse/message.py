@@ -182,7 +182,7 @@ class Channel(models.Model):
         # Save if requested
         if save and message.saveable:
             message.save(create=True, update_relations=True)
-        
+
         logger.debug("PUBLISH - {!r}\n     type={!r}\n     author='{!s}'\n     parent={!r}\n     tags={!r}\n     time={}".format(self.id, type, author, parent, tags, (time.time() - start) * 1000))
         return message
 
@@ -394,8 +394,10 @@ class MessageType(object):
         if self.deleted: result['deleted'] = self.deleted
         if self.keys: result['keys'] = list(self.keys)
         if self.tags: result['tags'] = list(self.tags)
-        if self.attachments: result['attachments'] = self.attachments
         if self.html: result['html'] = self.html
+
+        if self.attachments: 
+            result['attachments'] = self.attachments
 
         if self.data:
             if 'children' in self.data:
@@ -493,12 +495,12 @@ class MessageType(object):
             if record.parent:
                 record.depth = record.parent.depth + 1
 
-        # Save
-        record.save()
-
         # Save our record
         record._message = self
         self._record = record
+
+        # Save
+        record.save()
 
         # Resolve new attachments
         self.save_attachments()
@@ -524,8 +526,11 @@ class MessageType(object):
             source = file
         )
 
+        a.save()
+
         if not hasattr(self, '_attachment_objects'):
             self._attachment_objects = []
+            self._attachment_data = []
         self._attachment_objects.append(a)
 
         simple = a.simple()
@@ -535,7 +540,6 @@ class MessageType(object):
         return simple
 
     def broadcast(self):
-        print "BROADCAST"
         if redis:
             redis.publish(self.channel, to_json( self.pack() ))
 
@@ -641,7 +645,7 @@ def MessageResult(app_label, model_name, pk, score, **kwargs):
 
 class Attachment(models.Model):
     uuid = UUIDField(auto=False, primary_key=True)
-    message = models.ForeignKey(Message, related_name="attachments")
+    message = models.ForeignKey(Message, related_name="attachments", blank=True, null=True)
     mimetype = models.CharField(max_length=255)
     filename = models.CharField(max_length=255)
     source = models.FileField(upload_to="attachments")
@@ -781,7 +785,7 @@ def channel_view(request, id, message_id=None):
         attachments = None
         if request.FILES:
             attachments = request.FILES.getlist('attachment')
-
+        
         message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, attachments=attachments, save=True)
         return message.post(request)
 
