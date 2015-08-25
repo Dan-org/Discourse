@@ -65,6 +65,8 @@ def to_datetime(dt, or_now=False):
 def hash(*args):
     hsh = hashlib.new('md5')
     for a in args:
+        if isinstance(a, unicode):
+            a = a.encode('ascii', 'ignore')
         hsh.update(a)
     return hsh.hexdigest()
 
