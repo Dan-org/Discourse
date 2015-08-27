@@ -369,8 +369,8 @@ class MessageType(object):
     def render(self, context):
         user = context['request'].user
         can_edit_channel = context.get('can_edit_channel', False)
-        can_edit_message = context.get('can_edit_message', (user.is_superuser or user.id == self.author['id']))
-        can_delete_message = context.get('can_edit_message', (can_edit_channel or user.is_superuser or user.id == self.author['id']))
+        can_edit_message = context.get('can_edit_message', (user.is_superuser or user.id == self.author.get('id')))
+        can_delete_message = context.get('can_edit_message', (can_edit_channel or user.is_superuser or user.id == self.author.get('id')))
         message = self
         data = self.data
         with context.push(locals()):

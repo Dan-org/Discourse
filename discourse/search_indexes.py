@@ -92,9 +92,6 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         data = message.pack()
         state.update(data)
 
-        print "INDEXING"
-        pprint(data)
-
         for key in ['author', 'data', 'attachments']:
             fix_json(state, key)
 
