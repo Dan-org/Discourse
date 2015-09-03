@@ -1,6 +1,5 @@
-import urllib, re, mimetypes, hashlib, time, numbers, inspect, logging
-
 import gevent
+import urllib, re, mimetypes, hashlib, time, numbers, inspect, logging
 
 from pprint import pprint
 from datetime import datetime, date
@@ -13,7 +12,6 @@ from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404, render
 from django.http import Http404, HttpResponse, HttpResponseRedirect, HttpResponseForbidden, HttpResponseBadRequest
 from django.template import Context, RequestContext
-from django.template.loader import render_to_string, TemplateDoesNotExist
 from django.utils.safestring import mark_safe
 from django.dispatch import Signal
 from django.contrib.auth import get_user_model
@@ -28,6 +26,7 @@ from yamlfield.fields import YAMLField
 from ajax import to_json, from_json, JsonResponse
 
 from uri import uri, resolve_model_uri, simple
+from template import render_to_string, TemplateDoesNotExist
 
 
 logger = logging.getLogger(__name__)
@@ -91,10 +90,16 @@ class Channel(models.Model):
             'url': self.url,
         }
 
-    def search(self, type=None, require_all=None, require_any=None, author=None, parent=None, deleted=False, sort='recent'):
+    def search(self, type=None, require_all=None, require_any=None, require_not=None, author=None, parent=None, deleted=False, sort='recent'):
         q = SearchQuerySet().models(Message).result_class(MessageResult)
 
         q = q.filter(SQ(channel__exact=self.id) | SQ(tags=self.id))
+
+        if require_not:
+            if require_any:
+                require_not -= require_any
+            if require_all:
+                require_not -= require_all
 
         if type:
             if isinstance(type, basestring):
@@ -109,6 +114,8 @@ class Channel(models.Model):
             q = q.filter(sq)
         if require_any:
             q = q.filter(tags__in=require_any)
+        if require_not:
+            q = q.exclude(tags__in=require_not)
         if author:
             q = q.filter(author=author)
         if parent:
@@ -172,6 +179,10 @@ class Channel(models.Model):
         # Allow message to build itself / initialize anything necessary.
         message.build()
 
+        if settings.DEBUG:
+            print "New Message:", message.__class__.__name__
+            pprint(message.pack())
+
         # Signal to all hooked functions
         if not message.signal():
             logger.debug("CANCELED - {!r}\n     type={!r}\n     author='{!s}'\n     parent={!r}\n     tags={!r}\n     time={}".format(self.id, type, author, parent, tags, (time.time() - start) * 1000))
@@ -223,31 +234,27 @@ class Channel(models.Model):
         m = self.publish("attachment:meta", author, parent=attachment.message, data={'meta': kwargs, 'filename': attachment.filename, 'filename_hash': hash(attachment.filename)}, save=True)
         return m
 
-    def render_to_string(self, context, messages, template='discourse/stream.html'):
-        if not isinstance(context, Context):
-            context = Context(context)
-
+    def render_to_string(self, context, messages, template=None):
         can_edit_channel = context.get('can_edit_channel', None)
-        if hasattr(self.get_anchor(), 'can_edit') and 'request' in context:
+        if not can_edit_channel and hasattr(self.get_anchor(), 'can_edit') and 'request' in context:
             can_edit_channel = self.get_anchor().can_edit(context['request'].user)
 
+        template = template or 'discourse/stream.html'
         channel = self
         content = None
 
-        with context.push(locals()):
-            parts = []
-            for m in messages:
-                try:
-                    if m.channel == self.id:
-                        parts.append( m.render(context) )
-                    else:
-                        parts.append( m.inform(context) )
-                except TemplateDoesNotExist:
-                    continue
-            content = mark_safe("\n".join(parts))
+        parts = []
+        for m in messages:
+            try:
+                if m.channel == self.id:
+                    parts.append( m.render(context, locals()) )
+                else:
+                    parts.append( m.inform(context, locals()) )
+            except TemplateDoesNotExist:
+                continue
+        content = mark_safe("\n".join(parts))
 
-        with context.push(locals()):
-            return render_to_string(template, context)
+        return render_to_string(template, context, locals())
 
     @property
     def url(self):
@@ -294,7 +301,8 @@ class Message(models.Model):
                 'keys': [x.strip() for x in self.keys.split(' ') if x.strip()] if self.keys else (),
                 'data': self.content,
                 'attachments': [x.simple() for x in self.attachments.all()],
-                'url': self.url
+                'url': self.url,
+                'value': self.value,
             }
             self._message.unpack(dct)
             self._message.build()
@@ -337,21 +345,22 @@ class MessageType(object):
 
     def set_type(self, type):
         self.type = type
-        if self.type in self._registry:
+        if type in self._registry:
             self.__class__ = self._registry[self.type]
         else:
             self.__class__ = MessageType
 
     def post(self, request):
         try:
-            self.html = self.render(RequestContext(request, {'can_edit_message': True, 'can_edit_channel': True, 'request': request}))
+            self.html = self.render({'can_edit_message': True, 'can_edit_channel': True, 'request': request})
         except TemplateDoesNotExist:
             pass
         return JsonResponse( self.pack() )
 
-    def inform(self, context):
-        with context.push(inform=True):
-            return self.render(context)
+    def inform(self, context, context_update):
+        context_update = context_update or {}
+        context_update['inform'] = True
+        return self.render(context, context_update)
 
     def describe(self, user):
         return None
@@ -366,15 +375,18 @@ class MessageType(object):
             pass
         return socket.emit('message', self.pack())
 
-    def render(self, context):
+    def render(self, context, context_update=None):
         user = context['request'].user
         can_edit_channel = context.get('can_edit_channel', False)
         can_edit_message = context.get('can_edit_message', (user.is_superuser or user.id == self.author.get('id')))
         can_delete_message = context.get('can_edit_message', (can_edit_channel or user.is_superuser or user.id == self.author.get('id')))
         message = self
         data = self.data
-        with context.push(locals()):
-            return render_to_string(["discourse/message/%s.html" % self.type.replace(':', '-')], context)
+        context_update = context_update or {}
+        context_update.update(locals())
+
+        print "can_edit_message", can_edit_message, user.is_superuser, user.id, self.author.get('id')
+        return render_to_string(["discourse/message/%s.html" % self.type.replace(':', '-')], context, context_update)
 
     def pack(self):
         result = {
@@ -392,7 +404,7 @@ class MessageType(object):
         }
 
         if self.order: result['order'] = self.order
-        if self.value: result['value'] = self.value
+        if self.value is not None: result['value'] = self.value
         if self.deleted: result['deleted'] = self.deleted
         if self.keys: result['keys'] = list(self.keys)
         if self.tags: result['tags'] = list(self.tags)
@@ -434,7 +446,7 @@ class MessageType(object):
             self.parent, self._parent = self.parent.uuid, self.parent
 
         self.order = state.get('order', 0)
-        self.value = state.get('order', 0)
+        self.value = state.get('value', 0)
 
         self.created = to_datetime(state.get('created'), or_now=True)
         self.modified = to_datetime(state.get('modified'), or_now=True)
@@ -484,6 +496,7 @@ class MessageType(object):
         record.modified = timezone.now()
         record.deleted = timezone.now() if self.deleted else None
         record.order = self.order
+        record.value = self.value
         
         record.keys = " ".join(self.keys)
         record.tags = " ".join(self.tags)
@@ -794,16 +807,16 @@ def channel_view(request, id, message_id=None):
     type = expand_tags(request.GET.getlist('type[]'))
     require_any = expand_tags(request.GET.getlist('require_any[]'))
     require_all = expand_tags(request.GET.getlist('require_all[]'))
+    require_not = expand_tags(request.GET.getlist('require_not[]'))
     after = request.GET.get('after')
     deleted = request.POST.get('deleted') in ('true', 'yes', 'on', 'True')
 
     sort = request.GET.get('sort', 'recent')
     template = request.GET.get('template', None)
 
-    messages = channel.search(type=type, require_any=require_any, require_all=require_all, sort=sort, deleted=deleted)
-    context = RequestContext(request, locals())
+    messages = channel.search(type=type, require_any=require_any, require_all=require_all, require_not=require_not, sort=sort, deleted=deleted)
     
-    return HttpResponse(channel.render_to_string(context, messages=messages, template=template))
+    return HttpResponse(channel.render_to_string(locals(), messages=messages, template=template))
 
 
 def expand_tags(tags):
@@ -878,6 +891,105 @@ class Unlike(Like):
         other.data['likes'] = likes
         other.value -= 1
 
+
+class Flag(MessageType):
+    def get_flags_set(self, parent):
+        flags = parent.data.get('flags', None)
+        if not isinstance(flags, dict):
+            flags = parent.data['flags'] = {}
+
+        name = self.data['name']
+        flags[name] = set(flags.get(name, ()))
+        return flags[name]
+
+    def apply(self, parent): 
+        if not 'name' in self.data:
+            return
+
+        if not isinstance(parent.data, dict):
+            return 
+
+        user_id = unicode(self.author['id'])
+
+        flags = self.get_flags_set(parent)
+
+        if self.data.get('remove'):
+            if user_id not in flags:
+                return
+            flags.discard(user_id)
+            value = -1
+        else:
+            if user_id in flags:
+                return
+            flags.add(user_id)
+            value = 1
+
+        parent.value += self.data.get('value', value)
+
+    def post(self, request):
+        from discourse.templatetags.discourse import like
+        context = RequestContext(request)
+        m = self.get_parent()
+        packed = self.pack()
+        if self.data.get('name'):
+            packed['active'], packed['people'] = FlagStringer(self.data['name'])(m, request.user)
+        return JsonResponse(packed)
+
+
+class FlagStringer(object):
+    one = '<a href="#">1 person</a>'
+    many = '<a href="#">{} people</a>'
+    no_people = ""
+    one_other = '<a href="#">1 other</a>'
+    many_others = '<a href="#">{} others</a>'
+    you = '<span class="you">You</span>'
+    conjunction = "and"
+
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.end = '<span>' + name + 's</span>'
+        self.ends = '<span>' + name + '</span>'
+        self.__dict__.update(kwargs)
+
+    def __call__(self, message, user):
+        set = self.get_flag_set(message)
+        if not set:
+            return False, self.no_people
+        parts = []
+        total = len(set)
+        
+        one = self.one
+        many = self.many
+        you = False
+        end = self.end
+        
+        if user.is_authenticated() and unicode(user.id) in set:
+            parts.append(self.you)
+            total -= 1
+            one = self.one_other
+            many = self.many_others
+            you = True
+            end = self.ends
+        
+        if parts and total:
+            parts.append(self.conjunction)
+
+        if total == 1:
+            parts.append(one)
+        elif total > 1:
+            end = self.ends
+            parts.append(many.format(total))
+
+        if parts:
+            parts.append(end)
+
+        return you, " ".join(parts)
+
+    def get_flag_set(self, message):
+        try:
+            return set( message.data.get('flags', {}).get(self.name, ()) )
+        except:
+            return None
 
 
 class Reply(MessageType):
@@ -968,6 +1080,7 @@ class Tag(MessageType):
             other.tags = self.get_data_tags('set')
         other.tags |= self.get_data_tags('add')
         other.tags -= self.get_data_tags('remove')
+        print other.tags
 
     def get_data_tags(self, k):
         tags = self.data.get(k)

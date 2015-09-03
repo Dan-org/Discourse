@@ -286,11 +286,11 @@ function Stream(source) {
 
     source.data('stream', this);
     this.source = source;
-
+    
     function getAttrArray(name) {
         return source.attr(name).split(/\s/).filter(function(item) { return item.length > 0 });
     }
-
+    
     this._filter = {
         type: getAttrArray('data-type'),
         require_any: getAttrArray('data-any'),
