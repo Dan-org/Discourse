@@ -239,6 +239,8 @@ class Channel(models.Model):
         if not can_edit_channel and hasattr(self.get_anchor(), 'can_edit') and 'request' in context:
             can_edit_channel = self.get_anchor().can_edit(context['request'].user)
 
+        context['can_edit_channel'] = can_edit_channel
+
         template = template or 'discourse/stream.html'
         channel = self
         content = None
