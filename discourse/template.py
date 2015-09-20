@@ -25,7 +25,7 @@ def render_jinja(template, context, context_update):
         try:
             template = JINJA['env'].get_or_select_template(template)
         except JinjaTemplateNotFound:
-            print "Jinja Doesn't Have:", template
+            #print "Jinja Doesn't Have:", template
             return None
 
     if isinstance(context, Context):
@@ -49,8 +49,9 @@ def render_django(template, context, context_update):
 
 
 def render_to_string(template, context, context_update=None):
-    t = render_jinja(template, context, context_update or {})
-    if t is not None:
-        return t
+    if context.get('JINJA'):
+        t = render_jinja(template, context, context_update or {})
+        if t is not None:
+            return t
     
     return render_django(template, context, context_update or {})

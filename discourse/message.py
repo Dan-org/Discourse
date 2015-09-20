@@ -354,7 +354,7 @@ class MessageType(object):
 
     def post(self, request):
         try:
-            self.html = self.render({'can_edit_message': True, 'can_edit_channel': True, 'request': request})
+            self.html = self.render({'can_edit_message': True, 'can_edit_channel': True, 'request': request, 'inform': False, 'JINJA': request.META.get('HTTP_X_JINJA') == 'true'})
         except TemplateDoesNotExist:
             pass
         return JsonResponse( self.pack() )
@@ -387,7 +387,6 @@ class MessageType(object):
         context_update = context_update or {}
         context_update.update(locals())
 
-        print "can_edit_message", can_edit_message, user.is_superuser, user.id, self.author.get('id')
         return render_to_string(["discourse/message/%s.html" % self.type.replace(':', '-')], context, context_update)
 
     def pack(self):
@@ -774,6 +773,13 @@ def channel_view(request, id, message_id=None):
     print "FILES", request.FILES
 
     channel = channel_for(id)
+    inform = False
+
+    if request.META.get('HTTP_X_JINJA') == 'true':
+        print "JINJA", True
+        JINJA = True
+    else:
+        print "JINJA", False
 
     if request.method == 'POST':
         if not request.user.is_authenticated():
@@ -817,7 +823,6 @@ def channel_view(request, id, message_id=None):
     template = request.GET.get('template', None)
 
     messages = channel.search(type=type, require_any=require_any, require_all=require_all, require_not=require_not, sort=sort, deleted=deleted)
-    
     return HttpResponse(channel.render_to_string(locals(), messages=messages, template=template))
 
 
