@@ -37,6 +37,7 @@ try:
     import redis
     redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
 except ImportError:
+    print "Cannot find redis."
     redis = None
 
 
@@ -780,6 +781,7 @@ def channel_view(request, id, message_id=None):
         print "JINJA", True
         JINJA = True
     else:
+        JINJA = False
         print "JINJA", False
 
     if request.method == 'POST':
