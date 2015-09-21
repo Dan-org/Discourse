@@ -12,8 +12,9 @@ class DiscourseSocket(BaseNamespace):
 
     def follow_loop(self, path):
         render_context = RequestContext(self.request, {})
+        if self.request.GET.get('JINJA') == 'true':
+            render_context['JINJA'] = True
         o = self.redis.pubsub()
-        print "FOLLOWING", path
         o.subscribe([path])
         for item in o.listen():
             if item.get('type') == 'message':

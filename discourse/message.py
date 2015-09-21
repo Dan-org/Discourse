@@ -139,7 +139,7 @@ class Channel(models.Model):
     def get_message(self, uuid):
         return SearchQuerySet().models(Message).result_class(MessageResult).filter(uuid=uuid)[0]
     
-    def publish(self, type, author, data=None, tags=None, save=False, parent=None, attachments=None, broadcast=True):
+    def publish(self, type, author, data=None, tags=None, save=False, parent=None, attachments=None, broadcast=True, jinja=False):
         start = time.time()
 
         # If the channel hasn't been saved, now we save it.
@@ -167,6 +167,7 @@ class Channel(models.Model):
             'tags': tags,
         })
         message.saveable = save
+        message.jinja = jinja
 
         if author:
             message.tags.add(uri(author))
@@ -809,7 +810,7 @@ def channel_view(request, id, message_id=None):
         if request.FILES:
             attachments = request.FILES.getlist('attachment')
         
-        message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, attachments=attachments, save=True)
+        message = channel.publish(type, request.user, tags=tags, data=data, parent=parent, attachments=attachments, save=True, jinja=JINJA)
         return message.post(request)
 
     type = expand_tags(request.GET.getlist('type[]'))
