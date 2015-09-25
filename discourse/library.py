@@ -219,7 +219,7 @@ def find_filename_for_url(url):
             title = p(i).eq(0).text().strip()
             if title:
                 print "Success:", title
-                cache.set(url, title, 10)
+                cache.set(url, title, 60)
                 return title
         
         print "Site loaded, but no title found."
@@ -238,7 +238,7 @@ def find_filename_for_url(url):
     if '.' not in filename:
         filename = slugify(unicode(filename))
 
-    cache.set(url, filename, 10)
+    cache.set(url, filename, 60)
     return filename
 
 

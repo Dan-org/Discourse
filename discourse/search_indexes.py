@@ -1,11 +1,13 @@
-import datetime
-from pprint import pprint
+import datetime, logging
+from pprint import pprint, pformat
 from django.template.loader import render_to_string, TemplateDoesNotExist, Context, select_template
 from haystack import indexes
 from haystack.query import SearchQuerySet
 from message import Message
 
 from ajax import to_json
+
+log = logging.getLogger('discourse')
 
 
 class MessageIndex(indexes.SearchIndex, indexes.Indexable):
@@ -99,6 +101,8 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
             state['status'] = 'alive'
         else:
             state['status'] = 'deleted'
+
+        log.debug(pformat(state))
 
         return state
 

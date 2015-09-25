@@ -29,7 +29,7 @@ from uri import uri, resolve_model_uri, simple
 from template import render_to_string, TemplateDoesNotExist
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('discourse')
 event_signal = Signal(['event'])
 
 
@@ -734,7 +734,7 @@ def hook(fn, *types):
         filename = inspect.getsourcefile(fn)
         filename = filename[filename.find('loft/') + 5:]
         source, lineno = inspect.getsourcelines(fn)
-        print "HOOK {} - {}:{}".format(" ".join(types), filename, lineno)
+        logger.debug("HOOK {} - {}:{}".format(" ".join(types), filename, lineno))
 
     def subscription(sender, message, **kwargs):
         if '*' in types or message.type in types:
@@ -1100,14 +1100,13 @@ class Tag(MessageType):
             other.tags = self.get_data_tags('set')
         other.tags |= self.get_data_tags('add')
         other.tags -= self.get_data_tags('remove')
-        print other.tags
 
     def get_data_tags(self, k):
         tags = self.data.get(k)
         if not tags:
             return set()
         if isinstance(tags, basestring):
-            return set([tags])
+            return set(tags.split())
         return set(tags)
 
 
