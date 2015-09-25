@@ -1032,20 +1032,20 @@ class AttachmentType(MessageType):
 
     @property
     def icon(self):
-         """
-         Returns the icon type for the file.
-         """
-         if "application/pdf" in self.data['mimetype']:
+        """
+        Returns the icon type for the file.
+        """
+        if "application/pdf" in self.data['mimetype']:
              return "icon-doc-text"
-         elif "image/" in self.data['mimetype']:
-             return "icon-doc"
-         elif "application/msword" in self.data['mimetype']:
-             return "icon-doc-text"
-         elif "officedocument" in self.data['mimetype']:
-             return "icon-doc-text"
-         elif self.data['filename'].endswith(".pages"):
-             return "icon-doc-text"
-         return "icon-doc"
+        elif "image/" in self.data['mimetype']:
+            return "icon-doc"
+        elif "application/msword" in self.data['mimetype']:
+            return "icon-doc-text"
+        elif "officedocument" in self.data['mimetype']:
+            return "icon-doc-text"
+        elif self.data['filename'].endswith(".pages"):
+            return "icon-doc-text"
+        return "icon-doc"
 
     def thumbnail(self):
         return '<i class="{}"></i> '.format(self.icon)
@@ -1070,10 +1070,20 @@ class AttachmentLink(MessageType):
         })
         if '://' not in self.data['url']:
             self.data['url'] = 'http://' + self.data['url']
+
         return self.data
+    
+    @property
+    def icon(self):
+        return "icon-link"
 
     def thumbnail(self):
-        return '<i class="icon-link-ext-alt"></i> '
+        return '<i class="icon-link"></i> '
+
+    def get_domain(self):
+        m = re.match('\w+://([^/]*)', self.data['url'].lower())
+        if m:
+            return ".".join(m.groups()[0].rsplit('.', 3)[-2:])
 
 
 

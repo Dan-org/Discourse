@@ -20,14 +20,12 @@
             !(/^(\/\/|http:|https:).*/.test(url));
     }
 
-    jQuery.ajaxSetup({
-        beforeSend: function(xhr, settings) {
-            if (!csrfSafeMethod(settings.type) && sameOrigin(settings.url)) {
-                // Send the token to same-origin, relative URLs only.
-                // Send the token only if the method warrants CSRF protection
-                // Using the CSRFToken value acquired earlier
-                xhr.setRequestHeader("X-CSRFToken", jQuery.cookie('csrftoken'));
-            }
+    jQuery(document).on("ajaxSend", function(e, xhr, options) {
+        if (!csrfSafeMethod(settings.type) && sameOrigin(settings.url)) {
+            // Send the token to same-origin, relative URLs only.
+            // Send the token only if the method warrants CSRF protection
+            // Using the CSRFToken value acquired from the cookie.
+            xhr.setRequestHeader("X-CSRFToken", jQuery.cookie('csrftoken'));
         }
     });
 })(jQuery);

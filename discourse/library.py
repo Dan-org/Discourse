@@ -1,5 +1,7 @@
 import json, mimetypes, urllib, urllib2, re
 
+from pyquery import PyQuery
+
 from django.db import models
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -7,6 +9,8 @@ from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponseBadRequest, HttpResponseRedirect
+from django.utils.text import slugify
+from django.core.cache import cache
 
 from uri import *
 from ajax import JsonResponse
@@ -190,14 +194,41 @@ def upload(request, anchor, filename):
 
 
 def find_filename_for_url(url):
+    if '://' not in url:
+        url = 'http://{}'.format(url)
+
+    existing = cache.get(url, None)
+    if existing:
+        print "Found cache:", url
+        return existing
+
+    m = re.match(r'https?://i.imgur.com/(.+?)\.(.+)', url)
+    if m:
+        try:
+            url = "http://imgur.com/{}/".format(*m.groups())
+        except:
+            pass
+
+    print "Loading site title: {}".format(url),
     try:
-        text = urllib2.urlopen(url, timeout=10).read()
+        req = urllib2.Request(url, headers={'User-Agent' : "Discourse Title Retrieval"})
+        source = urllib2.urlopen(req, timeout=8)
+        p = PyQuery(source.read())
+
+        for i in ['meta[property=og\:title]', 'meta[property=twitter\:title]', 'title']:
+            title = p(i).eq(0).text().strip()
+            if title:
+                print "Success:", title
+                cache.set(url, title, 10)
+                return title
+        
+        print "Site loaded, but no title found."
+    except urllib2.HTTPError, e:
+        print "Site errored:", e.code
     except:
         pass
-    else:
-        match = re.search(r"\<\s*title\s*\>(.*?)\<\s*\/title\s*>", text, re.I | re.M)
-        if match:
-            return match.groups()[0].strip()
+
+    print "Failed."
 
     filename = url
     if '?' in filename:
@@ -205,9 +236,21 @@ def find_filename_for_url(url):
     if '/' in filename:
         filename = url.rsplit('/', 1)[1]
     if '.' not in filename:
-        filename = slugify(filename)
+        filename = slugify(unicode(filename))
 
+    cache.set(url, filename, 10)
     return filename
+
+
+def filename_for_url(request):
+    url = request.GET.get('url')
+    if not url:
+        return HttpResponseBadRequest("'url' get parameter required.")
+
+    return JsonResponse({
+        'url': url,
+        'filename': find_filename_for_url(url),
+    })
 
 
 def edit_attachment(request, anchor, filename):
