@@ -242,6 +242,7 @@ class Channel(models.Model):
             can_edit_channel = self.get_anchor().can_edit(context['request'].user)
 
         context['can_edit_channel'] = can_edit_channel
+        context['can_edit_message'] = can_edit_channel
 
         template = template or 'discourse/stream.html'
         channel = self
