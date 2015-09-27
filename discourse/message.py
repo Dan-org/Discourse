@@ -380,6 +380,16 @@ class MessageType(object):
         if not self.save:
             return
 
+        request = context.get('request')
+        if request:
+            anchor = self.get_channel_anchor()
+            if hasattr(anchor, 'can_edit'):
+                context['can_edit_channel'] = anchor.can_edit(request.user)
+            else:
+                context['can_edit_channel'] = request.get('can_edit_channel', '').lower() in ('yes', 'true', 'on')
+
+        print "\n\n\n---------- EMMMMMMIT --------------\n\n\n"
+
         try:
             self.html = self.render(context)
         except TemplateDoesNotExist:

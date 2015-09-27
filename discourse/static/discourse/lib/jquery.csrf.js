@@ -21,7 +21,7 @@
     }
 
     jQuery(document).on("ajaxSend", function(e, xhr, options) {
-        if (!csrfSafeMethod(settings.type) && sameOrigin(settings.url)) {
+        if (!csrfSafeMethod(options.type) && sameOrigin(options.url)) {
             // Send the token to same-origin, relative URLs only.
             // Send the token only if the method warrants CSRF protection
             // Using the CSRFToken value acquired from the cookie.
