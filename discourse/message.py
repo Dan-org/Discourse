@@ -356,8 +356,14 @@ class MessageType(object):
             self.__class__ = MessageType
 
     def post(self, request):
+        anchor = self.get_channel_anchor()
+        if hasattr(anchor, 'can_edit'):
+            can_edit_channel = anchor.can_edit(request.user)
+        else:
+            can_edit_channel = request.get('can_edit_channel', '').lower() in ('yes', 'true', 'on')
+
         try:
-            self.html = self.render({'can_edit_message': True, 'can_edit_channel': True, 'request': request, 'inform': False, 'JINJA': request.META.get('HTTP_X_JINJA') == 'true'})
+            self.html = self.render({'can_edit_message': True, 'can_edit_channel': can_edit_channel, 'request': request, 'inform': False, 'JINJA': request.META.get('HTTP_X_JINJA') == 'true'})
         except TemplateDoesNotExist:
             pass
         return JsonResponse( self.pack() )
