@@ -29,7 +29,10 @@ class Subscription(models.Model):
         Subscribe a user to a target, thereon whenever an update occurs on there, the user will be
         notified of the event.
         """
-        sub, _ = cls.objects.get_or_create(user=user, target_uri=uri(target))
+        try:
+            sub = cls.objects.filter(user=user, target_uri=uri(target))[0]
+        except IndexError:
+            sub = cls.objects.create(user=user, target_uri=uri(target))
         if force:
             sub.toggle = True
             sub.save()
