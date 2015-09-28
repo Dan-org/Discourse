@@ -1,6 +1,7 @@
 import datetime, logging
 from pprint import pprint, pformat
 from django.template.loader import render_to_string, TemplateDoesNotExist, Context, select_template
+from django.conf import settings
 from haystack import indexes
 from haystack.query import SearchQuerySet
 from message import Message
@@ -102,7 +103,8 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         else:
             state['status'] = 'deleted'
 
-        log.debug(pformat(state))
+        if settings.DEBUG:
+            log.debug(pformat(state))
 
         return state
 
