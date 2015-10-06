@@ -1,6 +1,12 @@
 import datetime, logging
 from pprint import pprint, pformat
-from django.template.loader import render_to_string, TemplateDoesNotExist, Context, select_template
+
+try:
+    from django.template import Context
+except ImportError:                                 # version < 1.8
+    from django.template.loader import Context
+
+from django.template.loader import render_to_string, TemplateDoesNotExist, select_template
 from django.conf import settings
 from haystack import indexes
 from haystack.query import SearchQuerySet

@@ -80,6 +80,9 @@ class Channel(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="channels")
     created = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        app_label = 'discourse'
+
     def __unicode__(self):
         return "Channel(%s)" % (self.name or self.id)
 
@@ -319,6 +322,7 @@ class Message(models.Model):
 
     class Meta:
         ordering = ['depth', 'parent_id', 'order', '-created']
+        app_label = 'discourse'
 
 
 class MessageMeta(type):
@@ -685,6 +689,9 @@ class Attachment(models.Model):
     filename = models.CharField(max_length=255)
     source = models.FileField(upload_to="attachments")
 
+    class Meta:
+        app_label = 'discourse'
+    
     def __unicode__(self):
         return "Attachment(%s, %s)" % (self.uuid, self.filename)
 
@@ -940,6 +947,7 @@ class Flag(MessageType):
 
         flags = self.get_flags_set(parent)
 
+        print "\n\n!!!!!\n\n"
         if self.data.get('remove'):
             if user_id not in flags:
                 return
@@ -950,7 +958,7 @@ class Flag(MessageType):
                 return
             flags.add(user_id)
             value = 1
-
+        
         parent.value += self.data.get('value', value)
 
     def post(self, request):

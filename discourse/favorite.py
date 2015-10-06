@@ -10,7 +10,8 @@ from ajax import JsonResponse
 
 
 class Favorite(follow.Subscription):
-    pass
+    class Meta:
+        app_label = 'discourse'
 
 favorite = Favorite.follow
 unfavorite = Favorite.unfollow
