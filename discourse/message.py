@@ -264,6 +264,21 @@ class Channel(models.Model):
 
         return render_to_string(template, context, locals())
 
+    def get_document(self, template=None):
+        from document import Document, DocumentTemplate
+
+        try:
+            doc = Document.objects.filter(anchor_uri=self.id)[0]
+        except IndexError:
+            if template:
+                template = DocumentTemplate.objects.get_or_create(slug=template)[0]
+            else:
+                template = None
+            doc = Document.objects.create(anchor_uri=self.id, template=template)
+
+        return doc
+
+
     @property
     def url(self):
         return reverse('discourse:channel', args=[self.id])

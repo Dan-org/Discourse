@@ -20,7 +20,10 @@ class Subscription(models.Model):
 
     @property
     def target(self):
-        obj, _uri = resolve_model_uri(self.target_uri)
+        try:
+            obj, _uri = resolve_model_uri(self.target_uri)
+        except:
+            return None
         return obj
 
     @classmethod
