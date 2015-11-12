@@ -15,7 +15,7 @@ from cleaner import clean_html
 
 from ajax import JsonResponse
 from uri import *
-from message import channel_for
+from message import channel_for, on
 
 
 class DocumentTemplate(models.Model):
@@ -167,7 +167,7 @@ class DocumentTag(ttag.Tag):
 
         if data.get('plain'):
             return "\n".join( [o.body for o in DocumentContent.objects.filter(document__anchor_uri=anchor)] )
-
+        
         try:
             doc = Document.objects.filter(anchor_uri=anchor)[0]
         except IndexError:
@@ -225,6 +225,24 @@ def manipulate(request, uri):
         content.save()
 
     return JsonResponse(content.build(locals()))
+
+
+@on('document:edit')
+def save_document(m):
+    document = m.get_channel().get_document()
+    source = m.data['source']
+    attribute = m.data['attribute']
+
+    if not source:
+        document.content.filter(attribute=attribute).delete()
+        return JsonResponse(None)
+
+    content, created = document.content.get_or_create(attribute=attribute, defaults={'body': source})
+    if not created:
+        content.body = source
+        content.save()
+
+    m.data['_html'] = content.build(locals())
 
 
 #class DocumentType(models.Model):

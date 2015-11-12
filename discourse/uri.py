@@ -42,7 +42,7 @@ def resolve_model_uri(uri):
         return obj, urllib.unquote(rest[1:])
 
 
-def simple(object):
+def simple(object, clear_underscores=False):
     if hasattr(object, 'simple'):
         return object.simple()
     elif isinstance(object, list):
@@ -52,7 +52,10 @@ def simple(object):
     elif isinstance(object, set):
         return tuple(simple(x) for x in object)
     elif isinstance(object, dict):
-        return dict((k, simple(v)) for k, v in object.items())
+        if clear_underscores:
+            return dict((k, simple(v)) for k, v in object.items() if not k.startswith('_'))
+        else:
+            return dict((k, simple(v)) for k, v in object.items())
     elif isinstance(object, datetime):
         return time.mktime(object.timetuple())
     elif isinstance(object, basestring):

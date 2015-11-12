@@ -406,9 +406,6 @@ class MessageType(object):
                 context['can_edit_channel'] = anchor.can_edit(request.user)
             else:
                 context['can_edit_channel'] = request.get('can_edit_channel', '').lower() in ('yes', 'true', 'on')
-
-        print "\n\n\n---------- EMMMMMMIT --------------\n\n\n"
-
         try:
             self.html = self.render(context)
         except TemplateDoesNotExist:
@@ -457,7 +454,7 @@ class MessageType(object):
                 result['data'] = dict(self.data)
                 result['data']['children'] = [c.pack() for c in self.data['children'] if c is not None]
             else:
-                result['data'] = simple( self.data )
+                result['data'] = simple( self.data, clear_underscores=True )
 
         return result
 
@@ -479,9 +476,11 @@ class MessageType(object):
 
         # Get parent
         self.parent = state.get('parent', None)
-        if isinstance( self.parent, models.Model ):
+        if isinstance( self.parent, basestring ):
+            self.parrent = self.parent
+        elif isinstance( self.parent, models.Model ):
             self.parent = self.parent.uuid
-        if isinstance( self.parent, MessageType ):
+        elif isinstance( self.parent, MessageType ):
             self.parent, self._parent = self.parent.uuid, self.parent
 
         self.order = state.get('order', 0)
@@ -539,7 +538,7 @@ class MessageType(object):
         
         record.keys = " ".join(self.keys)
         record.tags = " ".join(self.tags)
-        record.content = simple( self.data )
+        record.content = simple( self.data, clear_underscores=True )
 
         if update_relations:
             record.channel = self.get_channel()

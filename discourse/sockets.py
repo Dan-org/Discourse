@@ -3,7 +3,7 @@ from socketio.namespace import BaseNamespace
 from django.conf import settings
 from django.template import Context, RequestContext
 
-from discourse.message import MessageType
+from discourse.message import MessageType, channel_for
 
 
 class DiscourseSocket(BaseNamespace):
@@ -24,3 +24,8 @@ class DiscourseSocket(BaseNamespace):
     def on_follow(self, path):
         self.spawn(self.follow_loop, path)
 
+    def on_message(self, channel, kwargs):
+        channel = channel_for(channel)
+        kwargs.setdefault('jinja', True)
+        kwargs.setdefault('save', False)
+        channel.publish(**kwargs)
