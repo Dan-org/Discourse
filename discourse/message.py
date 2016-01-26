@@ -385,6 +385,7 @@ class MessageType(object):
             self.html = self.render({'can_edit_message': True, 'can_edit_channel': can_edit_channel, 'request': request, 'inform': False, 'JINJA': request.META.get('HTTP_X_JINJA') == 'true'})
         except TemplateDoesNotExist:
             pass
+
         return JsonResponse( self.pack() )
 
     def inform(self, context, context_update):
@@ -454,7 +455,7 @@ class MessageType(object):
                 result['data'] = dict(self.data)
                 result['data']['children'] = [c.pack() for c in self.data['children'] if c is not None]
             else:
-                result['data'] = simple( self.data, clear_underscores=True )
+                result['data'] = simple( self.data )
 
         return result
 

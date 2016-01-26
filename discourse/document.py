@@ -209,6 +209,8 @@ def manipulate(request, uri):
     if not request.POST:
         return HttpResponseBadRequest()
 
+    print attribute, value
+
     attribute = request.POST['attribute']
     value = clean_html(request.POST['value']).strip()
 
@@ -242,7 +244,8 @@ def save_document(m):
         content.body = source
         content.save()
 
-    m.data['_html'] = content.build(locals())
+    m.data['_content'] = content.build(locals())
+    #print m.pack()
 
 
 #class DocumentType(models.Model):
