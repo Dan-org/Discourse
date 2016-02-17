@@ -190,9 +190,9 @@ class Channel(models.Model):
         # Allow message to build itself / initialize anything necessary.
         message.build()
 
-        if settings.DEBUG:
-            print "New Message:", message.__class__.__name__
-            pprint(message.pack())
+        #if settings.DEBUG:
+        #    print "New Message:", message.__class__.__name__
+        #    pprint(message.pack())
 
         # Signal to all hooked functions
         if not message.signal():
@@ -969,7 +969,6 @@ class Flag(MessageType):
 
         flags = self.get_flags_set(parent)
 
-        print "\n\n!!!!!\n\n"
         if self.data.get('remove'):
             if user_id not in flags:
                 return

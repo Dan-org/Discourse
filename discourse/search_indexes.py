@@ -109,8 +109,8 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         else:
             state['status'] = 'deleted'
 
-        if settings.DEBUG:
-            log.debug(pformat(state))
+        #if settings.DEBUG:
+        #   log.debug(pformat(state))
 
         return state
 
