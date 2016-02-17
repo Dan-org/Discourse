@@ -94,7 +94,7 @@ class Channel(models.Model):
             'url': self.url,
         }
 
-    def search(self, type=None, require_all=None, require_any=None, require_not=None, author=None, parent=None, deleted=False, sort='recent'):
+    def search(self, query=None, type=None, require_all=None, require_any=None, require_not=None, author=None, parent=None, like=None, deleted=False, sort='recent'):
         q = SearchQuerySet().models(Message).result_class(MessageResult)
 
         q = q.filter(SQ(channel__exact=self.id) | SQ(tags=self.id))
@@ -132,6 +132,12 @@ class Channel(models.Model):
             q = q.order_by('-created')
         elif sort == 'value':
             q = q.order_by('-value', '-created')
+
+        if like:
+            q = q.more_like_this(like.get_record())
+
+        if query:
+            q = q.filter(content=query)
 
         return q
 
@@ -860,11 +866,12 @@ def channel_view(request, id, message_id=None):
     require_not = expand_tags(request.GET.getlist('require_not[]'))
     after = request.GET.get('after')
     deleted = request.POST.get('deleted') in ('true', 'yes', 'on', 'True')
-
+    
+    query = request.GET.get('q')
     sort = request.GET.get('sort', 'recent')
     template = request.GET.get('template', None)
 
-    messages = channel.search(type=type, require_any=require_any, require_all=require_all, require_not=require_not, sort=sort, deleted=deleted)
+    messages = channel.search(type=type, require_any=require_any, require_all=require_all, require_not=require_not, sort=sort, deleted=deleted, query=query)
     return HttpResponse(channel.render_to_string(locals(), messages=messages, template=template))
 
 
