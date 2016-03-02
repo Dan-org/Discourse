@@ -137,7 +137,7 @@ class Channel(models.Model):
             q = q.more_like_this(like.get_record())
 
         if query:
-            q = q.filter(content=query)
+            q = q.auto_query(query)
 
         return q
 
