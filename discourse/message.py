@@ -245,13 +245,14 @@ class Channel(models.Model):
         m = self.publish("attachment:meta", author, parent=attachment.message, data={'meta': kwargs, 'filename': attachment.filename, 'filename_hash': hash(attachment.filename)}, save=True)
         return m
 
-    def render_to_string(self, context, messages, template=None):
+    def render_to_string(self, context, messages, template=None, inform=False):
         can_edit_channel = context.get('can_edit_channel', None)
         if not can_edit_channel and hasattr(self.get_anchor(), 'can_edit') and 'request' in context:
             can_edit_channel = self.get_anchor().can_edit(context['request'].user)
 
         context['can_edit_channel'] = can_edit_channel
         context['can_edit_message'] = can_edit_channel
+        context['inform'] = inform
 
         template = template or 'discourse/stream.html'
         channel = self
@@ -666,6 +667,9 @@ class MessageType(object):
                 info['data-' + k] = v
         return info
 
+    def get_followers(self):
+        discourse.get_followers(message.channel)
+
     @property
     def url(self):
         url = reverse( "discourse:channel", args=[self.channel] )
@@ -813,7 +817,7 @@ def channel_for(obj):
 
 
 
-def channel_view(request, id, message_id=None):
+def channel_view(request, id, message_id=None, jinja=None):
     print "METHOD", request.method
     print "GET", request.GET
     print "POST", request.POST
@@ -822,12 +826,10 @@ def channel_view(request, id, message_id=None):
     channel = channel_for(id)
     inform = False
 
-    if request.META.get('HTTP_X_JINJA') == 'true':
-        print "JINJA", True
+    if jinja or request.META.get('HTTP_X_JINJA') == 'true':
         JINJA = True
     else:
         JINJA = False
-        print "JINJA", False
 
     if request.method == 'POST':
         if not request.user.is_authenticated():

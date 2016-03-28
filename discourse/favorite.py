@@ -62,6 +62,8 @@ def manipulate(request):
     else:
         favorite(request.user, target, True)
 
+    print "FAVORITE", request.POST
+
     return JsonResponse(get_favorited_count(target))
 
 
