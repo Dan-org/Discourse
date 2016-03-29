@@ -1,4 +1,5 @@
 import datetime, logging
+from collections import defaultdict
 from pprint import pprint, pformat
 
 try:
@@ -42,8 +43,10 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
     def index_queryset(self, using=None):
         """Used when the entire index for model is updated."""
-        self.children_index = {}
-        return self.get_model().objects.all().filter(parent=None).order_by('depth', 'order', '-created').select_related('author')
+        self.children_index = defaultdict(list)
+        for obj in self.get_model().objects.all().order_by('parent_id', 'depth', 'order', '-created').select_related('author'):
+            self.children_index[obj.parent_id].append(obj)
+        return self.children_index[None]
 
     def update(self, using=None):
         self.children_index = {}
