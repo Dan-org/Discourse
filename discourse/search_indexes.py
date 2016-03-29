@@ -45,7 +45,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         """Used when the entire index for model is updated."""
         self.children_index = defaultdict(list)
         for obj in self.get_model().objects.exclude(parent=None).order_by('parent_id', 'depth', 'order', '-created').select_related('author'):
-            self.children_index[obj.parent_id].append(obj)
+            self.children_index[obj.parent_id].append(obj.rebuild())
         return self.get_model().objects.filter(parent=None).order_by('depth', 'order', '-created').select_related('author')
 
     def update(self, using=None):
