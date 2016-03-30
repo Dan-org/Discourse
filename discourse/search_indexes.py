@@ -95,7 +95,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         state = super(MessageIndex, self).prepare(message)
         
         message = message.rebuild()
-        message.children = message.children or self.children_index.get(message.uuid, ())
+        message.children = getattr(message, 'children', None) or self.children_index.get(message.uuid, ())
 
         if not getattr(self, 'children_index', None):
             self.build_child_index()
