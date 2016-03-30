@@ -43,10 +43,13 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
     def index_queryset(self, using=None):
         """Used when the entire index for model is updated."""
+        self.children_index = None
+        return self.get_model().objects.filter(parent=None).order_by('depth', 'order', 'created').select_related('author')
+
+    def build_child_index(self):
         self.children_index = defaultdict(list)
         for obj in self.get_model().objects.exclude(parent=None).order_by('parent_id', 'depth', 'order', 'created').select_related('author'):
             self.children_index[obj.parent_id].append(obj.rebuild())
-        return self.get_model().objects.filter(parent=None).order_by('depth', 'order', 'created').select_related('author')
 
     def update(self, using=None):
         self.children_index = {}
@@ -92,6 +95,9 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         
         message = message.rebuild()
         message.children = self.children_index.get(message.uuid, ())
+
+        if not getattr(self, 'children_index', None):
+            self.build_child_index()
 
         # Iterate through each child and have it apply() itself to its parent.
         for child in message.children:
