@@ -48,6 +48,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
     def build_child_index(self):
         self.children_index = defaultdict(list)
+        return False
         for obj in self.get_model().objects.exclude(parent=None).order_by('parent_id', 'depth', 'order', 'created').select_related('author'):
             self.children_index[obj.parent_id].append(obj.rebuild())
 
