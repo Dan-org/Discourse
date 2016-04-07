@@ -208,9 +208,7 @@ def manipulate(request, uri):
 
     if not request.POST:
         return HttpResponseBadRequest()
-
-    print attribute, value
-
+    
     attribute = request.POST['attribute']
     value = clean_html(request.POST['value']).strip()
 
