@@ -86,10 +86,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         backend.update(self, instances)
 
     def prepare_text(self, message):
-        try:
-            return render_to_string('discourse/index/%s.txt' % message.type, locals())
-        except TemplateDoesNotExist:
-            return repr(message.content)
+        return repr(message.content)
 
     def prepare(self, message):
         state = super(MessageIndex, self).prepare(message)
@@ -105,6 +102,8 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
             if not child.deleted:
                 child.apply(message)
 
+        message.prepare()
+
         if message.parent:
             self.children_index.setdefault(message.parent, []).append(message)
 
@@ -119,8 +118,13 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         else:
             state['status'] = 'deleted'
 
-        #if settings.DEBUG:
-        #   log.debug(pformat(state))
+        try:
+            state['text'] = render_to_string('discourse/index/%s.txt' % message.type, locals())
+        except TemplateDoesNotExist:
+            pass
+        
+        if settings.DEBUG:
+           log.debug(pformat(state))
 
         return state
 

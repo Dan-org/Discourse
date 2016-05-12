@@ -525,6 +525,9 @@ class MessageType(object):
     def apply(self, parent):
         pass
 
+    def prepare(self):
+        pass
+
     def cap(self, parent, children):
         pass
 
@@ -1154,7 +1157,10 @@ class Tag(MessageType):
         if not tags:
             return set()
         if isinstance(tags, basestring):
-            return set(tags.split())
+            if ',' in tags:
+                return set(x.strip() for x in tags.split(','))
+            else:
+                return set(x.strip() for x in tags.split())
         return set(tags)
 
 
