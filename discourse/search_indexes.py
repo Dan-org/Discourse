@@ -92,10 +92,12 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         state = super(MessageIndex, self).prepare(message)
         
         message = message.rebuild()
-        message.children = getattr(message, 'children', None) or self.children_index.get(message.uuid, ())
+        message.children = getattr(message, 'children', None)
 
-        if not getattr(self, 'children_index', None):
-            self.build_child_index()
+        if message.children is None:
+            if not getattr(self, 'children_index', None):
+                self.build_child_index()
+            message.children = self.children_index.get(message.uuid, ())
 
         # Iterate through each child and have it apply() itself to its parent.
         for child in message.children:
