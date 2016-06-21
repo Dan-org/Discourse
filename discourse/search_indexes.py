@@ -48,9 +48,9 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
     def build_child_index(self):
         self.children_index = defaultdict(list)
-        return False
         for obj in self.get_model().objects.exclude(parent=None).order_by('parent_id', 'depth', 'order', 'created').select_related('author'):
             self.children_index[obj.parent_id].append(obj.rebuild())
+        print "BUILT CHILD INDEX", len(self.children_index)
 
     def update(self, using=None):
         self.children_index = {}
@@ -94,7 +94,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         message = message.rebuild()
         message.children = getattr(message, 'children', None)
 
-        if message.children is None:
+        if not message.children:
             if not getattr(self, 'children_index', None):
                 self.build_child_index()
             message.children = self.children_index.get(message.uuid, ())

@@ -506,13 +506,19 @@ class MessageType(object):
 
         attachments = state.get('attachments') or []
         if isinstance(attachments, basestring):
-            self.attachments = from_json(attachments)
+            try:
+                self.attachments = from_json(attachments)
+            except ValueError:
+                self.attachments = None
         else:
             self.attachments = attachments
 
         data = state.get('data') or {}
         if isinstance(data, basestring):
-            self.data = from_json(data)
+            try:
+                self.data = from_json(data)
+            except ValueError:
+                self.data = {}
         else:
             self.data = data
 
