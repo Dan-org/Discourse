@@ -38,23 +38,41 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
     attachments = indexes.CharField(null=True)
     data = indexes.CharField(indexed=False, model_attr='content', null=True)
 
-    def get_model(self):
-        return Message
+    def get_children(self, message):
+        children = getattr(message, 'children', None)
+        if children is not None:
+            return children
+        cache = getattr(self, 'children_index', {})
+        return cache.get(message.uuid, ())
 
-    def index_queryset(self, using=None):
-        """Used when the entire index for model is updated."""
-        self.children_index = None
-        return self.get_model().objects.filter(parent=None).order_by('depth', 'order', 'created').select_related('author')
-
-    def build_child_index(self):
-        self.children_index = defaultdict(list)
-        for obj in self.get_model().objects.exclude(parent=None).order_by('parent_id', 'depth', 'order', 'created').select_related('author'):
-            self.children_index[obj.parent_id].append(obj.rebuild())
-        print "BUILT CHILD INDEX", len(self.children_index)
+    def cache_as_child(self, message):
+        if not hasattr(self, 'children_index'):
+            self.children_index = {}
+        self.children_index.setdefault(message.parent, []).append(message)
 
     def update(self, using=None):
         self.children_index = {}
         super(MessageIndex, self).update(using)
+
+    def get_model(self):
+        return Message
+
+    def build_queryset(self, *a, **ka):
+        result = super(MessageIndex, self).build_queryset(*a, **ka)
+        self.build_child_index()
+        return result
+
+    def index_queryset(self, using=None):
+        """Used when the entire index for model is updated."""
+        print "INDEX QUERYSET"
+        return self.get_model().objects.filter(parent=None).order_by('depth', 'order', 'created').select_related('author')
+
+    def build_child_index(self):
+        print "BUILDING CHILD INDEX..."
+        self.children_index = defaultdict(list)
+        for obj in self.get_model().objects.exclude(parent=None).order_by('parent_id', 'depth', 'order', 'created').select_related('author'):
+            self.children_index[obj.parent_id].append(obj.rebuild())
+        print "DONE", len(self.children_index)
 
     def get_updated_field(self):
         return 'modified'
@@ -66,8 +84,6 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         backend = self._get_backend(using)
         if backend is None:
             return
-        
-        self.children_index = {}
 
         top = instance
         try:
@@ -92,12 +108,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         state = super(MessageIndex, self).prepare(message)
         
         message = message.rebuild()
-        message.children = getattr(message, 'children', None)
-
-        if not message.children:
-            if not getattr(self, 'children_index', None):
-                self.build_child_index()
-            message.children = self.children_index.get(message.uuid, ())
+        message.children = self.get_children(message)
 
         # Iterate through each child and have it apply() itself to its parent.
         for child in message.children:
@@ -107,7 +118,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         message.prepare()
 
         if message.parent:
-            self.children_index.setdefault(message.parent, []).append(message)
+            sefl.cache_as_child(message)
 
         data = message.pack()
         state.update(data)
