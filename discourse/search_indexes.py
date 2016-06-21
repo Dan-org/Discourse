@@ -118,7 +118,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         message.prepare()
 
         if message.parent:
-            sefl.cache_as_child(message)
+            self.cache_as_child(message)
 
         data = message.pack()
         state.update(data)
