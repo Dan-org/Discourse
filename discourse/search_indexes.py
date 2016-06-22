@@ -111,7 +111,11 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         message.children = self.get_children(message)
 
         # Iterate through each child and have it apply() itself to its parent.
+        seen = set()
         for child in message.children:
+            if child.uuid in seen:
+                continue
+            seen.add(child.uuid)
             if not child.deleted:
                 child.apply(message)
 
