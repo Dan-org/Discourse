@@ -5,7 +5,7 @@ from pprint import pprint
 from datetime import datetime, date
 from uuid import uuid4
 
-from django.db import models
+from django.db import models, connection
 from django.apps import apps
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -259,13 +259,21 @@ class Channel(models.Model):
         content = None
 
         parts = []
+        no_templates = set()
         for m in messages:
+            if m.type in no_templates:
+                continue
             try:
+                start = time.time()
+                queries_start = len(connection.queries)
                 if m.channel == self.id:
                     parts.append( m.render(context, locals()) )
                 else:
                     parts.append( m.inform(context, locals()) )
+                if settings.DEBUG:
+                    parts.append("<!-- message time: %s - db queries: %d -->\n" % (time.time() - start, len(connection.queries) - queries_start))
             except TemplateDoesNotExist:
+                no_templates.add(m.type)
                 continue
         content = mark_safe("\n".join(parts))
 

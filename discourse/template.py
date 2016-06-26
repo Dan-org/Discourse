@@ -43,7 +43,6 @@ def render_django(template, context, context_update):
         else:
             context = Context(context)
 
-
     with context.push(context_update):
         return django_render_to_string(template, context)
 
