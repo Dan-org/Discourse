@@ -525,7 +525,7 @@ $(document).on('change', 'form.sorter', function(e) {
     Discourse.stream($(this).attr('for')).filter({'sort': val});
 });
 
-$(document).on('click', '.discourse .more', function(e) {
+/*$(document).on('click', '.discourse .more', function(e) {
     e.preventDefault();
     var more = $(this);
 
@@ -562,4 +562,4 @@ $(document).on('click', '.discourse .more', function(e) {
             }
         }
     });
-});
+});*/
