@@ -10,18 +10,11 @@ $(document).on('click', '.discourse .document .html', function(e) {
     }
 
     var doc = $(e.target).closest('.document').data('document');
-    if (window.editing && window.editing != doc)
-        window.editing.stopEditing();
-
-    doc.startEditing();
     e.preventDefault();
 });
 
 $(document).on('click', '.discourse .document .discourse-edit-handle', function(e) {
     var doc = $(e.target).closest('.document').data('document');
-    if (window.editing && window.editing != doc)
-        window.editing.stopEditing();
-
     doc.startEditing();
     e.preventDefault();
 });
@@ -86,6 +79,9 @@ Document = Tea.Element.extend({
         }
     },
     startEditing : function() {
+        if (window.editing && window.editing != this)
+            window.editing.stopEditing();
+
         window.editing = this;
 
         Overlay.startEdit(this);
