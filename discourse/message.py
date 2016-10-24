@@ -35,7 +35,7 @@ event_signal = Signal(['event'])
 
 try:
     import redis
-    redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
+    redis = redis.Redis(host=getattr(settings, 'REDIS_HOST', 'localhost'), port=6379, db=getattr(settings, 'REDIS_DB', 1))
 except ImportError:
     print "Cannot find redis."
     redis = None

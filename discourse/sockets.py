@@ -8,7 +8,7 @@ from discourse.message import MessageType, channel_for
 
 class DiscourseSocket(BaseNamespace):
     def initialize(self):
-        self.redis = redis.Redis(host='localhost', port=6379, db=getattr(settings, 'REDIS_DB', 1))
+        self.redis = redis.Redis(host=getattr(settings, 'REDIS_HOST', 'localhost'), port=6379, db=getattr(settings, 'REDIS_DB', 1))
 
     def follow_loop(self, path):
         render_context = RequestContext(self.request, {})
