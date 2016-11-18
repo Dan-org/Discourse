@@ -167,6 +167,10 @@ class Channel(models.Model):
         else:
             uuid = None
 
+        # Get tags
+        if tags:
+            tags = [uri(t) for t in tags]
+
         # Create message, give it its initial data.
         message = MessageType(type=type, uuid=uuid)
         message.unpack({
@@ -207,7 +211,7 @@ class Channel(models.Model):
         if save and message.saveable:
             message.save(create=True, update_relations=True)
 
-        logger.debug("PUBLISH - {!r}\n     type={!r}\n     author='{!s}'\n     parent={!r}\n     tags={!r}\n     time={}".format(self.id, type, author, parent, tags, (time.time() - start) * 1000))
+        logger.debug("PUBLISH - {!r}\n     uuid={!r}\n     type={!r}\n     author='{!s}'\n     parent={!r}\n     tags={!r}\n     time={}".format(self.id, message.uuid, type, author, parent, tags, (time.time() - start) * 1000))
         return message
 
     def upload(self, author, files, tags=None, data=None):
@@ -686,6 +690,16 @@ class MessageType(object):
 
     def get_followers(self):
         discourse.get_followers(message.channel)
+
+    def clone(self, **delta):
+        state = self.pack()
+        state['uuid'] = None
+        state.update(delta)
+        msg = self.__class__.rebuild(state)
+        if self.uuid:
+            msg.uuid = uuid4().hex
+            msg.save(create=True, update_relations=True)
+        return msg
 
     @property
     def url(self):

@@ -17,6 +17,11 @@ from ajax import to_json
 
 log = logging.getLogger('discourse')
 
+def clean_uuid(uuid):
+    if uuid:
+        return str(uuid).replace('-', '')
+    return uuid
+
 
 class MessageIndex(indexes.SearchIndex, indexes.Indexable):
     text = indexes.CharField(document=True)
@@ -43,12 +48,14 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         if children is not None:
             return children
         cache = getattr(self, 'children_index', {})
-        return cache.get(message.uuid, ())
+        return cache.get(clean_uuid(message.uuid), ())
 
     def cache_as_child(self, message):
         if not hasattr(self, 'children_index'):
             self.children_index = {}
-        self.children_index.setdefault(message.parent, []).append(message)
+        if not message.parent_id:
+            return
+        self.children_index.setdefault(clean_uuid(message.parent_id), []).append(message)
 
     def update(self, using=None):
         self.children_index = {}
@@ -71,7 +78,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         print "BUILDING CHILD INDEX..."
         self.children_index = defaultdict(list)
         for obj in self.get_model().objects.exclude(parent=None).order_by('parent_id', 'depth', 'order', 'created').select_related('author'):
-            self.children_index[obj.parent_id].append(obj.rebuild())
+            self.children_index[clean_uuid(obj.parent_id)].append(obj.rebuild())
         print "DONE", len(self.children_index)
 
     def get_updated_field(self):
@@ -99,6 +106,10 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
             todo = list( Message.objects.filter(parent__uuid__in=[x.uuid for x in todo]) )
 
         instances.reverse()
+
+        for instance in instances:
+            self.cache_as_child(instance)
+
         backend.update(self, instances)
 
     def prepare_text(self, message):
@@ -106,7 +117,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
     def prepare(self, message):
         state = super(MessageIndex, self).prepare(message)
-        
+
         message = message.rebuild()
         message.children = self.get_children(message)
 
@@ -116,13 +127,11 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
             if child.uuid in seen:
                 continue
             seen.add(child.uuid)
+            child = child.rebuild()
             if not child.deleted:
                 child.apply(message)
 
         message.prepare()
-
-        if message.parent:
-            self.cache_as_child(message)
 
         data = message.pack()
         state.update(data)
