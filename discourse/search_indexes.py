@@ -151,6 +151,8 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         
         #if settings.DEBUG:
         #   log.debug(pformat(state))
+        if state['uuid']:
+            state['uuid'] = clean_uuid(state['uuid'])
 
         return state
 
