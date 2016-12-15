@@ -154,6 +154,9 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         if state['uuid']:
             state['uuid'] = clean_uuid(state['uuid'])
 
+        if state['parent']:
+            state['parent'] = clean_uuid(state['parent'])
+
         return state
 
 
