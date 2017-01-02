@@ -78,7 +78,7 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         print "BUILDING CHILD INDEX..."
         self.children_index = defaultdict(list)
         for obj in self.get_model().objects.exclude(parent=None).order_by('parent_id', 'depth', 'order', 'created').select_related('author'):
-            self.children_index[clean_uuid(obj.parent_id)].append(obj.rebuild())
+            self.children_index[clean_uuid(obj.parent_id)].append(obj)
         print "DONE", len(self.children_index)
 
     def get_updated_field(self):
