@@ -1,4 +1,4 @@
-import datetime, logging
+import datetime, logging, random
 from collections import defaultdict
 from pprint import pprint, pformat
 
@@ -88,6 +88,8 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
         if not self.should_update(instance):
             return False
 
+        print "UPDATE:", instance.uuid
+
         backend = self._get_backend(using)
         if backend is None:
             return
@@ -156,6 +158,9 @@ class MessageIndex(indexes.SearchIndex, indexes.Indexable):
 
         if state['parent']:
             state['parent'] = clean_uuid(state['parent'])
+
+        if random.random() < .05:
+            print state['uuid']
 
         return state
 
