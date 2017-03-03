@@ -959,6 +959,7 @@ class Like(MessageType):
     def post(self, request):
         from discourse.templatetags.discourse import like
         context = RequestContext(request)
+        context['request'] = request
         m = self.get_parent()
         
         tag_data = like(context, self.get_parent())
