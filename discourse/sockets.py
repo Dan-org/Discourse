@@ -14,7 +14,7 @@ class DiscourseSocket(BaseNamespace):
         if not self.request:
             print "SocketIO Namespace has no .request property."
             return self.disconnect()
-        render_context = RequestContext(self.request, {})
+        render_context = RequestContext(self.request, {'request': self.request})
         if self.request.GET.get('JINJA') == 'true':
             render_context['JINJA'] = True
         o = self.redis.pubsub()
