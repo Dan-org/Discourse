@@ -11,6 +11,9 @@ class DiscourseSocket(BaseNamespace):
         self.redis = redis.Redis(host=getattr(settings, 'REDIS_HOST', 'localhost'), port=6379, db=getattr(settings, 'REDIS_DB', 1))
 
     def follow_loop(self, path):
+        if not self.request:
+            print "SocketIO Namespace has no .request property."
+            return self.disconnect()
         render_context = RequestContext(self.request, {})
         if self.request.GET.get('JINJA') == 'true':
             render_context['JINJA'] = True
