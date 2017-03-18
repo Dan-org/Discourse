@@ -1,3 +1,4 @@
+import traceback
 import gevent
 import urllib, re, mimetypes, hashlib, time, numbers, inspect, logging
 
@@ -443,7 +444,12 @@ class MessageType(object):
         context_update = context_update or {}
         context_update.update(locals())
 
-        return render_to_string(["discourse/message/%s.html" % self.type.replace(':', '-')], context, context_update)
+        try:
+            return render_to_string(["discourse/message/%s.html" % self.type.replace(':', '-')], context, context_update)
+        except Exception, e:
+            print "CHECK EXCEPTION", e
+            traceback.print_exc()
+            return ""
 
     def pack(self):
         result = {
