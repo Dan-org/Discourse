@@ -1,4 +1,4 @@
-import gevent
+import gevent, traceback
 import urllib, re, mimetypes, hashlib, time, numbers, inspect, logging
 
 from pprint import pprint
