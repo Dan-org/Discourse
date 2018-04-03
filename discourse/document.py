@@ -113,6 +113,7 @@ class DocumentContent(models.Model):
     document = models.ForeignKey(Document, related_name="content")
     attribute = models.SlugField()
     body = models.TextField()
+    #version = models.PositiveIntegerField(default=0)
 
     def __unicode__(self):
         return self.attribute
@@ -213,11 +214,19 @@ def manipulate(request, uri):
     value = clean_html(request.POST['value']).strip()
 
     if not channel_for(document).publish('update', request.user, data={'attribute': attribute, 'value': value}):
+        print("Publish update failed.")
         raise PermissionDenied()
 
     if not value:
         document.content.filter(attribute=attribute).delete()
         return JsonResponse(None)
+
+    if request.GET.get('save') == 'false':
+        try:
+            content = document.content.get(attribute=attribute)
+            return JsonResponse(content.build(locals()))
+        except:
+            return JsonResponse(None)
 
     content, created = document.content.get_or_create(attribute=attribute, defaults={'body': value})
     if not created:

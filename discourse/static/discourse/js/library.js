@@ -384,6 +384,8 @@ LibraryIcon = Tea.Element.extend({
     setValue : function(file) {
         var src = this.source;
 
+        console.log(file);
+
         src.attr('href', file.url);
         src.find('img').attr('title', file.filename);
         src.find('div[name=name]').empty().append(file.filename);
@@ -428,6 +430,7 @@ function setupFileInput(options) {
             'X-CSRFToken': $.cookie('csrftoken')
         },
         error : function(err, file) {
+            window.file = file;
             alert("Error uploading file - " + err + ": " + file);
         }
     }, options);

@@ -97,7 +97,7 @@ class Channel(models.Model):
     def search(self, query=None, type=None, require_all=None, require_any=None, require_not=None, author=None, parent=None, like=None, deleted=False, sort='recent'):
         q = SearchQuerySet().models(Message).result_class(MessageResult)
 
-        q = q.filter(SQ(channel__exact=self.id) | SQ(tags=self.id))
+        q = q.filter(SQ(channel__exact=self.id) | SQ(tags__exact=self.id))
 
         if require_not:
             if require_any:
@@ -280,6 +280,9 @@ class Channel(models.Model):
                 no_templates.add(m.type)
                 continue
         content = mark_safe("\n".join(parts))
+
+        if settings.DEBUG:
+            print("NO TEMPLATES:", no_templates)
 
         return render_to_string(template, context, locals())
 
@@ -852,6 +855,19 @@ def channel_for(obj):
             _channel_cache[id] = Channel(id=id)
     return _channel_cache[id]
 
+
+def channel_regenerate(request, id):
+    if not request.user.is_admin:
+        raise Http404
+
+    if request.method != 'POST':
+        raise HttpResponseBadRequest()
+
+    channel = channel_for(id)
+    for message in channel.messages.all():
+        message.save()
+
+    return JsonResponse(True)
 
 
 def channel_view(request, id, message_id=None, jinja=None):

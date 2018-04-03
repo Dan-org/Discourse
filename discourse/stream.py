@@ -54,4 +54,5 @@ def library_tag(context, channel, size=21, require_any=None, require_all=None, s
     context['require_any'] = " ".join(require_any or [])
     context['require_all'] = " ".join(require_all or [])
     context['library_id'] = id or uuid4().hex
+
     return channel.render_to_string(context, messages, template=template)
